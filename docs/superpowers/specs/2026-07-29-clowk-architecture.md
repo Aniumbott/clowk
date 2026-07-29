@@ -265,6 +265,52 @@ env, which is tidiness worth having — but none of them is a control, and none 
 Form factor: a CLI installed via brew or pipx, plus a thin Claude Code plugin carrying the inbound
 hook and `/clowk`. Only the plugin is host-specific.
 
+## 13. Public distribution
+
+clowk is going out open source, so the environment is unknown. That is a design constraint, not a
+packaging detail.
+
+**The advertised guarantee is the weakest one true everywhere.** Anything stronger is conditional and
+must be labelled as such. v1's claim — catches the paste, keeps the value out of session env and
+committable directories, records what depends on it, no boundary — holds on any host, in any
+container, on any platform. It needs no caveat about the reader's setup.
+
+**Container hardening is documented advice, never an assumption.** For readers already running the
+agent in a devcontainer, running clowk on the host with a use-only socket mounted in gives real
+kernel-enforced separation. The documentation must state, prominently, that mounting
+`/var/run/docker.sock` into that container voids it entirely — that is a common devcontainer
+convenience, so the caveat is not academic.
+
+**Install must not assume this machine's quirks.** Plugin-manifest hooks do not fire in build 2.1.202,
+which is why `install` writes to `settings.json`. On builds where they *do* fire, doing both
+double-registers: the block message appears twice and the value is stored twice. `install` must detect
+or de-duplicate, and `uninstall` must fully reverse whatever it wrote.
+
+**Never leave a stranger's `settings.json` broken.** Back it up, validate the JSON before replacing,
+write atomically, and refuse with a clear message rather than guessing when the existing file will not
+parse.
+
+**The deny list must be configurable and explain itself.** Denying `.env` reads will block legitimate
+work — reading a `.env.example`, debugging someone's config. A tool that silently breaks `cat` gets
+uninstalled. Every denial states what was denied and how to allow it.
+
+**False positives are now a stranger's problem.** The `unclowk` bypass belongs in every block message,
+not just the documentation, and `clowk clear` has to be trivial. A wrongly-blocked prompt is the most
+likely first impression.
+
+**Plaintext at 0600 goes in the README, loudly, with the parity argument.** It is the first issue
+someone will file. The answer is that encryption cannot help when the agent runs as the same user and
+the key must be reachable — and that this is the same posture as `~/.aws/credentials`, `~/.npmrc` and
+an unencrypted `id_rsa`.
+
+**Build fresh rather than forking.** The OSS Claude Secrets plugin overlaps ~90% by feature list, but
+the overlap is the storage half, which v1 has reduced to a single JSON file. Capture is the novel half
+and it is already written. Forking would import the vault model this design spent its whole life
+removing.
+
+**Portability floor:** stdlib-only Python, a stated minimum version, the existing defensive regex
+compile retained, and no unix-only path assumptions. Do not claim "first" or "only" anywhere.
+
 ### What a real boundary would require
 
 Recorded so that "no boundary in v1" reads as a decision rather than an oversight. Three things could
