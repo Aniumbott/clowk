@@ -15,9 +15,33 @@ import json
 import math
 import os
 import re
+import sys
 from collections import namedtuple
 
-RULES = json.load(open(os.path.join(os.path.dirname(__file__), "rules.json")))
+RULES_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rules.json")
+
+
+def load_rules(path):
+    """Read the ruleset. Returns (rules, error) and never raises.
+
+    This runs at import, i.e. while `from clowk.detect import scan` executes -- which is BEFORE
+    hook_prompt's bare except exists. A traceback here is a non-zero exit from the prompt hook,
+    every host reads that as a non-blocking hook error, and the prompt carrying the credential is
+    transmitted. So a missing, truncated, unreadable or wrongly-shaped rules.json must degrade to
+    "no rules" rather than crash. Degrading means clowk protects nothing, so say so out loud
+    instead of looking healthy -- see RULESET_ERROR below.
+    """
+    try:
+        with open(path) as f:
+            rules = json.load(f)
+    except Exception as e:  # noqa: BLE001 -- missing/corrupt/unreadable; the type is the diagnosis
+        return [], "cannot read %s (%s)" % (path, type(e).__name__)
+    if not isinstance(rules, list) or not rules:
+        return [], "%s is not a non-empty list of rules" % path
+    return rules, ""
+
+
+RULES, RULESET_ERROR = load_rules(RULES_PATH)
 
 Finding = namedtuple("Finding", "rule_id env secret start end confidence")
 
@@ -141,17 +165,38 @@ def _shannon(s):
     return -sum((c / n) * math.log2(c / n) for c in freq.values())
 
 
-# compile once, defensively: any rule that won't compile on THIS Python is skipped, never crashes.
-_COMPILED = []
-for r in RULES:
+def compile_rules(rules):
+    """Compile once, defensively. A rule this Python cannot use is skipped, never fatal.
+
+    The catch is deliberately wide: rules.json is plaintext that users do edit, and an entry that
+    is a bare string or is missing "regex" raises TypeError/KeyError, not re.error. Losing one
+    hand-mangled rule is acceptable; losing all 220 is the fail-open this module exists to avoid.
+    """
+    out = []
+    for r in rules:
+        try:
+            pat = re.compile(r["regex"], re.I if r.get("ignorecase") else 0)
+            g = r.get("group")                  # precomputed by build_rules.py
+            if g is None:
+                g = secret_group(r["regex"])    # hand-edited rules.json: derive, never guess 1
+            out.append((r, pat, g if isinstance(g, int) and 0 <= g <= pat.groups else 0))
+        except Exception:  # noqa: BLE001 -- re.error, TypeError, KeyError, ...
+            continue
+    return out
+
+
+_COMPILED = compile_rules(RULES)
+
+if not _COMPILED and not RULESET_ERROR:
+    RULESET_ERROR = "no rule in %s could be compiled" % RULES_PATH
+if RULESET_ERROR:
+    # Loud, not silent: a degraded ruleset means clowk scans nothing, and a hook that looks
+    # healthy while protecting nothing is worse than one that says so. stderr, not a raise, and
+    # not a block -- the exit code alone decides whether a turn is blocked.
     try:
-        pat = re.compile(r["regex"], re.I if r.get("ignorecase") else 0)
-    except re.error:
-        continue
-    g = r.get("group")                      # precomputed by build_rules.py
-    if g is None:
-        g = secret_group(r["regex"])        # hand-edited rules.json: derive it rather than guess 1
-    _COMPILED.append((r, pat, g if 0 <= g <= pat.groups else 0))
+        sys.stderr.write("clowk: %s -- NOT scanning for credentials\n" % RULESET_ERROR)
+    except Exception:  # noqa: BLE001 -- a detached stderr must not break the hook either
+        pass
 
 
 def scan(text):

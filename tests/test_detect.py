@@ -1,9 +1,16 @@
+import contextlib
+import importlib.util
+import io
 import json
 import os
 import re
+import shutil
+import tempfile
 import unittest
 
 from clowk.detect import scan, secret_group
+
+DETECT_PY = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "clowk", "detect.py")
 
 RULES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "clowk", "rules.json")
 
@@ -91,6 +98,74 @@ class TestSecretGroupMetadata(unittest.TestCase):
         for r in _load_rules():
             if r.get("secret_group") is None:
                 self.assertEqual(r["group"], secret_group(r["regex"]), r["id"])
+
+
+class TestBrokenRuleset(unittest.TestCase):
+    """Importing detect must never raise, whatever state rules.json is in.
+
+    rules.json is read at import time, which happens while `from clowk.detect import scan` runs
+    -- before hook_prompt's bare except exists. A traceback there is a non-zero exit from the
+    hook, every host treats that as a non-blocking error, and the prompt carrying the credential
+    is transmitted. It then stays broken for every subsequent turn.
+    """
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        shutil.copy(DETECT_PY, os.path.join(self.dir, "detect.py"))
+
+    def _load(self, rules_json):
+        """Import a fresh copy of detect.py beside the given rules.json text (None = no file)."""
+        path = os.path.join(self.dir, "rules.json")
+        if rules_json is None:
+            if os.path.exists(path):
+                os.remove(path)
+        else:
+            with open(path, "w") as f:
+                f.write(rules_json)
+        spec = importlib.util.spec_from_file_location("clowk_detect_probe", os.path.join(self.dir, "detect.py"))
+        mod = importlib.util.module_from_spec(spec)
+        self.warning = io.StringIO()
+        with contextlib.redirect_stderr(self.warning):
+            spec.loader.exec_module(mod)
+        return mod
+
+    def _assert_degrades(self, rules_json):
+        mod = self._load(rules_json)
+        self.assertEqual(mod.scan("here is the key sk_" "live_4eC39HqLyjWDarjtT1zdp7dc please"), [])
+        self.assertTrue(mod.RULESET_ERROR, "a disabled ruleset must be reported, not silent")
+        # loud, not silent: a hook that looks healthy while scanning nothing is worse than one
+        # that says so, because nothing else in clowk ever reports a broken ruleset
+        self.assertIn("NOT scanning", self.warning.getvalue())
+        return mod
+
+    def test_a_missing_ruleset_degrades_instead_of_raising(self):
+        self._assert_degrades(None)
+
+    def test_a_truncated_ruleset_degrades_instead_of_raising(self):
+        with open(os.path.join(os.path.dirname(DETECT_PY), "rules.json")) as f:
+            self._assert_degrades(f.read()[:5000])
+
+    def test_an_empty_ruleset_file_degrades_instead_of_raising(self):
+        self._assert_degrades("")
+
+    def test_a_json_object_instead_of_a_list_degrades_instead_of_raising(self):
+        self._assert_degrades('{"github-pat": {"regex": "ghp" "_[0-9a-zA-Z]{36}"}}')
+
+    def test_one_malformed_entry_does_not_disable_the_other_rules(self):
+        good = {"id": "probe", "env": "PROBE", "regex": r"\b(sk_live_[0-9a-zA-Z]{24})\b",
+                "keywords": ["sk_" "live_"], "entropy": None, "ignorecase": False,
+                "confidence": "high", "group": 1}
+        mod = self._load(json.dumps([good, "not-a-rule", {"id": "no-regex"}]))
+        self.assertEqual([f.secret for f in mod.scan("key sk_" "live_4eC39HqLyjWDarjtT1zdp7dc here")],
+                         ["sk_" "live_4eC39HqLyjWDarjtT1zdp7dc"])
+
+    def test_an_intact_ruleset_reports_no_error(self):
+        with open(os.path.join(os.path.dirname(DETECT_PY), "rules.json")) as f:
+            mod = self._load(f.read())
+        self.assertEqual(mod.RULESET_ERROR, "")
+        self.assertEqual(len(mod._COMPILED), len(_load_rules()))
+        self.assertEqual(self.warning.getvalue(), "")   # no crying wolf on a healthy ruleset
 
 
 class TestScan(unittest.TestCase):

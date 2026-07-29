@@ -69,8 +69,11 @@ for b in blocks:
                   "confidence": classify(rx), "secret_group": sg,
                   "group": sg if sg is not None else secret_group(rx)})
 
-with open(OUT, "w") as f:
+# Atomically: `open(OUT, "w")` truncates to 0 bytes before json.dump writes anything, so an
+# interrupted refresh would leave the shipped ruleset empty and silently disable detection.
+with open(OUT + ".tmp", "w") as f:
     json.dump(rules, f, indent=1)   # pure JSON data, loaded at runtime by detect.py
+os.replace(OUT + ".tmp", OUT)
 
 print(f"wrote {len(rules)} rules to {OUT}")
 declared = sum(1 for r in rules if r["secret_group"] is not None)
