@@ -25,6 +25,25 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from clowk import deny, install as install_mod, vault
 
 
+def _use_utf8(*streams):
+    """Make the CLI's own output UTF-8 rather than the console codec. Never raises.
+
+    `list` and `uses` print the session cwd a credential was caught in, so one accented character
+    in a project path is enough. On a strict non-UTF-8 stdout -- an installed latin-1 locale, or any
+    redirected stdout on Windows, which is what the `/clowk` slash command gets -- that write raised
+    UnicodeEncodeError in the middle of the loop: exit 1, a raw traceback, and every credential
+    sorting after the offending one silently missing from the listing.
+
+    Called only from __main__, and guarded: tests inject StringIO and a test runner may have
+    replaced sys.stdout with a capture object of its own. Neither is ours to reconfigure.
+    """
+    for stream in streams:
+        try:
+            stream.reconfigure(encoding="utf-8", errors="backslashreplace")
+        except (AttributeError, ValueError, OSError):
+            pass
+
+
 def _read_value(prompt):
     """From CLOWK_VALUE if set (for tests and scripts), else a hidden terminal prompt.
     Never from argv -- that would put the credential in shell history."""
@@ -266,4 +285,5 @@ def _dispatch(argv, out, err):
 
 
 if __name__ == "__main__":
+    _use_utf8(sys.stdout, sys.stderr)
     sys.exit(main(sys.argv[1:]))

@@ -2,10 +2,14 @@ import importlib
 import io
 import json
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 
 from tests import default_encoding
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class CliCase(unittest.TestCase):
@@ -170,6 +174,69 @@ class TestAllowEncoding(CliCase):
         self.assertEqual(code, 1)
         self.assertIn("UTF-8", err)
         self.assertEqual(self.deny_bytes(), raw)
+
+
+class TestOutputEncoding(CliCase):
+    """The CLI's own output is UTF-8, whatever the console codec is.
+
+    Sources are the session's cwd, so one accented character in a project path is enough. On a
+    strict non-UTF-8 stdout -- a real installed latin-1 locale, or any redirected stdout on
+    Windows, which is what `/clowk` gets since the command body pipes the CLI -- writing that path
+    raised UnicodeEncodeError mid-enumeration: exit 1, a raw traceback, and every credential
+    sorting after the offending one silently missing from `clowk list`.
+
+    This has to run the real script: the bug lives in the stream sys.stdout is, and no in-process
+    StringIO can see it.
+    """
+
+    # ě is C4 8B in UTF-8 and has no cp1252 encoding at all.
+    SOURCE = "/home/u/projekty/Zdeněk-app"
+
+    def setUp(self):
+        CliCase.setUp(self)
+        self.vault.store("AAA_TOKEN", "v1", source=self.SOURCE)
+        self.vault.store("ZZZ_TOKEN", "v2", source="/proj")
+
+    def run_script(self, *argv):
+        env = dict(os.environ)
+        env["PYTHONIOENCODING"] = "cp1252"
+        env.pop("PYTHONUTF8", None)
+        proc = subprocess.Popen(
+            [sys.executable, os.path.join(REPO_ROOT, "clowk", "cli.py")] + list(argv),
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
+        )
+        out, err = proc.communicate(timeout=60)
+        return proc.returncode, out.decode("utf-8", "replace"), err.decode("utf-8", "replace")
+
+    def assertWholeListing(self, *argv):
+        code, out, err = self.run_script(*argv)
+        self.assertNotIn("Traceback", err)
+        self.assertEqual(code, 0, "stderr: " + err)
+        self.assertIn(self.SOURCE, out)
+        # The crash was in the middle of the loop, so this is the assertion that catches a
+        # truncated listing rather than only a missing last line.
+        self.assertIn("ZZZ_TOKEN", out)
+        return out
+
+    def test_list_survives_a_non_ascii_source_on_a_cp1252_stdout(self):
+        self.assertWholeListing("list")
+
+    def test_uses_survives_a_non_ascii_source_on_a_cp1252_stdout(self):
+        self.assertWholeListing("uses")
+
+    def test_the_switch_is_skipped_on_a_stream_that_cannot_be_reconfigured(self):
+        # Tests inject StringIO, and a test runner may have replaced sys.stdout with its own
+        # capture object. Neither may raise, and neither may be silently mangled.
+        plain = io.StringIO()
+        self.cli._use_utf8(plain, None)
+        plain.write("ě")
+        self.assertEqual(plain.getvalue(), "ě")
+
+    def test_a_cp1252_stream_is_switched_to_utf8(self):
+        stream = io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
+        self.cli._use_utf8(stream)
+        self.assertEqual(stream.encoding.replace("-", "").lower(), "utf8")
+        stream.write("ě")
 
 
 class TestUsage(CliCase):
