@@ -1,49 +1,113 @@
 # clowk
 
-> **Status (2026-07-29):** Layer A (inbound catch/block/store) works live; Layer B (sandbox masking) is
-> built but untested. The product vision is **under reconsideration** — see `HANDOFF.md` and `DESIGN.md`
-> before continuing. Positioning is shifting toward "a local-first secrets manager for AI coding agents
-> that *detects and captures* secrets," which is a crowded category (VaultAgent, 1Password AI Identity,
-> the OSS Claude Secrets plugin, Doppler/Infisical) — the differentiator is detect-and-auto-capture.
+Catches credentials you paste into an AI coding agent's chat **before they reach the model**,
+files them locally, and records where each one came from.
 
-Catches secrets you paste into the Claude Code chat **before they reach the model**, stores them
-locally as environment variables, and hands the agent a `$VAR` reference so it keeps working — without
-ever seeing (or logging) the raw value. Also redacts secret values that show up in tool output.
+Works with Claude Code, Codex, and Gemini CLI. Claude Code is the host it has been proven live on;
+`NOTES.md` records what is verified per host and what is not.
 
-## How it works
+## What it does
 
-- **Inbound (UserPromptSubmit):** scans your prompt with the gitleaks ruleset. If it finds a secret, it
-  **blocks the turn** (nothing is sent to the model or written to the transcript), stores the value in
-  `~/.claude/settings.local.json` under `env`, and shows you the prompt rewritten with `$VAR`. Copy-paste
-  it to continue — `$VAR` resolves in every Bash call.
-- **Outbound (PostToolUse on Bash/Read):** if a stored secret's value appears in command output or a file
-  read, it's swapped back to `$VAR`; any *new* secret is replaced with `[REDACTED:...]` before the model
-  sees it.
-- **Bypass:** start a message with `unclowk` to send it raw, no scan.
-- **Manage:** `/clowk list`, `/clowk clear NAME`, `/clowk rename OLD NEW`. A rotation ledger
-  (`~/.clowk/ledger.json`) tracks where each secret was caught and which commands used it.
+You paste an API key into the chat. A local hook scans the prompt before it is transmitted. If it
+finds a credential, the turn is **blocked** — the model receives nothing, and on Claude Code the
+blocked prompt is not written to the transcript either (verified there; not checked on the other
+two hosts) — the value is filed in `~/.clowk/vault.json`, and you get your prompt back with the
+credential replaced by `$STRIPE_SECRET_KEY`, put on your clipboard if a clipboard tool is
+available. Repaste and carry on.
 
-## Requirements
+Each entry records the working directory of the session that pasted it, so `clowk uses` can tell
+you where a credential came from — a starting point for what a rotation will touch. (The vault
+reserves a `used by` list per credential, but nothing in this version fills it in automatically:
+expect it to read `(nothing recorded yet)`.)
 
-- `python3` on PATH (stdlib only — no pip installs).
+A second hook denies the easy accidental credential reads: `.env`, private keys, the vault itself,
+and commands like `git credential fill` that print a live token in one line.
 
-## Install (local)
+## What it is not
+
+**clowk is not a security boundary.** It runs as the same OS user as the agent, so whatever clowk
+can read, `cat` can read. It stops accidents — a pasted key reaching the model, a credential in a
+command's output, a careless `cat` — and it does not stop an agent that is deliberately trying to
+extract a value.
+
+Specifically, it does **not** protect against:
+
+- **Hook failure.** Every host fails open: if the hook crashes or times out, your prompt is
+  transmitted. clowk raises the bar; it cannot guarantee interception.
+- **Files you `@`-mention.** The host reads those, not clowk.
+- **Grep**, which shows file contents to the model. The deny hook is registered on `Bash` and
+  `Read` only, so anything else that reads a file goes around it.
+- **Unrecognised formats.** Detection is regex over 220 gitleaks rules. A novel or custom
+  credential shape goes straight through.
+
+A real boundary needs a separate OS user, a container with clowk outside it, or a code-signed
+binary holding an OS keychain ACL. None of those is what this tool is.
+
+## Install
+
+Requires `python3` (3.8+) on PATH. No pip installs — standard library only.
+
+```bash
+git clone https://github.com/<you>/clowk.git
+cd clowk
+python3 clowk/cli.py install              # Claude Code
+python3 clowk/cli.py install codex        # Codex
+python3 clowk/cli.py install gemini-cli   # Gemini CLI
+```
+
+Then restart the agent. `install` merges into your existing settings, backs the file up first, and
+refuses to touch it if it is not valid JSON. `uninstall` removes only clowk's own entries.
+
+The registered hook command holds this clone's absolute path, so if you move or rename the
+directory, re-run `install` from the new location (and `uninstall` from the old one first).
+
+On Codex, hooks require trust: run `/hooks` and approve clowk. Because trust is hash-based, every
+clowk update will ask again.
+
+## Use
+
+There is no installed `clowk` binary — the CLI is `python3 <clone>/clowk/cli.py`. Alias it:
+
+```bash
+alias clowk='python3 ~/clowk/clowk/cli.py'
+```
 
 ```
-/plugin marketplace add /Users/aniketrana/clowk    # or your clone path
-/plugin install clowk
+clowk list                 stored credentials — names and metadata, never values
+clowk add NAME             type a credential at the terminal instead of pasting it in chat
+clowk set NAME             replace a value after rotating it upstream
+clowk clear NAME           forget one
+clowk rename OLD NEW       rename one
+clowk uses [NAME]          where a credential was caught, and its (unfilled) used-by list
+clowk allow PATTERN        stop denying a path or command
+clowk install [HOST]       register clowk's hooks; uninstall removes them
 ```
 
-## Honest limitations (v1 / Layer A)
+`add` and `set` never take the value as an argument — that would put it in your shell history.
 
-- This keeps secrets from the **model** and the **transcript**. It does **not** stop the agent from
-  running `echo $VAR` — a plain env var is resolvable. A future **Layer B** wires Claude Code's sandbox
-  credential masking so the agent can *use* network secrets without being able to *read* them; that layer
-  is macOS/Linux/WSL2-only and network-only.
-- Detection is regex-based (gitleaks rules): unknown/custom secret formats can slip through. It raises the
-  bar; it is not a guarantee.
-- Output redaction is post-execution — it hides the value from the model, but the file read / network call
-  already happened.
+To send a message without scanning it, start it with `unclowk`.
+
+Inside Claude Code, `/clowk` runs the same commands, except `add` and `set`: those need a terminal
+to type the value into, so run them in your own shell.
+
+## Storage
+
+`~/.clowk/vault.json`, mode 0600 on POSIX (on Windows it relies on user-profile ACLs). Set
+`CLOWK_VAULT` to move it, and `CLOWK_DENY` to move the deny hook's config.
+
+**Plaintext, deliberately.** Encryption cannot help here: clowk runs as the same user as the agent,
+so any key would have to be reachable by that same user. This is the same posture as
+`~/.aws/credentials`, `~/.npmrc`, `~/.docker/config.json` and an unencrypted `id_rsa`. Because the
+file is plain JSON, reading it is also your export and backup path — there is nothing to lock you
+out of your own credentials.
+
+## False positives
+
+124 of the 220 rules match on shape rather than a literal vendor prefix, so a legitimate prompt can
+be blocked. (That count is deliberately conservative: a pinned format with no trailing separator,
+like `AKIA…`, is counted as shape-only too.) Every block message tells you how to bypass
+(`unclowk`), and shape-only matches are flagged in `clowk list` so they are easy to purge with
+`clowk clear NAME`.
 
 ## Updating the ruleset
 
@@ -51,4 +115,8 @@ ever seeing (or logging) the raw value. Also redacts secret values that show up 
 
 ## Attribution
 
-Secret patterns are derived from [gitleaks](https://github.com/gitleaks/gitleaks) (MIT License).
+Secret patterns derive from [gitleaks](https://github.com/gitleaks/gitleaks) (MIT License).
+
+## License
+
+MIT — see `LICENSE`.

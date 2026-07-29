@@ -6,7 +6,7 @@
     {
       "name": "clowk",
       "source": ".",
-      "description": "Catches pasted secrets before they reach the model; stores them as $VAR and redacts them from tool output."
+      "description": "Catches credentials you paste into the chat before they reach the model, files them locally, and records where each one came from."
     }
   ]
 }
