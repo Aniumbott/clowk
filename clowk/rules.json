@@ -7,7 +7,8 @@
    "a3-"
   ],
   "entropy": 3.8,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "1password-service-account-token",
@@ -17,7 +18,8 @@
    "ops_"
   ],
   "entropy": 4.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "adafruit-api-key",
@@ -27,7 +29,8 @@
    "adafruit"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "adobe-client-id",
@@ -37,7 +40,8 @@
    "adobe"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "adobe-client-secret",
@@ -47,7 +51,8 @@
    "p8e-"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "age-secret-key",
@@ -57,7 +62,8 @@
    "age-secret-key-1"
   ],
   "entropy": null,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "airtable-api-key",
@@ -67,7 +73,8 @@
    "airtable"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "algolia-api-key",
@@ -77,7 +84,8 @@
    "algolia"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "alibaba-access-key-id",
@@ -87,7 +95,8 @@
    "ltai"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "alibaba-secret-key",
@@ -97,7 +106,8 @@
    "alibaba"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "anthropic-admin-api-key",
@@ -107,7 +117,8 @@
    "sk-ant-admin01"
   ],
   "entropy": null,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "anthropic-api-key",
@@ -117,7 +128,8 @@
    "sk-ant-api03"
   ],
   "entropy": null,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "artifactory-api-key",
@@ -127,7 +139,8 @@
    "akcp"
   ],
   "entropy": 4.5,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "artifactory-reference-token",
@@ -137,7 +150,8 @@
    "cmvmd"
   ],
   "entropy": 4.5,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "asana-client-id",
@@ -147,7 +161,8 @@
    "asana"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "asana-client-secret",
@@ -157,7 +172,8 @@
    "asana"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "atlassian-api-token",
@@ -170,7 +186,8 @@
    "atatt3"
   ],
   "entropy": 3.5,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "authress-service-client-access-key",
@@ -183,7 +200,8 @@
    "authress_"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "aws-access-token",
@@ -197,7 +215,8 @@
    "acca"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "aws-amazon-bedrock-api-key-long-lived",
@@ -207,7 +226,8 @@
    "absk"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "aws-amazon-bedrock-api-key-short-lived",
@@ -217,7 +237,8 @@
    "bedrock-api-key-"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "azure-ad-client-secret",
@@ -227,7 +248,8 @@
    "q~"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "beamer-api-token",
@@ -237,7 +259,8 @@
    "beamer"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "bitbucket-client-id",
@@ -247,7 +270,8 @@
    "bitbucket"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "bitbucket-client-secret",
@@ -257,7 +281,8 @@
    "bitbucket"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "bittrex-access-key",
@@ -267,7 +292,8 @@
    "bittrex"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "bittrex-secret-key",
@@ -277,7 +303,8 @@
    "bittrex"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "cisco-meraki-api-key",
@@ -287,7 +314,8 @@
    "meraki"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "clickhouse-cloud-api-secret-key",
@@ -297,7 +325,8 @@
    "4b1d"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "clojars-api-token",
@@ -307,7 +336,8 @@
    "clojars_"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "cloudflare-api-key",
@@ -317,7 +347,8 @@
    "cloudflare"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "cloudflare-global-api-key",
@@ -327,7 +358,8 @@
    "cloudflare"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "cloudflare-origin-ca-key",
@@ -338,7 +370,8 @@
    "v1.0-"
   ],
   "entropy": 2.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "codecov-access-token",
@@ -348,7 +381,8 @@
    "codecov"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "cohere-api-token",
@@ -359,7 +393,8 @@
    "co_api_key"
   ],
   "entropy": 4.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "coinbase-access-token",
@@ -369,7 +404,8 @@
    "coinbase"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "confluent-access-token",
@@ -379,7 +415,8 @@
    "confluent"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "confluent-secret-key",
@@ -389,7 +426,8 @@
    "confluent"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "contentful-delivery-api-token",
@@ -399,7 +437,8 @@
    "contentful"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "curl-auth-header",
@@ -409,7 +448,8 @@
    "curl"
   ],
   "entropy": 2.75,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "curl-auth-user",
@@ -419,7 +459,8 @@
    "curl"
   ],
   "entropy": 2.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "databricks-api-token",
@@ -429,7 +470,8 @@
    "dapi"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "datadog-access-token",
@@ -439,7 +481,8 @@
    "datadog"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "defined-networking-api-token",
@@ -449,7 +492,8 @@
    "dnkey"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "digitalocean-access-token",
@@ -459,7 +503,8 @@
    "doo_v1_"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "digitalocean-pat",
@@ -469,7 +514,8 @@
    "dop_v1_"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "digitalocean-refresh-token",
@@ -479,7 +525,8 @@
    "dor_v1_"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "discord-api-token",
@@ -489,7 +536,8 @@
    "discord"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "discord-client-id",
@@ -499,7 +547,8 @@
    "discord"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "discord-client-secret",
@@ -509,7 +558,8 @@
    "discord"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "doppler-api-token",
@@ -519,7 +569,8 @@
    "dp.pt."
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "droneci-access-token",
@@ -529,7 +580,8 @@
    "droneci"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "dropbox-api-token",
@@ -539,7 +591,8 @@
    "dropbox"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "dropbox-long-lived-api-token",
@@ -549,7 +602,8 @@
    "dropbox"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "dropbox-short-lived-api-token",
@@ -559,7 +613,8 @@
    "dropbox"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "duffel-api-token",
@@ -569,7 +624,8 @@
    "duffel_"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "dynatrace-api-token",
@@ -579,7 +635,8 @@
    "dt0c01."
   ],
   "entropy": 4.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "easypost-api-token",
@@ -589,7 +646,8 @@
    "ezak"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "easypost-test-api-token",
@@ -599,7 +657,8 @@
    "eztk"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "etsy-access-token",
@@ -609,7 +668,8 @@
    "etsy"
   ],
   "entropy": 3.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "facebook-access-token",
@@ -619,7 +679,8 @@
    "facebook"
   ],
   "entropy": 3.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "facebook-page-access-token",
@@ -630,7 +691,8 @@
    "eaac"
   ],
   "entropy": 4.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "facebook-secret",
@@ -640,7 +702,8 @@
    "facebook"
   ],
   "entropy": 3.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "fastly-api-token",
@@ -650,7 +713,8 @@
    "fastly"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "finicity-api-token",
@@ -660,7 +724,8 @@
    "finicity"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "finicity-client-secret",
@@ -670,7 +735,8 @@
    "finicity"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "finnhub-access-token",
@@ -680,7 +746,8 @@
    "finnhub"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "flickr-access-token",
@@ -690,7 +757,8 @@
    "flickr"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "flutterwave-encryption-key",
@@ -700,7 +768,8 @@
    "flwseck_test"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "flutterwave-public-key",
@@ -710,7 +779,8 @@
    "flwpubk_test"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "flutterwave-secret-key",
@@ -720,7 +790,8 @@
    "flwseck_test"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "flyio-access-token",
@@ -732,7 +803,8 @@
    "fm2_"
   ],
   "entropy": 4.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "frameio-api-token",
@@ -742,7 +814,8 @@
    "fio-u-"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "freemius-secret-key",
@@ -752,7 +825,8 @@
    "secret_key"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "freshbooks-access-token",
@@ -762,7 +836,8 @@
    "freshbooks"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "gcp-api-key",
@@ -772,7 +847,8 @@
    "aiza"
   ],
   "entropy": 4.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "generic-api-key",
@@ -791,7 +867,8 @@
    "token"
   ],
   "entropy": 3.5,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "github-app-token",
@@ -802,7 +879,8 @@
    "ghs_"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "github-fine-grained-pat",
@@ -812,7 +890,8 @@
    "github_pat_"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "github-oauth",
@@ -822,7 +901,8 @@
    "gho_"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "github-pat",
@@ -832,7 +912,8 @@
    "ghp_"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "github-refresh-token",
@@ -842,7 +923,8 @@
    "ghr_"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "gitlab-cicd-job-token",
@@ -852,7 +934,8 @@
    "glcbt-"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "gitlab-deploy-token",
@@ -862,7 +945,8 @@
    "gldt-"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "gitlab-feature-flag-client-token",
@@ -872,7 +956,8 @@
    "glffct-"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "gitlab-feed-token",
@@ -882,7 +967,8 @@
    "glft-"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "gitlab-incoming-mail-token",
@@ -892,7 +978,8 @@
    "glimt-"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "gitlab-kubernetes-agent-token",
@@ -902,7 +989,8 @@
    "glagent-"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "gitlab-oauth-app-secret",
@@ -912,7 +1000,8 @@
    "gloas-"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "gitlab-pat",
@@ -922,7 +1011,8 @@
    "glpat-"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "gitlab-pat-routable",
@@ -932,7 +1022,8 @@
    "glpat-"
   ],
   "entropy": 4.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "gitlab-ptt",
@@ -942,7 +1033,8 @@
    "glptt-"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "gitlab-rrt",
@@ -952,7 +1044,8 @@
    "gr1348941"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "gitlab-runner-authentication-token",
@@ -962,7 +1055,8 @@
    "glrt-"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "gitlab-runner-authentication-token-routable",
@@ -972,7 +1066,8 @@
    "glrt-"
   ],
   "entropy": 4.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "gitlab-scim-token",
@@ -982,7 +1077,8 @@
    "glsoat-"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "gitlab-session-cookie",
@@ -992,7 +1088,8 @@
    "_gitlab_session="
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "gitter-access-token",
@@ -1002,7 +1099,8 @@
    "gitter"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "gocardless-api-token",
@@ -1013,7 +1111,8 @@
    "gocardless"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "grafana-api-key",
@@ -1023,7 +1122,8 @@
    "eyjrijoi"
   ],
   "entropy": 3.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "grafana-cloud-api-token",
@@ -1033,7 +1133,8 @@
    "glc_"
   ],
   "entropy": 3.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "grafana-service-account-token",
@@ -1043,7 +1144,8 @@
    "glsa_"
   ],
   "entropy": 3.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "harness-api-key",
@@ -1054,7 +1156,8 @@
    "sat."
   ],
   "entropy": null,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "hashicorp-tf-api-token",
@@ -1064,7 +1167,8 @@
    "atlasv1"
   ],
   "entropy": 3.5,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "hashicorp-tf-password",
@@ -1075,7 +1179,8 @@
    "password"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "heroku-api-key",
@@ -1085,7 +1190,8 @@
    "heroku"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "heroku-api-key-v2",
@@ -1095,7 +1201,8 @@
    "hrku-aa"
   ],
   "entropy": 4.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "hubspot-api-key",
@@ -1105,7 +1212,8 @@
    "hubspot"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "huggingface-access-token",
@@ -1115,7 +1223,8 @@
    "hf_"
   ],
   "entropy": 2.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "huggingface-organization-api-token",
@@ -1125,7 +1234,8 @@
    "api_org_"
   ],
   "entropy": 2.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "infracost-api-token",
@@ -1135,7 +1245,8 @@
    "ico-"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "intercom-api-key",
@@ -1145,7 +1256,8 @@
    "intercom"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "intra42-client-secret",
@@ -1157,7 +1269,8 @@
    "s-s4t2af-"
   ],
   "entropy": 3.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "jfrog-api-key",
@@ -1170,7 +1283,8 @@
    "xray"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "jfrog-identity-token",
@@ -1183,7 +1297,8 @@
    "xray"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "jwt",
@@ -1193,7 +1308,8 @@
    "ey"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "jwt-base64",
@@ -1203,7 +1319,8 @@
    "zxlk"
   ],
   "entropy": 2.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "kraken-access-token",
@@ -1213,7 +1330,8 @@
    "kraken"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "kubernetes-secret-yaml",
@@ -1223,7 +1341,8 @@
    "secret"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "kucoin-access-token",
@@ -1233,7 +1352,8 @@
    "kucoin"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "kucoin-secret-key",
@@ -1243,7 +1363,8 @@
    "kucoin"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "launchdarkly-access-token",
@@ -1253,7 +1374,8 @@
    "launchdarkly"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "linear-api-key",
@@ -1263,7 +1385,8 @@
    "lin_api_"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "linear-client-secret",
@@ -1273,7 +1396,8 @@
    "linear"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "linkedin-client-id",
@@ -1285,7 +1409,8 @@
    "linked-in"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "linkedin-client-secret",
@@ -1297,7 +1422,8 @@
    "linked-in"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "lob-api-key",
@@ -1308,7 +1434,8 @@
    "live_"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "lob-pub-api-key",
@@ -1320,7 +1447,8 @@
    "_pub"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "looker-client-id",
@@ -1330,7 +1458,8 @@
    "looker"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "looker-client-secret",
@@ -1340,7 +1469,8 @@
    "looker"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "mailchimp-api-key",
@@ -1350,7 +1480,8 @@
    "mailchimp"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "mailgun-private-api-token",
@@ -1360,7 +1491,8 @@
    "mailgun"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "mailgun-pub-key",
@@ -1370,7 +1502,8 @@
    "mailgun"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "mailgun-signing-key",
@@ -1380,7 +1513,8 @@
    "mailgun"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "mapbox-api-token",
@@ -1390,7 +1524,8 @@
    "mapbox"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "mattermost-access-token",
@@ -1400,7 +1535,8 @@
    "mattermost"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "maxmind-license-key",
@@ -1410,7 +1546,8 @@
    "_mmk"
   ],
   "entropy": 4.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "messagebird-api-token",
@@ -1422,7 +1559,8 @@
    "message_bird"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "messagebird-client-id",
@@ -1434,7 +1572,8 @@
    "message_bird"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "microsoft-teams-webhook",
@@ -1446,7 +1585,8 @@
    "incomingwebhook"
   ],
   "entropy": null,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "netlify-access-token",
@@ -1456,7 +1596,8 @@
    "netlify"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "new-relic-browser-api-token",
@@ -1466,7 +1607,8 @@
    "nrjs-"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "new-relic-insert-key",
@@ -1476,7 +1618,8 @@
    "nrii-"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "new-relic-user-api-id",
@@ -1488,7 +1631,8 @@
    "new_relic"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "new-relic-user-api-key",
@@ -1498,7 +1642,8 @@
    "nrak"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "notion-api-token",
@@ -1508,7 +1653,8 @@
    "ntn_"
   ],
   "entropy": 4.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "npm-access-token",
@@ -1518,7 +1664,8 @@
    "npm_"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "nuget-config-password",
@@ -1528,7 +1675,8 @@
    "<add key="
   ],
   "entropy": 1.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "nytimes-access-token",
@@ -1540,7 +1688,8 @@
    "newyorktimes"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "octopus-deploy-api-key",
@@ -1550,7 +1699,8 @@
    "api-"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "okta-access-token",
@@ -1560,7 +1710,8 @@
    "okta"
   ],
   "entropy": 4.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "openai-api-key",
@@ -1570,7 +1721,8 @@
    "t3blbkfj"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "openshift-user-token",
@@ -1580,7 +1732,8 @@
    "sha256~"
   ],
   "entropy": 3.5,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "perplexity-api-key",
@@ -1590,7 +1743,8 @@
    "pplx-"
   ],
   "entropy": 4.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "plaid-api-token",
@@ -1600,7 +1754,8 @@
    "plaid"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "plaid-client-id",
@@ -1610,7 +1765,8 @@
    "plaid"
   ],
   "entropy": 3.5,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "plaid-secret-key",
@@ -1620,7 +1776,8 @@
    "plaid"
   ],
   "entropy": 3.5,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "planetscale-api-token",
@@ -1630,7 +1787,8 @@
    "pscale_tkn_"
   ],
   "entropy": 3.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "planetscale-oauth-token",
@@ -1640,7 +1798,8 @@
    "pscale_oauth_"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "planetscale-password",
@@ -1650,7 +1809,8 @@
    "pscale_pw_"
   ],
   "entropy": 3.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "postman-api-token",
@@ -1660,7 +1820,8 @@
    "pmak-"
   ],
   "entropy": 3.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "prefect-api-token",
@@ -1670,7 +1831,8 @@
    "pnu_"
   ],
   "entropy": 2.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "private-key",
@@ -1680,7 +1842,8 @@
    "-----begin"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "privateai-api-token",
@@ -1692,7 +1855,8 @@
    "private-ai"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "pulumi-api-token",
@@ -1702,7 +1866,8 @@
    "pul-"
   ],
   "entropy": 2.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "pypi-upload-token",
@@ -1712,7 +1877,8 @@
    "pypi-ageichlwas5vcmc"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "rapidapi-access-token",
@@ -1722,7 +1888,8 @@
    "rapidapi"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "readme-api-token",
@@ -1732,7 +1899,8 @@
    "rdme_"
   ],
   "entropy": 2.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "rubygems-api-token",
@@ -1742,7 +1910,8 @@
    "rubygems_"
   ],
   "entropy": 2.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "scalingo-api-token",
@@ -1752,7 +1921,8 @@
    "tk-us-"
   ],
   "entropy": 2.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "sendbird-access-id",
@@ -1762,7 +1932,8 @@
    "sendbird"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "sendbird-access-token",
@@ -1772,7 +1943,8 @@
    "sendbird"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "sendgrid-api-token",
@@ -1782,7 +1954,8 @@
    "sg."
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "sendinblue-api-token",
@@ -1792,7 +1965,8 @@
    "xkeysib-"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "sentry-access-token",
@@ -1802,7 +1976,8 @@
    "sentry"
   ],
   "entropy": 3.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "sentry-org-token",
@@ -1812,7 +1987,8 @@
    "sntrys_eyjpyxqio"
   ],
   "entropy": 4.5,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "sentry-user-token",
@@ -1822,7 +1998,8 @@
    "sntryu_"
   ],
   "entropy": 3.5,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "settlemint-application-access-token",
@@ -1832,7 +2009,8 @@
    "sm_aat"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "settlemint-personal-access-token",
@@ -1842,7 +2020,8 @@
    "sm_pat"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "settlemint-service-access-token",
@@ -1852,7 +2031,8 @@
    "sm_sat"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "shippo-api-token",
@@ -1862,7 +2042,8 @@
    "shippo_"
   ],
   "entropy": 2.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "shopify-access-token",
@@ -1872,7 +2053,8 @@
    "shpat_"
   ],
   "entropy": 2.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "shopify-custom-access-token",
@@ -1882,7 +2064,8 @@
    "shpca_"
   ],
   "entropy": 2.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "shopify-private-app-access-token",
@@ -1892,7 +2075,8 @@
    "shppa_"
   ],
   "entropy": 2.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "shopify-shared-secret",
@@ -1902,7 +2086,8 @@
    "shpss_"
   ],
   "entropy": 2.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "sidekiq-secret",
@@ -1913,7 +2098,8 @@
    "bundle_gems__contribsys__com"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "sidekiq-sensitive-url",
@@ -1924,7 +2110,8 @@
    "enterprise.contribsys.com"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "slack-app-token",
@@ -1934,7 +2121,8 @@
    "xapp"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "slack-bot-token",
@@ -1944,7 +2132,8 @@
    "xoxb"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "slack-config-access-token",
@@ -1955,7 +2144,8 @@
    "xoxe.xoxp-"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "slack-config-refresh-token",
@@ -1965,7 +2155,8 @@
    "xoxe-"
   ],
   "entropy": 2.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "slack-legacy-bot-token",
@@ -1975,7 +2166,8 @@
    "xoxb"
   ],
   "entropy": 2.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "slack-legacy-token",
@@ -1986,7 +2178,8 @@
    "xoxs"
   ],
   "entropy": 2.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "slack-legacy-workspace-token",
@@ -1997,7 +2190,8 @@
    "xoxr"
   ],
   "entropy": 2.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "slack-user-token",
@@ -2008,7 +2202,8 @@
    "xoxe-"
   ],
   "entropy": 2.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "slack-webhook-url",
@@ -2018,7 +2213,8 @@
    "hooks.slack.com"
   ],
   "entropy": null,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "snyk-api-token",
@@ -2028,7 +2224,8 @@
    "snyk"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "sonar-api-token",
@@ -2038,7 +2235,8 @@
    "sonar"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "sourcegraph-access-token",
@@ -2049,7 +2247,8 @@
    "sourcegraph"
   ],
   "entropy": 3.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "square-access-token",
@@ -2060,7 +2259,8 @@
    "eaaa"
   ],
   "entropy": 2.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "high"
  },
  {
   "id": "squarespace-access-token",
@@ -2070,7 +2270,8 @@
    "squarespace"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "stripe-access-token",
@@ -2085,7 +2286,8 @@
    "rk_prod"
   ],
   "entropy": 2.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "sumologic-access-id",
@@ -2095,7 +2297,8 @@
    "sumo"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "sumologic-access-token",
@@ -2105,7 +2308,8 @@
    "sumo"
   ],
   "entropy": 3.0,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "telegram-bot-api-token",
@@ -2115,7 +2319,8 @@
    "telegr"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "travisci-access-token",
@@ -2125,7 +2330,8 @@
    "travis"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "twilio-api-key",
@@ -2135,7 +2341,8 @@
    "sk"
   ],
   "entropy": 3.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "twitch-api-token",
@@ -2145,7 +2352,8 @@
    "twitch"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "twitter-access-secret",
@@ -2155,7 +2363,8 @@
    "twitter"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "twitter-access-token",
@@ -2165,7 +2374,8 @@
    "twitter"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "twitter-api-key",
@@ -2175,7 +2385,8 @@
    "twitter"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "twitter-api-secret",
@@ -2185,7 +2396,8 @@
    "twitter"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "twitter-bearer-token",
@@ -2195,7 +2407,8 @@
    "twitter"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "typeform-api-token",
@@ -2205,7 +2418,8 @@
    "tfp_"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "high"
  },
  {
   "id": "vault-batch-token",
@@ -2215,7 +2429,8 @@
    "hvb."
   ],
   "entropy": 4.0,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "vault-service-token",
@@ -2226,7 +2441,8 @@
    "s."
   ],
   "entropy": 3.5,
-  "ignorecase": false
+  "ignorecase": false,
+  "confidence": "low"
  },
  {
   "id": "yandex-access-token",
@@ -2236,7 +2452,8 @@
    "yandex"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "yandex-api-key",
@@ -2246,7 +2463,8 @@
    "yandex"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "yandex-aws-access-token",
@@ -2256,7 +2474,8 @@
    "yandex"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  },
  {
   "id": "zendesk-secret-key",
@@ -2266,6 +2485,7 @@
    "zendesk"
   ],
   "entropy": null,
-  "ignorecase": true
+  "ignorecase": true,
+  "confidence": "low"
  }
 ]

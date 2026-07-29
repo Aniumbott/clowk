@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
-"""Build-time: convert vendored gitleaks.toml -> dependency-free rules.py.
-Run once when updating the ruleset. Ships the generated rules.py so runtime needs no TOML parser.
-ponytail: hand-parse the regular [[rules]] blocks instead of pulling a TOML dep for py<3.11."""
-import re, json, warnings
+"""Build-time: convert vendored gitleaks.toml -> dependency-free rules.json.
+Run once when updating the ruleset. Ships the generated rules.json so runtime needs no TOML parser.
+ponytail: hand-parse the regular [[rules]] blocks instead of pulling a TOML dep for py<3.11.
 
-SRC = "/Users/aniketrana/clowk/clowk/gitleaks.toml"
-OUT = "/Users/aniketrana/clowk/clowk/rules.json"
+Secret patterns are derived from gitleaks (https://github.com/gitleaks/gitleaks), MIT License."""
+import re, json, os, sys, warnings
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from clowk.detect import classify
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+SRC = os.path.join(_HERE, "clowk", "gitleaks.toml")
+OUT = os.path.join(_HERE, "clowk", "rules.json")
 
 # gitleaks rule id -> friendly env var name. Falls back to uppercased id for unmapped rules.
 ENV_NAMES = {
@@ -52,7 +58,8 @@ for b in blocks:
     ment = re.search(r'^\s*entropy\s*=\s*([\d.]+)', b, re.M)
     ent = float(ment.group(1)) if ment else None
     rules.append({"id": rid, "env": env_name(rid), "regex": rx, "keywords": kws,
-                  "entropy": ent, "ignorecase": ignorecase})
+                  "entropy": ent, "ignorecase": ignorecase,
+                  "confidence": classify(rx)})
 
 with open(OUT, "w") as f:
     json.dump(rules, f, indent=1)   # pure JSON data, loaded at runtime by detect.py
