@@ -1,0 +1,12 @@
+{
+  "name": "clowk-dev",
+  "owner": { "name": "Aniket Rana" },
+  "metadata": { "description": "Local dev marketplace for the clowk plugin." },
+  "plugins": [
+    {
+      "name": "clowk",
+      "source": ".",
+      "description": "Catches pasted secrets before they reach the model; stores them as $VAR and redacts them from tool output."
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "name": "clowk",
+  "version": "0.1.0",
+  "description": "Catches secrets pasted into the chat before they reach the model, stores them locally as $VAR, and redacts secret values from tool output. Bypass a scan with the `unclowk` prefix; manage stored secrets with /clowk.",
+  "author": { "name": "Aniket Rana" },
+  "keywords": ["security", "secrets", "credentials", "redaction", "dlp"],
+  "hooks": "./hooks/clowk-hooks.json"
+}
