@@ -108,6 +108,33 @@ class TestCapture(HookCase):
         self.assertIn("unclowk", err)
 
 
+class TestBypassIsAnchoredToTheStart(HookCase):
+    """`unclowk` is the one deliberate fail-open switch, so where it counts has to be pinned.
+
+    Every existing test put the token at position 0, so widening the check to
+    `BYPASS in prompt.lower()` passed the whole suite -- and under that widening merely naming
+    the tool ("explain unclowk then rotate <key>") transmits the credential silently.
+    """
+
+    KEY = "sk_" "live_4eC39HqLyjWDarjtT1zdp7dc"
+
+    def test_the_token_anywhere_but_the_start_does_not_bypass(self):
+        code, out, err = self.run_hook(
+            {"prompt": "explain unclowk then rotate " + self.KEY, "cwd": "/p"})
+        self.assertEqual(code, 0)
+        self.assertNotEqual(out, "", "a mid-prompt mention of unclowk bypassed the scan")
+        self.assertEqual(json.loads(out)["decision"], "block")
+        self.assertEqual(self.vault.names(), ["STRIPE_SECRET_KEY"])
+        self.assertEqual(self.vault.get("STRIPE_SECRET_KEY"), self.KEY)
+
+    def test_leading_whitespace_and_upper_case_still_bypass(self):
+        # Deliberate, not accidental: people paste with an indent, and people shout.
+        code, out, err = self.run_hook({"prompt": "  UNCLOWK " + self.KEY, "cwd": "/p"})
+        self.assertEqual(code, 0)
+        self.assertEqual(out, "")
+        self.assertEqual(self.vault.names(), [])
+
+
 class TestFilingFailureStillBlocks(HookCase):
     """Blocking is the only thing that prevents transmission, so it cannot be gated on a write.
 
