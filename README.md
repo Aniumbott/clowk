@@ -30,6 +30,58 @@ and commands like `git credential fill` that print a live token in one line. Its
 host, like the block: a decision object on Claude Code, exit 2 with the reason on stderr on Codex
 and Gemini CLI. Only Claude Code's tool-deny shape is verified — see `NOTES.md`.
 
+## How it works
+
+Orange is where a real credential exists. Teal is a reference only — `$STRIPE_SECRET_KEY`, worth
+nothing on its own. There are exactly two orange boxes, and the agent touches neither.
+
+```mermaid
+flowchart TD
+    subgraph capture["Capture — the only part that prevents a leak"]
+        direction TB
+        A["You paste a credential<br/>into the agent chat"]:::secret
+        B["clowk prompt hook<br/>runs locally, before transmit"]:::tool
+        C{"detect.py<br/>220 gitleaks rules,<br/>keyword + entropy gated"}:::tool
+        D["Prompt passes through<br/>untouched"]:::ref
+        E["TURN BLOCKED<br/>the model receives nothing"]:::blocked
+        A --> B --> C
+        C -->|"no match"| D
+        C -->|"credential found"| E
+    end
+
+    V[("~/.clowk/vault.json<br/>0600 · plaintext · your only copy")]:::secret
+    F["Your prompt, rewritten with<br/>$STRIPE_SECRET_KEY,<br/>put on your clipboard"]:::ref
+    G["You repaste. The model only<br/>ever sees $STRIPE_SECRET_KEY"]:::ref
+    L["clowk list · uses · set · clear · rename<br/>names and metadata, never values"]:::tool
+
+    E -->|"files the value"| V
+    E --> F --> G
+    V -.-> L
+
+    subgraph guard["Defence in depth — cheap, real, and not a boundary"]
+        direction TB
+        H["Agent runs Bash or Read"]:::ref
+        I{"clowk tool hook"}:::tool
+        J["DENIED, with how to allow it"]:::blocked
+        K["Allowed, untouched"]:::ref
+        H --> I
+        I -->|".env · private key · the vault ·<br/>git credential fill"| J
+        I -->|"anything else"| K
+    end
+
+    classDef secret fill:#fdf1ea,stroke:#c2410c,stroke-width:1.5px,color:#17181c
+    classDef ref fill:#eef7f5,stroke:#0f766e,stroke-width:1.5px,color:#17181c
+    classDef tool fill:#f2f1ff,stroke:#4338ca,stroke-width:1.5px,color:#17181c
+    classDef blocked fill:#fdf0ef,stroke:#b42318,stroke-width:1.5px,color:#17181c
+```
+
+Blocking is the whole mechanism. No host can rewrite a submitted prompt — verified on all three —
+so there is no silent swap, only block-and-repaste, which is why the clipboard step matters.
+
+The diagram shows what clowk does, not what it cannot do. Read the next section for that;
+`clowk-architecture.svg` is the fuller version, and `DESIGN.md` explains why the design is this
+shape and what was built and removed getting here.
+
 ## What it is not
 
 **clowk is not a security boundary.** It runs as the same OS user as the agent, so whatever clowk
