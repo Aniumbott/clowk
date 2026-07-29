@@ -189,6 +189,8 @@ def compile_rules(rules):
     for r in rules:
         try:
             pat = re.compile(r["regex"], re.I if r.get("ignorecase") else 0)
+            if not (r.get("id") and r.get("env")):
+                continue                        # scan() needs both; reject here, not mid-scan
             g = r.get("group")                  # precomputed by build_rules.py
             if g is None:
                 g = secret_group(r["regex"])    # hand-edited rules.json: derive, never guess 1

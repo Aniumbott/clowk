@@ -307,9 +307,13 @@ class TestBrokenRuleset(unittest.TestCase):
         good = {"id": "probe", "env": "PROBE", "regex": r"\b(sk_live_[0-9a-zA-Z]{24})\b",
                 "keywords": ["sk_" "live_"], "entropy": None, "ignorecase": False,
                 "confidence": "high", "group": 1}
-        mod = self._load(json.dumps([good, "not-a-rule", {"id": "no-regex"}]))
+        # a bare string, a rule with no regex, and a rule that compiles but has no id/env --
+        # the last one would otherwise pass compile and raise KeyError inside scan() instead
+        broken = ["not-a-rule", {"id": "no-regex"}, {"regex": r"\b(zz_[0-9]{6})\b"}]
+        mod = self._load(json.dumps([good] + broken))
         self.assertEqual([f.secret for f in mod.scan("key sk_" "live_4eC39HqLyjWDarjtT1zdp7dc here")],
                          ["sk_" "live_4eC39HqLyjWDarjtT1zdp7dc"])
+        self.assertEqual(mod.scan("zz_123456"), [])   # the id-less rule is dropped, not fatal
 
     def test_an_intact_ruleset_reports_no_error(self):
         with open(os.path.join(os.path.dirname(DETECT_PY), "rules.json")) as f:
