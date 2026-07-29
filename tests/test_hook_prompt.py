@@ -3,6 +3,7 @@ import io
 import json
 import os
 import random
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -14,6 +15,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 class HookCase(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, True)  # it holds a real vault, in plaintext
         os.environ["CLOWK_VAULT"] = os.path.join(self.dir, "vault.json")
         from clowk import vault
 
@@ -21,6 +23,11 @@ class HookCase(unittest.TestCase):
         from clowk import hook_prompt
 
         self.hook = importlib.reload(hook_prompt)
+        # clowk.clip is one module object shared by the whole run -- reload rebinds the same one --
+        # so this stub has to be put back, or test_clip's real-platform case silently spawns
+        # nothing. The stub itself is load-bearing: without it the capture cases would write the
+        # rewritten prompts to the developer's actual clipboard.
+        self.addCleanup(setattr, self.hook.clip, "CANDIDATES", self.hook.clip.CANDIDATES)
         self.hook.clip.CANDIDATES = [["clowk-nonexistent-clipboard-binary"]]
 
     def tearDown(self):
@@ -30,6 +37,49 @@ class HookCase(unittest.TestCase):
         out, err = io.StringIO(), io.StringIO()
         code = self.hook.main(["--host", host], io.StringIO(json.dumps(payload)), out, err)
         return code, out.getvalue(), err.getvalue()
+
+
+class TestHookCaseCleansUpAfterItself(unittest.TestCase):
+    """HookCase stubs the process-wide clip.CANDIDATES and never put it back.
+
+    clowk.clip is one module object shared by every test (importlib.reload rebinds the same one),
+    so the stub outlived the case that set it. test_clip.py's
+    `test_returns_a_bool_on_the_real_platform` is the only test in the suite that spawns a real
+    clipboard tool, and it is exactly the one the leak voids -- silently, because asserting a bool
+    still passes against a nonexistent binary. Alphabetical discovery hides that today; any
+    reordering (-k, a parallel split, naming two modules on the command line) voids it.
+    """
+
+    def run_probe(self, probe):
+        result = unittest.TestResult()
+        probe.run(result)
+        self.assertEqual(result.errors + result.failures, [])
+
+    def test_the_stub_clipboard_does_not_outlive_the_case(self):
+        from clowk import clip
+
+        self.addCleanup(setattr, clip, "CANDIDATES", clip.CANDIDATES)
+        sentinel = [["clowk-sentinel-not-a-real-tool"]]
+        clip.CANDIDATES = sentinel
+
+        class Probe(HookCase):
+            def runTest(self):
+                self.run_hook({"prompt": "nothing to see here", "cwd": "/p"})
+
+        self.run_probe(Probe())
+        self.assertIs(clip.CANDIDATES, sentinel, "HookCase leaked its stub clipboard")
+
+    def test_the_temporary_vault_does_not_outlive_the_case(self):
+        seen = {}
+
+        class Probe(HookCase):
+            def runTest(self):
+                seen["dir"] = self.dir
+                self.run_hook({"prompt": "use sk_" "live_4eC39HqLyjWDarjtT1zdp7dc", "cwd": "/p"})
+
+        self.run_probe(Probe())
+        self.assertFalse(os.path.exists(seen["dir"]),
+                         "left a plaintext vault at rest in %s" % seen["dir"])
 
 
 class TestPassthrough(HookCase):
