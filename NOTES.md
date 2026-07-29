@@ -26,11 +26,16 @@ not execute here.
 
 ## Host matrix (verified 2026-07-29)
 
-| Host | Prompt event | Tool event | Settings file | Block |
-|---|---|---|---|---|
-| Claude Code | `UserPromptSubmit` | `PreToolUse` | `~/.claude/settings.json` | `{"decision":"block"}` |
-| Codex | `UserPromptSubmit` | `PreToolUse` | `~/.codex/hooks.json` | exit 2 + stderr |
-| Gemini CLI | `BeforeAgent` | `BeforeTool` | `~/.gemini/settings.json` | exit 2 + stderr |
+| Host | Prompt event | Tool event | Settings file | Prompt block | Tool deny |
+|---|---|---|---|---|---|
+| Claude Code | `UserPromptSubmit` | `PreToolUse` | `~/.claude/settings.json` | `{"decision":"block"}` | `hookSpecificOutput.permissionDecision` |
+| Codex | `UserPromptSubmit` | `PreToolUse` | `~/.codex/hooks.json` | exit 2 + stderr | exit 2 + stderr (assumed) |
+| Gemini CLI | `BeforeAgent` | `BeforeTool` | `~/.gemini/settings.json` | exit 2 + stderr | exit 2 + stderr (assumed) |
+
+The two block shapes are **not interchangeable**: Claude Code's `PreToolUse` reads
+`hookSpecificOutput`, not the prompt event's `{"decision":"block"}`, and on an exit-2 host any JSON
+on stdout with exit 0 is an allow. Both shapes come out of `clowk/hosts.py` (`block` and `deny`) so
+one host's dialect cannot leak into another's.
 
 Claude Code and Codex both deliver a `prompt` field on stdin JSON. **Gemini CLI's `BeforeAgent`
 payload shape is not verified by this project** — `clowk/hosts.py` discovers the prompt key from a
@@ -52,3 +57,8 @@ Antigravity are unverified and unsupported.
 
 - Whether hooks fire for subagent (`Task`) tool calls. Affects the deny hook's coverage only.
 - Gemini CLI's `BeforeAgent` payload field names.
+- **How to deny a tool call on Codex (`PreToolUse`) and Gemini CLI (`BeforeTool`).** Only the
+  prompt event's exit-2 block is verified there. clowk denies with exit 2 + the reason on stderr,
+  the usual command-hook convention; Codex's `PreToolUse` is documented to accept a richer JSON
+  protocol (`updatedInput.command`) that this project has not tested. If exit 2 turns out not to
+  deny on those hosts, the call proceeds — but the reason is still on stderr, so it is visible.

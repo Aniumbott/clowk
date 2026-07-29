@@ -108,6 +108,26 @@ class TestHook(DenyCase):
         self.assertEqual(decision["permissionDecision"], "deny")
         self.assertIn("clowk allow", decision["permissionDecisionReason"])
 
+    def test_exit_two_hosts_deny_on_stderr(self):
+        # This hook is registered on Codex and Gemini CLI too, and there a deny is exit 2 with the
+        # reason on stderr. Claude Code's decision JSON plus exit 0 reads as an allow on both.
+        for host in ("codex", "gemini-cli"):
+            code, out, err = self.run_hook(
+                {"tool_name": "Bash", "tool_input": {"command": "git credential fill"}}, host)
+            self.assertEqual((host, code, out), (host, 2, ""))
+            self.assertIn("clowk allow", err)
+
+    def test_a_hook_registered_without_a_host_flag_still_denies(self):
+        from clowk import hook_pretool
+
+        hook = importlib.reload(hook_pretool)
+        out, err = io.StringIO(), io.StringIO()
+        payload = {"tool_name": "Bash", "tool_input": {"command": "git credential fill"}}
+        code = hook.main([], io.StringIO(json.dumps(payload)), out, err)
+        self.assertEqual(code, 0)
+        decision = json.loads(out.getvalue())["hookSpecificOutput"]
+        self.assertEqual(decision["permissionDecision"], "deny")
+
     def test_unparseable_input_is_silent(self):
         from clowk import hook_pretool
 

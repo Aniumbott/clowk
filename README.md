@@ -26,7 +26,9 @@ reserves a `used by` list per credential, but nothing in this version fills it i
 expect it to read `(nothing recorded yet)`.)
 
 A second hook denies the easy accidental credential reads: `.env`, private keys, the vault itself,
-and commands like `git credential fill` that print a live token in one line.
+and commands like `git credential fill` that print a live token in one line. Its deny is shaped per
+host, like the block: a decision object on Claude Code, exit 2 with the reason on stderr on Codex
+and Gemini CLI. Only Claude Code's tool-deny shape is verified — see `NOTES.md`.
 
 ## What it is not
 

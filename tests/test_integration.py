@@ -86,6 +86,14 @@ class IntegrationCase(unittest.TestCase):
             return decision["reason"]
         return err
 
+    def deny_reason(self, host, out, err):
+        """The tool-deny text, from wherever this host carries it."""
+        if host == "claude-code":
+            decision = json.loads(out)["hookSpecificOutput"]
+            self.assertEqual(decision["permissionDecision"], "deny")
+            return decision["permissionDecisionReason"]
+        return err
+
     def assertNoTrace(self, secret, *streams):
         """The value, and any substantial tail of it, must be absent from every stream."""
         blob = "".join(streams)
@@ -316,6 +324,27 @@ class TestDenyHookAndVault(IntegrationCase):
     def test_a_denied_command_does_not_echo_a_credential_that_rode_along_with_it(self):
         self.assertDenied({"tool_name": "Bash",
                            "tool_input": {"command": "cat /proj/.env  # token " + STRIPE}})
+
+    def test_every_host_gets_a_deny_in_the_shape_that_host_understands(self):
+        # install registers this hook on all three hosts. Exit 0 with output a host cannot parse
+        # is an allow, so a deny that only Claude Code understands is a no-op on the other two.
+        for payload, marker in (
+            ({"tool_name": "Read", "tool_input": {"file_path": vault.path()}}, "its own store"),
+            ({"tool_name": "Bash", "tool_input": {"command": "git credential fill"}}, "clowk allow"),
+        ):
+            for host in ALL_HOSTS:
+                code, out, err = self.tool_hook(payload, host)
+                self.assertEqual((host, code), (host, BLOCK_CODE[host]))
+                self.assertIn(marker, self.deny_reason(host, out, err))
+                if host != "claude-code":
+                    self.assertEqual((host, out), (host, ""))  # exit-2 hosts read stderr
+                self.assertNoTrace(STRIPE, out, err)
+
+    def test_an_allowed_call_stays_silent_on_every_host(self):
+        for host in ALL_HOSTS:
+            result = self.tool_hook(
+                {"tool_name": "Read", "tool_input": {"file_path": "/proj/src/main.py"}}, host)
+            self.assertEqual((host,) + result, (host, 0, "", ""))
 
 
 class TestInstallUninstallRoundTrip(IntegrationCase):

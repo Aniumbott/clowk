@@ -3,6 +3,10 @@
 
 Defence in depth. A plain deny, never a rewrite, so it relies only on documented behaviour.
 Like the prompt hook, every host fails open -- so this must never crash.
+
+The deny goes out through hosts.deny, because the shape is per host: claude-code reads decision
+JSON on stdout, codex and gemini-cli read exit 2 + stderr. Emitting claude-code's JSON everywhere
+meant exit 0 and output the host could not parse, which those two hosts read as an allow.
 """
 import json
 import os
@@ -10,7 +14,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from clowk import deny
+from clowk import deny, hosts
 
 
 def main(argv, stdin, stdout, stderr):
@@ -24,15 +28,7 @@ def main(argv, stdin, stdout, stderr):
     reason = deny.check(payload.get("tool_name", ""), payload.get("tool_input") or {})
     if not reason:
         return 0
-
-    stdout.write(json.dumps({
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "deny",
-            "permissionDecisionReason": reason,
-        }
-    }))
-    return 0
+    return hosts.deny(hosts.host_from(argv), reason, stdout, stderr)
 
 
 if __name__ == "__main__":
