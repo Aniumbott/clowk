@@ -1,0 +1,170 @@
+name: tests
+
+# clowk claims Python 3.8+ and Windows support. Until this workflow existed, every test had only
+# ever run on macOS with Python 3.14 -- so the floor and the Windows paths (os.replace over an open
+# file, chmod being a no-op, clip.exe, os.altsep in the deny matcher) were asserted, not tested.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }} · py${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      # Explicit combinations rather than a full product: Python 3.8 has no arm64 macOS build, so
+      # the floor is tested on the x86 runner. The floor and the newest release are covered on all
+      # three operating systems, which is what the README promises.
+      matrix:
+        include:
+          - { os: ubuntu-22.04, python: "3.8" }
+          - { os: ubuntu-latest, python: "3.9" }
+          - { os: ubuntu-latest, python: "3.13" }
+          - { os: macos-13, python: "3.8" }
+          - { os: macos-latest, python: "3.13" }
+          - { os: windows-latest, python: "3.8" }
+          - { os: windows-latest, python: "3.13" }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      # No install step, deliberately: clowk is standard library only. If this workflow ever needs
+      # a pip install, that is a bug in clowk, not in the workflow.
+      - name: Assert no third-party imports
+        shell: bash
+        run: |
+          python - <<'PY'
+          """Resolve every top-level import and check where it actually lives.
+
+          An allowlist of stdlib names would need maintaining forever and would drift between
+          Python versions. Asking the import system where a module resolves to does not:
+          anything outside the stdlib directory -- i.e. site-packages -- is a dependency.
+          """
+          import ast, glob, importlib.util, os, sys
+
+          # Anchor on a module that is unambiguously stdlib and pure-Python everywhere, rather than
+          # sysconfig: Homebrew reports the symlinked opt/... prefix while origins resolve through
+          # Cellar/..., so a prefix compare against sysconfig's answer fails for every stdlib
+          # module. realpath on both sides defeats that.
+          STDLIB_DIR = os.path.realpath(os.path.dirname(os.__file__))
+          VENDOR = ("site-packages", "dist-packages")
+          LOCAL = {"clowk", "tests"}
+          bad, checked = [], set()
+
+          def resolves_to_stdlib(name):
+              if name in sys.builtin_module_names:
+                  return True
+              try:
+                  spec = importlib.util.find_spec(name)
+              except (ImportError, ValueError):
+                  return False
+              if spec is None:
+                  return False
+              origin = spec.origin or ""
+              if origin in ("built-in", "frozen"):
+                  return True
+              real = os.path.realpath(origin)
+              if any(part in real for part in VENDOR):
+                  return False
+              return real.startswith(STDLIB_DIR + os.sep)
+
+          for path in sorted(glob.glob("clowk/*.py") + glob.glob("tests/*.py") + ["build_rules.py"]):
+              for node in ast.walk(ast.parse(open(path, encoding="utf-8").read())):
+                  names = []
+                  if isinstance(node, ast.Import):
+                      names = [a.name.split(".")[0] for a in node.names]
+                  elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                      names = [node.module.split(".")[0]]
+                  for name in names:
+                      if name in LOCAL:
+                          continue
+                      checked.add(name)
+                      if not resolves_to_stdlib(name):
+                          bad.append("%s imports %s" % (path, name))
+
+          if bad:
+              print("\n".join(sorted(set(bad))))
+              sys.exit("third-party import found -- clowk must stay stdlib only")
+          print("stdlib only: confirmed across %d distinct imports" % len(checked))
+          PY
+
+      - name: Run the suite
+        run: python -m unittest discover -s tests -v
+
+      - name: Prompt hook end to end, and no value in either stream
+        shell: bash
+        run: |
+          python - <<'PY'
+          """The core promise, exercised as a real hook call on every host: a captured credential's
+          raw value must appear in neither stdout nor stderr."""
+          import io, json, os, sys, tempfile
+          sys.path.insert(0, ".")
+          os.environ["CLOWK_VAULT"] = os.path.join(tempfile.mkdtemp(), "vault.json")
+          from clowk import clip, hook_prompt, vault
+
+          clip.CANDIDATES = [["clowk-no-such-clipboard-binary"]]
+          KEY = "AKIAIOSFODNN7EXAMPLE"
+          for host in ("claude-code", "codex", "gemini-cli"):
+              out, err = io.StringIO(), io.StringIO()
+              payload = {"prompt": "deploy using " + KEY + " now", "cwd": "/tmp/ci"}
+              code = hook_prompt.main(["--host", host], io.StringIO(json.dumps(payload)), out, err)
+              blob = out.getvalue() + err.getvalue()
+              assert KEY not in blob, "%s LEAKED the raw value" % host
+              assert "$AWS_ACCESS_KEY_ID" in blob, "%s did not emit the rewrite: %r" % (host, blob)
+              assert code == (0 if host == "claude-code" else 2), "%s wrong exit %r" % (host, code)
+              print("%-12s blocked, exit %d, no leak" % (host, code))
+
+          assert vault.get("AWS_ACCESS_KEY_ID") == KEY, "value was not filed"
+
+          out, err = io.StringIO(), io.StringIO()
+          clean = {"prompt": "refactor clowk/cli.py please", "cwd": "/tmp/ci"}
+          assert hook_prompt.main(["--host", "claude-code"], io.StringIO(json.dumps(clean)), out, err) == 0
+          assert out.getvalue() == "" and err.getvalue() == "", "a clean prompt was not silent"
+          print("clean prompt passes through silently")
+          PY
+
+      - name: Install and uninstall round-trip on a temp settings file
+        shell: bash
+        run: |
+          python - <<'PY'
+          """install must merge into settings it did not write, and uninstall must restore it
+          exactly -- including on Windows, where os.replace over an existing file behaves
+          differently and chmod is a no-op."""
+          import copy, json, os, sys, tempfile
+          sys.path.insert(0, ".")
+          from clowk import install
+
+          settings = os.path.join(tempfile.mkdtemp(), "settings.json")
+          original = {
+              "theme": "dark",
+              "hooks": {
+                  "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "echo mine"}]}],
+                  "PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "echo theirs"}]}],
+              },
+          }
+          with open(settings, "w", encoding="utf-8") as f:
+              json.dump(original, f)
+
+          for host in ("claude-code", "codex", "gemini-cli"):
+              before = copy.deepcopy(json.load(open(settings, encoding="utf-8")))
+              added = install.install(host, os.getcwd(), settings)["added"]
+              assert added == 2, "%s registered %d hooks, expected 2" % (host, added)
+              text = json.dumps(json.load(open(settings, encoding="utf-8")))
+              assert "echo mine" in text and "echo theirs" in text, "%s clobbered existing hooks" % host
+              assert install.install(host, os.getcwd(), settings)["added"] == 0, "%s not idempotent" % host
+              install.uninstall(host, settings)
+              after = json.load(open(settings, encoding="utf-8"))
+              assert after == before, "%s did not round-trip: %r" % (host, after)
+              print("%-12s merge, idempotent, exact round-trip" % host)
+          PY
