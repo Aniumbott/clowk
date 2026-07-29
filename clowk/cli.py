@@ -7,7 +7,7 @@ Usage:
   clowk set NAME                replace a value after rotating it upstream
   clowk clear NAME              forget a credential
   clowk rename OLD NEW          rename one
-  clowk uses [NAME]             where each credential came from and what has used it
+  clowk uses [NAME]             where each credential was caught, and its (unfilled) used-by list
   clowk allow PATTERN           stop denying a path or command
   clowk debug-payload           dump what a host sends this hook, to add a new host
   clowk install [HOST]          register clowk's hooks (default host: claude-code)

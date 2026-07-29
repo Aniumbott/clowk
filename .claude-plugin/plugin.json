@@ -1,7 +1,7 @@
 {
   "name": "clowk",
   "version": "0.2.0",
-  "description": "Catches credentials you paste into an agent chat before they reach the model, files them locally, and records what depends on them. Manage with /clowk.",
+  "description": "Catches credentials you paste into an agent chat before they reach the model, files them locally, and records where each one came from. Manage with /clowk.",
   "author": { "name": "Aniket Rana" },
   "keywords": ["security", "secrets", "credentials", "dlp"]
 }
