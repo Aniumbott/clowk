@@ -12,6 +12,7 @@ first, refuses rather than guesses on an unparseable file, and writes atomically
 import json
 import os
 import shutil
+import sys
 import stat
 
 TARGETS = {
@@ -52,7 +53,16 @@ def is_clowk_entry(entry):
 
 
 def _command(root, script, host):
-    return 'python3 "%s" --host %s' % (os.path.join(root, "clowk", script), host)
+    """The hook command a host will run.
+
+    The interpreter is the one running this install, not the literal name "python3": on Windows
+    there is no python3 on PATH -- it is python, or the py launcher, or a Microsoft Store alias
+    stub that opens the Store instead of running anything. Registering "python3" there produced a
+    hook that could never execute while install still reported success. sys.executable is an
+    absolute path to an interpreter that demonstrably works, because it is the one you just used.
+    """
+    interpreter = sys.executable or "python3"
+    return '"%s" "%s" --host %s' % (interpreter, os.path.join(root, "clowk", script), host)
 
 
 def _load(path):
@@ -93,14 +103,27 @@ def _save(path, data):
     # otherwise a settings.json the user chmod'd to 0600 came back 0644, widened by the tool that
     # exists for credential hygiene. The temp file is created closed and only then widened to the
     # recorded mode: a crash mid-write must not leave a readable copy of an `env` block behind.
-    # O_BINARY (Windows only) keeps the newline translation in Python's text layer, where
-    # open(tmp, "w") had it.
+    # Match the file's existing line endings. Python's text layer translates "\n" to "\r\n" on
+    # Windows unless newline="" says otherwise -- O_BINARY on the descriptor does not stop it,
+    # because the translation happens above it in TextIOWrapper. Uninstall therefore rewrote every
+    # line ending in the user's settings file, which is not "leaves everything else exactly as you
+    # wrote it". newline="" disables translation; matching what was already there preserves a
+    # CRLF file too, so the round-trip is byte-exact on every platform either way.
+    crlf = False
+    try:
+        with open(path, "rb") as existing:
+            crlf = b"\r\n" in existing.read()
+    except (IOError, OSError):
+        pass
     flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_BINARY", 0)
     fd = os.open(tmp, flags, 0o600)
     # ensure_ascii=False keeps the host's own non-ASCII text exactly as it wrote it, so uninstall
     # can still put the file back byte for byte. It is safe only because the encoding is pinned.
-    with os.fdopen(fd, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    text = json.dumps(data, indent=2, ensure_ascii=False)
+    if crlf:
+        text = text.replace("\n", "\r\n")
+    with os.fdopen(fd, "w", encoding="utf-8", newline="") as f:
+        f.write(text)
     try:
         os.chmod(tmp, mode)  # honours only the read-only bit on Windows
     except OSError:

@@ -94,11 +94,28 @@ class TestInstallThroughTheCli(CliInstallCase):
         self.assertIn("--host claude-code", json.dumps(self.read_settings("claude-code")))
 
     def test_the_prompt_hook_lands_on_the_command_this_clone_can_actually_run(self):
+        # Read the command out of the parsed settings rather than substring-matching the serialised
+        # blob: on Windows json.dumps escapes every backslash, so a raw path is never found in it
+        # and the test failed for a reason that had nothing to do with what it was checking.
         self.run_cli("install")
-        blob = json.dumps(self.read_settings("claude-code"))
+        settings = self.read_settings("claude-code")
+        commands = [
+            entry["command"]
+            for group in settings["hooks"]["UserPromptSubmit"]
+            for entry in group.get("hooks", [])
+        ]
         root = os.path.dirname(os.path.dirname(os.path.abspath(cli.__file__)))
-        self.assertIn(os.path.join(root, "clowk", "hook_prompt.py"), blob)
-        self.assertTrue(os.path.exists(os.path.join(root, "clowk", "hook_prompt.py")))
+        script = os.path.join(root, "clowk", "hook_prompt.py")
+        self.assertTrue(os.path.exists(script))
+        matching = [c for c in commands if script in c]
+        self.assertTrue(matching, "no registered command references %s: %r" % (script, commands))
+
+        # The interpreter has to be one that exists. "python3" is absent on stock Windows -- it is
+        # python, the py launcher, or a Store alias stub -- so registering that name produced a hook
+        # that could never run while install reported success.
+        interpreter = matching[0].split('" "')[0].lstrip('"')
+        self.assertTrue(os.path.exists(interpreter),
+                        "registered interpreter does not exist: %r" % interpreter)
 
     def test_only_codex_is_told_about_hook_trust(self):
         self.assertIn("hook trust", self.run_cli("install", "codex")[1])

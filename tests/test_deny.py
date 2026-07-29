@@ -109,9 +109,11 @@ class TestPlatformSeparators(DenyCase):
             for command in ("git status", "dir /s", "type C:/repo/main.py"):
                 self.assertIsNone(self.deny.check("Bash", {"command": command}), command)
 
-    def test_posix_behaviour_is_unchanged(self):
-        # os.altsep is None on POSIX, so the added clause is a falsy no-op there.
-        self.assertIsNone(os.altsep)
+    def test_forward_slash_paths_are_checked_on_every_platform(self):
+        # Was asserting os.altsep is None, which tests CPython's platform constant rather than
+        # clowk, and is simply false on Windows where altsep is "/". What actually matters is that
+        # a forward-slash path is matched wherever the suite runs -- Windows accepts / as a
+        # separator, so an agent writing cat /repo/.env there must still be denied.
         self.assertIsNotNone(self.deny.check("Bash", {"command": "cat /repo/.env"}))
         self.assertIsNone(self.deny.check("Bash", {"command": "git status"}))
 

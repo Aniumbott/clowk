@@ -172,11 +172,16 @@ class TestFileMode(InstallCase):
 
         class SpyJson(object):
             loads = staticmethod(json.loads)
+            dump = staticmethod(json.dump)
 
             @staticmethod
-            def dump(data, handle, **kwargs):
+            def dumps(data, **kwargs):
+                # Sampled here because _save serialises to a string after creating the temp file at
+                # 0600 and before writing a byte to it -- exactly the window this test is about.
+                # (It serialises rather than streaming so it can match the file's line endings; the
+                # invariant is unchanged, only the point at which it is observable.)
                 seen.append(stat.S_IMODE(os.stat(tmp).st_mode))
-                json.dump(data, handle, **kwargs)
+                return json.dumps(data, **kwargs)
 
         self.install.json = SpyJson
         self.addCleanup(setattr, self.install, "json", json)

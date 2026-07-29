@@ -109,7 +109,12 @@ binary holding an OS keychain ACL. None of those is what this tool is.
 
 ## Install
 
-Requires `python3` (3.8+) on PATH. No pip installs — standard library only.
+Requires Python 3.8 or newer. No pip installs — standard library only.
+
+On Windows use `python` (or `py`) wherever this README writes `python3`; there is no
+`python3` on a stock Windows install. `clowk install` records the absolute path of the
+interpreter you ran it with, so the registered hook does not depend on any name being on
+PATH — but if you later move or replace that interpreter, re-run `install`.
 
 ```bash
 git clone https://github.com/Aniumbott/clowk.git
