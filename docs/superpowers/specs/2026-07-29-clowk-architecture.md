@@ -85,9 +85,19 @@ agent runs: npm run summarize                          ← ordinary command, not
 broker:     recognises the ref, attaches the real key, calls api.openai.com
 ```
 
-Covers OpenAI, Anthropic, AWS (`AWS_ENDPOINT_URL`), GitHub API (`GH_HOST` / `GITHUB_API_URL`),
-S3-compatible storage, and any SDK with a configurable endpoint. Env-var support per SDK is to be
-confirmed at build.
+Covers OpenAI, Anthropic, GitHub API (`GH_HOST` / `GITHUB_API_URL`), and any SDK that takes a
+configurable endpoint **and** a bearer-style credential. Env-var support per SDK is to be confirmed
+at build.
+
+**Not AWS.** SigV4 signs the canonical request, so a proxy cannot swap a header — it would have to
+re-sign. AWS is T1 only, via `credential_process`. More generally, every T2 route needs its auth
+scheme known (bearer / basic / custom header / query param), which is a curated table and ongoing
+maintenance.
+
+**A T2 reference is non-exfiltratable, not worthless.** It is useless off this machine and cannot be
+aimed at another upstream. But it sits in plaintext env, so any same-user process — a malicious
+postinstall script, a prompt-injected tool, another agent — can present it to `127.0.0.1:7799` and
+spend the credential. T2 stops the key from walking; it does not stop local code from using it.
 
 No `HTTPS_PROXY`. No man-in-the-middle. No local certificate authority. This is the decisive
 simplification over the proxy sketch that preceded this document, which needed TLS termination to
@@ -150,10 +160,37 @@ Values also leave `~/.claude/settings.local.json`. That file now holds only refe
 URLs — all worthless — which means the verified env auto-reload mechanism is reused with nothing
 sensitive in it.
 
+## 8b. Human lifecycle — the CLI must own this
+
+The inbound guard handles the accident. A person also needs the deliberate path, and none of it was
+in the first draft of this document:
+
+| Command | Why it is required |
+|---|---|
+| `clowk add NAME` | type a key at the terminal instead of pasting it into a chat — hidden input, never in shell history |
+| `clowk set NAME` | replace a value after rotating it upstream |
+| `clowk tier NAME <t1\|t2\|t3>` | auto-assignment will guess wrong; the human overrides |
+| `clowk route NAME <host>` | correct or add a T2 upstream |
+| `clowk export` | **recovery. Non-negotiable.** |
+
+`export` exists because the vault is encrypted with a keychain-held key and the broker has no
+raw-read API — so a broken daemon, a lost keychain entry, or a new machine would otherwise make a
+user's own secrets unrecoverable. A vault that can hold data hostage is not shippable.
+
+It is gated on an interactive TTY confirmation, which a non-interactive agent Bash call cannot
+satisfy. That keeps it a human-only door without weakening the no-raw-read discipline for anything
+the agent can reach.
+
 ## 9. Honest limits
 
-- **T1 is accident-proof, not adversary-proof.** A deliberate agent can invoke the helper itself.
-  A parent-process check is a cheap speed bump, not a control; it will be labelled as such.
+- **T1 is accident-proof, not adversary-proof — and the exposure is wider than "the agent".** Any
+  process running as you can call `git-credential-clowk get` and receive the real value: a malicious
+  postinstall script, a prompt-injected tool, any local code. A parent-process check is spoofable and
+  will be labelled a speed bump, not a control. T1's real property is that the value is not in env,
+  argv, or a file the agent reads — that shrinks the accidental surface. It is not a boundary.
+- **The long tail lands on the weakest tier.** Unknown secret types default to T3, so strong-tier
+  coverage depends on a hand-maintained map of type → tier → upstream → auth scheme, which degrades
+  quietly as the world adds APIs.
 - **T3 puts a real value in one child's env and argv** for the duration of one command, so a
   same-user `ps` during that window sees it. No fix without the sandbox.
 - **A file you `@`-mention** is read by the host, not by clowk. Unclosable from a hook.
@@ -182,13 +219,25 @@ iterations of this design:
 4. Whether Claude Code fails open or closed when a hook errors.
 5. OS keychain read/write from a plain CLI on macOS and Linux without an interactive prompt per use.
 
-## 12. Ship path
+## 12. Ship path — leaner than the above
 
-**v1 = broker + T1 git helper + T2 proxy + inbound guard.** No CA, no daemon lifecycle for the user
-to manage, no unverified platform primitive on the critical path, and it covers git plus the AI-API
-credentials that dominate this workflow.
+**v1 = T1 + inbound guard + the lifecycle CLI. No daemon.**
 
-**v1.1** = remaining T1 helpers (aws, docker, kubectl) and T3.
+Credential helpers are short-lived processes, so they can decrypt the vault with a keychain-held key
+per invocation. That removes the socket, the port, the proxy, the per-API auth adapters, and any
+lifecycle for the user to manage — the largest source of complexity and of Windows second-code-paths
+in this document.
+
+Everything T1 does not cover stays an ordinary env var: no protection, but captured, listed,
+tiered and rotatable, and labelled honestly as unprotected. That is a narrower pitch than "the agent
+never holds a credential", and it is one that can be defended line by line.
+
+**v2 = T2 proxy**, once the route/auth-scheme table is work worth doing, plus the daemon it needs.
+**v2.1 = T3.**
+
+Form factor: a CLI plus helper binaries on PATH, installed via brew or pipx, with a thin Claude Code
+plugin carrying only the inbound hook and `/clowk`. Host-agnostic by default; the plugin is the only
+Claude-Code-specific piece.
 
 **Deferred, deliberately:** rotation and expiry (the broker log gives exact usage, which is the data
 rotation needs), per-project scoping (routes give host binding, which was the security half of it),
