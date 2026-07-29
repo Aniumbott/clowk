@@ -31,9 +31,32 @@ def env_name(rule_id):
         return ENV_NAMES[rule_id]
     return re.sub(r'[^A-Z0-9]+', '_', rule_id.upper()).strip('_')
 
+
+# gitleaks' generic keyword-proximity template opens with lazy leading context, and five rules
+# repeat it immediately inside their (?i:...) group. `finditer` already tries every start offset
+# and the secret is always in a capture group, so this can only widen the reported match START --
+# never decide whether the value is found. What it does cost is up to 50 (or 2500, doubled)
+# backtrack states per input character: a 200KB paste that mentions "coherent" or "sumo" took 50s
+# to find nothing, and 900KB crossed Claude Code's 60s default hook timeout, at which point every
+# host fails open and transmits the credential. Anchored, so the same fragment appearing
+# mid-pattern in a future gitleaks release is left alone -- there it is not redundant.
+_LEADING_CONTEXT = re.compile(r'^(\(\?i:)?\[\\w\.-\]\{0,\d+\}\?')
+
+
+def strip_leading_context(rx):
+    """Drop the redundant leading `[\\w.-]{0,N}?` context, including one inside a leading (?i:."""
+    stripped = False
+    for _ in range(2):                               # outer copy, then the one inside (?i:
+        m = _LEADING_CONTEXT.match(rx)
+        if not m:
+            break
+        rx = (m.group(1) or '') + rx[m.end():]       # keep the (?i: opener, drop only the context
+        stripped = True
+    return rx, stripped
+
 text = open(SRC).read()
 blocks = text.split('[[rules]]')[1:]
-rules, skipped, ignored_groups = [], [], []
+rules, skipped, ignored_groups, trimmed = [], [], [], []
 for b in blocks:
     mid = re.search(r'^\s*id\s*=\s*"([^"]+)"', b, re.M)
     mrx = re.search(r"^\s*regex\s*=\s*'''(.*?)'''", b, re.M)
@@ -45,6 +68,9 @@ for b in blocks:
     ignorecase = '(?i)' in rx
     if ignorecase:
         rx = rx.replace('(?i)', '')                  # inline global flag mid-pattern errors on py3.11+
+    rx, stripped = strip_leading_context(rx)
+    if stripped:
+        trimmed.append(rid)
     flags = re.I if ignorecase else 0
     try:
         with warnings.catch_warnings():
@@ -78,6 +104,7 @@ os.replace(OUT + ".tmp", OUT)
 print(f"wrote {len(rules)} rules to {OUT}")
 declared = sum(1 for r in rules if r["secret_group"] is not None)
 print(f"honoured {declared} declared secretGroup(s); derived the rest")
+print(f"stripped redundant leading context from {len(trimmed)} regexes")
 print(f"skipped {len(skipped)} incompatible regexes")
 for rid, err in skipped[:8]:
     print(f"  - {rid}: {err}")

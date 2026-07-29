@@ -100,6 +100,25 @@ class TestSecretGroupMetadata(unittest.TestCase):
                 self.assertEqual(r["group"], secret_group(r["regex"]), r["id"])
 
 
+# gitleaks' generic keyword-proximity template opens with lazy leading context. finditer already
+# tries every start offset, so it can only widen the match START -- never decide whether the
+# captured value is found -- while costing up to 50 backtrack states per input character.
+_LEADING_CONTEXT = re.compile(r"^(?:\(\?i:)?\[\\w\.-\]\{0,\d+\}\?")
+
+
+class TestRulesetShape(unittest.TestCase):
+    def test_no_rule_carries_a_redundant_leading_context_prefix(self):
+        offenders = sorted(r["id"] for r in _load_rules() if _LEADING_CONTEXT.match(r["regex"]))
+        self.assertEqual(offenders, [], "%d rules still carry it" % len(offenders))
+
+    def test_the_generic_keyword_rules_still_detect_their_values(self):
+        # the strip must not cost a single detection: these all rely on the template it heads
+        self.assertIn("aB3xQ9zLmN4pR7tV2wY8", [f.secret for f in scan('api_key = "aB3xQ9zLmN4pR7tV2wY8"')])
+        self.assertIn("0123456789abcdef0123456789abcdef01234567",
+                      [f.secret for f in scan('cohere_key = "0123456789abcdef0123456789abcdef01234567"')])
+        self.assertIn(SONAR_TOKEN, [f.secret for f in scan(SONAR_PROMPT)])
+
+
 class TestBrokenRuleset(unittest.TestCase):
     """Importing detect must never raise, whatever state rules.json is in.
 
