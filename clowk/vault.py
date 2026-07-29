@@ -98,6 +98,22 @@ def clear(name):
     return True
 
 
+def replace(name, value):
+    """Swap a new value in under an existing name, keeping its ledger. False if name is unknown.
+
+    A rotation is not a fresh capture. `store` would suffix the name because the value changed,
+    and clearing first then storing would drop first_caught, rule and sources -- the history
+    that says what the rotation has to touch.
+    """
+    data = _load()
+    entry = data["secrets"].get(name)
+    if entry is None:
+        return False
+    entry["value"] = value
+    _save(data)
+    return True
+
+
 def rename(old, new):
     data = _load()
     secrets = data["secrets"]

@@ -72,7 +72,11 @@ def cmd_add(name, out, err, replace=False):
         err.write("No value given; nothing stored.\n")
         return 1
     if replace:
-        vault.clear(name)
+        if not vault.replace(name, value):
+            err.write("No credential named %s.\n" % name)
+            return 1
+        out.write("Replaced the value of $%s; when and where it was caught is kept.\n" % name)
+        return 0
     key = vault.store(name, value, confidence="manual", source="(added by hand)")
     out.write("Stored as $%s.\n" % key)
     return 0
