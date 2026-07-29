@@ -73,6 +73,22 @@ directory, re-run `install` from the new location (and `uninstall` from the old 
 On Codex, hooks require trust: run `/hooks` and approve clowk. Because trust is hash-based, every
 clowk update will ask again.
 
+### The `/clowk` slash command — a separate, optional step
+
+`clowk install` registers hooks and nothing else. `/clowk` is a Claude Code plugin command, so it
+takes its own install, independent of the one above. Inside Claude Code, with `<clone>` the absolute
+path to this directory:
+
+```
+/plugin marketplace add <clone>
+/plugin install clowk@clowk-dev
+```
+
+Point the marketplace at this clone rather than at a git URL: a URL marketplace clones a second
+copy, so the slash command would end up running different code from the hooks you just registered.
+The plugin declares no hooks of its own (see `NOTES.md`), so it cannot double-register anything, and
+skipping it costs you only the slash command — every operation is available from the CLI below.
+
 ## Use
 
 There is no installed `clowk` binary — the CLI is `python3 <clone>/clowk/cli.py`. Alias it:
@@ -96,8 +112,8 @@ clowk install [HOST]       register clowk's hooks; uninstall removes them
 
 To send a message without scanning it, start it with `unclowk`.
 
-Inside Claude Code, `/clowk` runs the same commands, except `add` and `set`: those need a terminal
-to type the value into, so run them in your own shell.
+Inside Claude Code, once the plugin above is installed, `/clowk` runs the same commands, except
+`add` and `set`: those need a terminal to type the value into, so run them in your own shell.
 
 ## Storage
 
