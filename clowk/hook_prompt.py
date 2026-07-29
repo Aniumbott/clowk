@@ -34,13 +34,16 @@ def _host_from(argv):
     return "claude-code"
 
 
-def build_message(rewritten, stored, tiers, copied):
+def build_message(rewritten, stored, tiers, copied, unfiled=()):
     """The block reason. Plain text: hooks cannot set colour or markdown."""
     lines = ["clowk stopped a credential before it reached the model."]
     for name in stored:
         tier = tiers.get(name, "")
         note = "  (shape-only match -- if this is a false positive, run: clowk clear %s)" % name if tier == "low" else ""
         lines.append("  stored as $%s%s" % (name, note))
+    for name in unfiled:
+        lines.append("  NOT filed as $%s -- clowk could not write %s, so keep this value "
+                     "yourself (check permissions and free space)" % (name, vault.path()))
     lines.append("")
     lines.append("Your prompt, rewritten%s:" % (" -- already on your clipboard" if copied else ""))
     lines.append("")
@@ -91,7 +94,23 @@ def main(argv, stdin, stdout, stderr):
     if not findings:
         return 0  # nothing detected -> pass through untouched
 
-    rewritten, stored, tiers = prompt, [], {}
+    # From here on the turn IS blocked. Everything below is presentation and bookkeeping, and
+    # none of it may cancel the block: filing is best-effort, blocking is not. Emitting a
+    # generic reason is always better than letting an exception reach the fail-open handler,
+    # which would transmit the credential with nothing on either stream.
+    try:
+        reason = capture(event, findings)
+    except Exception:  # noqa: BLE001 -- see above; deliberately never re-raised
+        # No rewrite here: a half-substituted prompt could still hold a raw value.
+        reason = ("clowk found a credential in this message but hit an internal error, so it was "
+                  "neither filed nor rewritten.\n\nTo send the original text anyway, start your "
+                  "message with:  %s" % BYPASS)
+    return hosts.block(host, reason, stdout, stderr)
+
+
+def capture(event, findings):
+    """File every finding, redact it out of the prompt, and return the block reason."""
+    rewritten, stored, unfiled, tiers = event["prompt"], [], [], {}
     # Longest secret first, and skip anything a longer match already swallowed. Rules do nest:
     # flutterwave-encryption-key's pattern is a prefix of flutterwave-secret-key's, so one
     # pasted key yields two findings. Replacing the short one first would leave the tail of the
@@ -99,16 +118,36 @@ def main(argv, stdin, stdout, stderr):
     for finding in sorted(findings, key=lambda f: len(f.secret), reverse=True):
         if finding.secret not in rewritten:
             continue
-        name = vault.store(
-            finding.env, finding.secret,
-            rule=finding.rule_id, confidence=finding.confidence, source=event["cwd"],
-        )
+        try:
+            name = vault.store(
+                finding.env, finding.secret,
+                rule=finding.rule_id, confidence=finding.confidence, source=event["cwd"],
+            )
+        except Exception:  # noqa: BLE001 -- unwritable/full/hand-edited vault; file, do not raise
+            name = _placeholder(finding.env, stored + unfiled)
+            unfiled.append(name)
+        else:
+            stored.append(name)
+        # Outside the try on purpose: a value clowk could not file must still leave the prompt,
+        # or the raw secret would land in the reason and on the clipboard.
         rewritten = rewritten.replace(finding.secret, "$" + name)
-        stored.append(name)
         tiers[name] = finding.confidence
 
     copied = clip.copy(rewritten)
-    return hosts.block(host, build_message(rewritten, stored, tiers, copied), stdout, stderr)
+    return build_message(rewritten, stored, tiers, copied, unfiled)
+
+
+def _placeholder(env, taken):
+    """The $NAME to substitute for a value clowk could not file.
+
+    Suffixed the way vault.store suffixes a clash, so two different values never collapse into
+    one placeholder -- that would assert two secrets are the same secret.
+    """
+    name, n = env, 2
+    while name in taken:
+        name = "%s_%d" % (env, n)
+        n += 1
+    return name
 
 
 if __name__ == "__main__":

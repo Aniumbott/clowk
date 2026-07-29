@@ -108,6 +108,102 @@ class TestCapture(HookCase):
         self.assertIn("unclowk", err)
 
 
+class TestFilingFailureStillBlocks(HookCase):
+    """Blocking is the only thing that prevents transmission, so it cannot be gated on a write.
+
+    vault.store ran before hosts.block, and vault._save's open/os.replace are unguarded, so an
+    unwritable or full ~/.clowk, a root-owned directory, a Windows AV holding vault.json open, or
+    one hand-edited vault entry turned a *successful* detection into a completely silent
+    pass-through: exit 0, nothing on either stream, credential transmitted.
+    """
+
+    KEY = "sk_" "live_4eC39HqLyjWDarjtT1zdp7dc"
+
+    def break_store(self, exc=None):
+        original = self.hook.vault.store
+        self.addCleanup(setattr, self.hook.vault, "store", original)
+
+        def raiser(*a, **kw):
+            raise exc or OSError(28, "No space left on device")
+
+        self.hook.vault.store = raiser
+
+    def test_block_is_still_emitted_when_the_vault_cannot_be_written(self):
+        self.break_store()
+        code, out, err = self.run_hook({"prompt": "use " + self.KEY + " now", "cwd": "/p"})
+        self.assertEqual(code, 0)
+        self.assertNotEqual(out, "", "a failed vault write cancelled the block")
+        reason = json.loads(out)["reason"]
+        self.assertNotIn(self.KEY, reason)
+        self.assertIn("use $STRIPE_SECRET_KEY now", reason)
+        self.assertIn("NOT filed", reason)
+        self.assertIn("unclowk", reason)
+
+    def test_a_read_only_vault_directory_still_blocks(self):
+        if os.name == "nt" or (hasattr(os, "geteuid") and os.geteuid() == 0):
+            self.skipTest("POSIX mode bits do not bind here")
+        os.chmod(self.dir, 0o500)
+        self.addCleanup(os.chmod, self.dir, 0o700)
+        code, out, err = self.run_hook({"prompt": "use " + self.KEY + " now", "cwd": "/p"})
+        self.assertEqual(code, 0)
+        self.assertNotEqual(out, "", "an unwritable ~/.clowk cancelled the block")
+        self.assertNotIn(self.KEY, json.loads(out)["reason"])
+
+    def test_a_vault_entry_of_the_wrong_shape_still_blocks(self):
+        # _load only checks that `secrets` is a dict, not each entry -- and the README points at
+        # this file as the export path, so a flattened hand-edit is a plausible state.
+        with open(self.vault.path(), "w") as f:
+            f.write('{"version": 1, "secrets": {"STRIPE_SECRET_KEY": "sk_" "live_old"}}')
+        code, out, err = self.run_hook({"prompt": "use " + self.KEY + " now", "cwd": "/p"})
+        self.assertEqual(code, 0)
+        self.assertNotEqual(out, "", "a malformed vault entry cancelled the block")
+        self.assertNotIn(self.KEY, json.loads(out)["reason"])
+
+    def test_a_second_secret_still_blocks_when_only_the_first_could_be_filed(self):
+        token = "ghp" "_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        original = self.hook.vault.store
+        self.addCleanup(setattr, self.hook.vault, "store", original)
+        calls = []
+
+        def once(*a, **kw):
+            calls.append(a)
+            if len(calls) > 1:
+                raise OSError(13, "Permission denied")
+            return original(*a, **kw)
+
+        self.hook.vault.store = once
+        code, out, err = self.run_hook({"prompt": self.KEY + " and " + token, "cwd": "/p"})
+        self.assertNotEqual(out, "")
+        reason = json.loads(out)["reason"]
+        self.assertNotIn(self.KEY, reason)
+        self.assertNotIn(token, reason)
+
+    def test_two_unfilable_values_of_one_kind_do_not_collapse_into_one_placeholder(self):
+        self.break_store()
+        second = "ghp" "_ZYXWVUTSRQPONMLKJIHGFEDCBA9876543210"
+        first = "ghp" "_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        code, out, err = self.run_hook({"prompt": "old " + first + " new " + second, "cwd": "/p"})
+        reason = json.loads(out)["reason"]
+        self.assertNotIn(first, reason)
+        self.assertNotIn(second, reason)
+        self.assertIn("$GITHUB_TOKEN_2", reason)  # two values are not one name
+
+    def test_an_error_anywhere_after_detection_still_blocks_without_the_secret(self):
+        original = self.hook.clip.copy
+        self.addCleanup(setattr, self.hook.clip, "copy", original)
+
+        def raiser(text):
+            raise RuntimeError("clipboard exploded")
+
+        self.hook.clip.copy = raiser
+        code, out, err = self.run_hook({"prompt": "use " + self.KEY + " now", "cwd": "/p"})
+        self.assertEqual(code, 0)
+        self.assertNotEqual(out, "", "an error after detection cancelled the block")
+        reason = json.loads(out)["reason"]
+        self.assertNotIn(self.KEY, reason)
+        self.assertIn("unclowk", reason)
+
+
 class TestStdinIsDecodedAsUtf8(HookCase):
     """Hosts send UTF-8 JSON. Reading it through the locale codec is a silent pass-through.
 
