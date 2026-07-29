@@ -265,6 +265,62 @@ env, which is tidiness worth having — but none of them is a control, and none 
 Form factor: a CLI installed via brew or pipx, plus a thin Claude Code plugin carrying the inbound
 hook and `/clowk`. Only the plugin is host-specific.
 
+## 12b. Multi-host support — verified, not assumed
+
+The whole product depends on one primitive: a locally-executed hook that runs **before the prompt is
+transmitted** and can block the turn. Everything else — store, ledger, CLI, detection — is ordinary
+Python and ports for free.
+
+| Host | Event | Config location | Blocks via | Rewrite prompt? | On hook error |
+|---|---|---|---|---|---|
+| Claude Code | `UserPromptSubmit` | `~/.claude/settings.json` | `decision: block` / exit 2 | **No** | fails open |
+| Codex | `UserPromptSubmit` | `~/.codex/hooks.json` or `config.toml` | `decision: block` / exit 2 | **No** | fails open |
+| Gemini CLI | `BeforeAgent` | `settings.json` → `hooks` | `decision: deny` / exit 2 | **No** (append only) | fails open |
+| opencode | JS plugin API (`@opencode-ai/plugin`) | `~/.config/opencode` | plugin-defined | to verify | to verify |
+| Grok CLI, Antigravity | unverified | — | — | — | — |
+
+Claude Code and Codex both deliver a `prompt` field in a stdin JSON payload; Gemini CLI's event is
+named differently and carries a different shape. All three are command hooks that block by exit code
+2 or a JSON decision — so one Python core with a thin per-host adapter covers them.
+
+**Three findings that change the design:**
+
+1. **Every host fails open.** A crashed, slow, or timed-out hook means the secret is transmitted. This
+   is the single most important fact for a published security tool and it is universal, not a
+   per-host quirk. Consequences: the hook must stay defensive (stdlib only, the existing
+   never-crash regex compile, no network, no imports that can fail), must stay fast enough to beat
+   every host's timeout, and the README must state plainly that clowk raises the bar and cannot
+   guarantee interception. Codex has an open issue requesting fail-closed for exactly this event
+   (openai/codex#33630) — worth tracking, not worth waiting for.
+2. **No host can rewrite the prompt.** Block-and-repaste is therefore universal rather than a Claude
+   Code limitation, so the UX is identical everywhere and the clipboard convenience pays off on
+   every host.
+3. **Codex requires hook trust, hash-based.** Non-managed hooks must be reviewed and trusted before
+   first run, and a changed hook re-triggers review — so **every clowk update prompts the user again**
+   on Codex. That is an install-and-upgrade UX problem to document, not a bug to fix.
+
+**Layout:** `clowk/core/` (detect, store, ledger — identical everywhere), `clowk/hosts/<host>.py`
+(normalise the payload in, emit the host's block shape out), and `clowk install --host <name>` writing
+the right config to the right place. A host whose primitive is unverified is listed as unsupported
+rather than assumed to work.
+
+The deny list ports as well: Claude Code and Codex both have `PreToolUse`, Gemini CLI has
+`BeforeTool`. Codex's version can additionally rewrite `updatedInput.command`, which Claude Code's
+build here ignores — noted only because it means capability differs per host and the docs must say so
+per host.
+
+### OS portability
+
+The v1 reduction is what makes this work. The daemon, unix socket, proxy, credential helpers and the
+`pty` wrapper were all platform-specific; a hook plus a JSON file plus a CLI has no platform-specific
+code at all. Remaining specifics are small and must be handled honestly:
+
+- **`chmod 0600` is effectively a no-op on Windows.** The claim must be "0600 on POSIX; on Windows the
+  file relies on user-profile ACLs" — never a blanket 0600 promise.
+- **Clipboard** needs `pbcopy` / `wl-copy` or `xclip` / `clip.exe`, and must degrade to just printing
+  the rewritten prompt when none is present.
+- Paths via `expanduser` throughout; no unix-only assumptions.
+
 ## 13. Public distribution
 
 clowk is going out open source, so the environment is unknown. That is a design constraint, not a
