@@ -114,7 +114,16 @@ def _add(hooks, event, matcher, command, path):
     for group in groups:
         if not isinstance(group, dict):
             continue
-        for entry in group.get("hooks", []):
+        entries = group.get("hooks", [])
+        if not isinstance(entries, list):
+            # Absent is fine (a matcher-only group); a dict, string or number where the array
+            # belongs is not. Iterating it or appending to it raised TypeError/AttributeError,
+            # neither of which cmd_install catches, so `clowk install` printed a traceback.
+            # Refuse, like the unparseable-file and non-list-event cases.
+            raise ValueError(
+                "%s has a %r hook group whose 'hooks' value is not an array. clowk will not "
+                "modify it -- fix or move the file, then retry." % (path, event))
+        for entry in entries:
             if isinstance(entry, dict) and entry.get("command") == command:
                 return 0  # already registered -- idempotent
     entry = {"type": "command", "command": command}
@@ -170,6 +179,12 @@ def uninstall(host, settings_path_override=None):
                 kept_groups.append(group)
                 continue
             entries = group.get("hooks", [])
+            if not isinstance(entries, list):
+                # Nothing of ours can be in there, and it must be carried over rather than
+                # skipped: a bare `continue` would drop it, and a removal elsewhere in this
+                # event then writes that deletion to disk.
+                kept_groups.append(group)
+                continue
             kept = [e for e in entries if not is_clowk_entry(e)]
             dropped = len(entries) - len(kept)
             if not dropped:

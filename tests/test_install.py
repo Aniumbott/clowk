@@ -88,6 +88,23 @@ class TestInstall(InstallCase):
             self.install.install("claude-code", self.root, self.settings)
         self.assertEqual(self.read()["hooks"]["UserPromptSubmit"]["hooks"][0]["command"], "echo mine")
 
+    def test_refuses_a_group_whose_hooks_value_is_not_a_list(self):
+        # `hooks -> EVENT -> [{matcher, hooks: [...]}]` nests an array inside an object under a
+        # key also called "hooks", so writing `"hooks": {...}` for `"hooks": [{...}]` is an
+        # ordinary hand-edit slip. It used to reach .append on a dict or iterate an int, and
+        # cmd_install catches neither AttributeError nor TypeError: the user got a traceback.
+        for bad in ({"type": "command", "command": "x"}, 5, "python3 mine.py", None, True):
+            self.write({"hooks": {"UserPromptSubmit": [{"hooks": bad}]}})
+            with self.assertRaises(ValueError):
+                self.install.install("claude-code", self.root, self.settings)
+            self.assertEqual(self.read()["hooks"]["UserPromptSubmit"][0]["hooks"], bad)
+
+    def test_a_group_with_no_hooks_key_at_all_is_still_fine(self):
+        # A matcher-only group is legal and common; "absent" must not be confused with "wrong".
+        self.write({"hooks": {"PreToolUse": [{"matcher": "Write"}]}})
+        self.assertEqual(self.install.install("claude-code", self.root, self.settings)["added"], 2)
+        self.assertIn({"matcher": "Write"}, self.read()["hooks"]["PreToolUse"])
+
     def test_codex_uses_its_own_event_names(self):
         self.install.install("codex", self.root, self.settings)
         self.assertIn("UserPromptSubmit", self.read()["hooks"])
@@ -171,6 +188,17 @@ class TestUninstall(InstallCase):
         self.install.install("claude-code", self.root, self.settings)
         self.install.uninstall("claude-code", self.settings)
         self.assertEqual(self.read().get("hooks", {}), {})
+
+    def test_keeps_a_malformed_sibling_group_while_removing_our_own(self):
+        # The group clowk cannot read has to be carried over, not skipped: `continue` alone would
+        # drop it from kept_groups, and the removal below writes that deletion to disk.
+        malformed = {"matcher": "MY-IMPORTANT-HOOK", "hooks": 5}
+        ours = {"type": "command",
+                "command": self.install._command(self.root, "hook_prompt.py", "claude-code")}
+        self.write({"hooks": {"UserPromptSubmit": [dict(malformed), {"hooks": [ours]}]}})
+        result = self.install.uninstall("claude-code", self.settings)
+        self.assertEqual(result["removed"], 1)
+        self.assertEqual(self.read()["hooks"]["UserPromptSubmit"], [malformed])
 
     def test_uninstall_when_nothing_installed_is_zero(self):
         self.write({"theme": "dark"})
