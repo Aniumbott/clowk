@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 1180" width="1280" height="1180" role="img" aria-label="clowk architecture: inbound capture at the paste boundary, a local vault, and an outbound runner that streams every command and lends values without exposing them">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 1120" width="1280" height="1120" role="img" aria-label="clowk architecture: inbound capture at the paste boundary, a broker daemon holding real values in memory, and three delivery tiers that apply a credential at the moment of use">
 <title>clowk — architecture</title>
 <defs>
   <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
     <path d="M0 0 L10 5 L0 10 z" fill="#a8a29a"/>
   </marker>
-  <marker id="ahd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+  <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
     <path d="M0 0 L10 5 L0 10 z" fill="#c2410c"/>
   </marker>
   <style>
@@ -15,7 +15,7 @@
     .tiny { font-size: 10px; font-weight: 700; letter-spacing: 1.1px; fill: #9a948a; }
     .h { font-size: 13.5px; font-weight: 650; }
     .b { font-size: 12.5px; fill: #5c6067; }
-    .f { font-size: 12.5px; fill: #938f86; }
+    .f { font-size: 12px; fill: #938f86; }
     .r { font-size: 12.5px; fill: #b42318; }
     .card { fill: #ffffff; stroke: #e6e1d8; stroke-width: 1.25; }
     .orange { fill: #fdf1ea; stroke: #e0a279; stroke-width: 1.25; }
@@ -23,152 +23,143 @@
     .indigo { fill: #f2f1ff; stroke: #bdb8f2; stroke-width: 1.25; }
     .red { fill: #fdf0ef; stroke: #eab3ad; stroke-width: 1.25; }
     .wire { stroke: #a8a29a; stroke-width: 1.4; fill: none; }
+    .owire { stroke: #c2410c; stroke-width: 1.4; fill: none; }
   </style>
 </defs>
 
-<rect width="1280" height="1180" fill="#fbfaf8"/>
+<rect width="1280" height="1120" fill="#fbfaf8"/>
 
-<!-- ── header ───────────────────────────────────────────────────── -->
+<!-- header -->
 <text x="40" y="50" style="font-size:31px;font-weight:700;letter-spacing:-0.4px">clowk</text>
-<text x="40" y="76" class="b" style="font-size:13.5px">a middle layer between your credentials and the coding agent — it captures what you paste, and lends what the agent needs</text>
+<text x="40" y="76" class="b" style="font-size:13.5px">the agent never holds a usable credential — it holds a reference, and a local broker applies the real value at the moment of use</text>
 
-<rect x="900" y="22" width="348" height="66" rx="10" class="card"/>
-<circle cx="922" cy="46" r="5" fill="#c2410c"/><text x="936" y="50" class="b">real value present</text>
-<circle cx="922" cy="68" r="5" fill="#0f766e"/><text x="936" y="72" class="b">reference only</text>
-<circle cx="1082" cy="46" r="5" fill="#4338ca"/><text x="1096" y="50" class="b">clowk component</text>
-<circle cx="1082" cy="68" r="5" fill="#b42318"/><text x="1096" y="72" class="b">blocked</text>
+<rect x="912" y="22" width="336" height="66" rx="10" class="card"/>
+<circle cx="934" cy="46" r="5" fill="#c2410c"/><text x="948" y="50" class="b">real value</text>
+<circle cx="934" cy="68" r="5" fill="#0f766e"/><text x="948" y="72" class="b">reference only</text>
+<circle cx="1078" cy="46" r="5" fill="#4338ca"/><text x="1092" y="50" class="b">clowk component</text>
+<circle cx="1078" cy="68" r="5" fill="#b42318"/><text x="1092" y="72" class="b">blocked</text>
 
 <!-- ── LANE A · inbound ─────────────────────────────────────────── -->
-<rect x="32" y="104" width="1216" height="258" rx="14" class="card"/>
-<text x="52" y="132" class="lane">A — INBOUND · CATCH IT AT THE PASTE BOUNDARY</text>
+<rect x="32" y="104" width="1216" height="182" rx="14" class="card"/>
+<text x="52" y="132" class="lane">A — INBOUND · CATCH IT AT THE PASTE BOUNDARY  (verified live, unchanged)</text>
 
-<rect x="52" y="152" width="196" height="100" rx="10" class="orange"/>
-<text x="68" y="176" class="tiny">YOU PASTE</text>
-<text x="68" y="200" class="m" style="font-size:12.5px;fill:#c2410c">sk_live_4eC39Hq…</text>
-<text x="68" y="222" class="b">into the chat, hit enter</text>
-<text x="68" y="240" class="f">— nothing is sent yet</text>
+<rect x="52" y="150" width="182" height="112" rx="10" class="orange"/>
+<text x="68" y="174" class="tiny">YOU PASTE</text>
+<text x="68" y="198" class="m" style="font-size:12.5px;fill:#c2410c">sk_live_4eC39Hq…</text>
+<text x="68" y="220" class="b">into the chat</text>
+<text x="68" y="240" class="f">nothing is sent yet</text>
 
-<path d="M248 202 L284 202" class="wire" marker-end="url(#ah)"/>
+<path d="M234 206 L268 206" class="wire" marker-end="url(#ah)"/>
+<rect x="274" y="150" width="196" height="112" rx="10" class="indigo"/>
+<text x="290" y="174" class="tiny">HOOK · LOCAL</text>
+<text x="290" y="198" class="h">UserPromptSubmit</text>
+<text x="290" y="220" class="b">220 gitleaks rules,</text>
+<text x="290" y="240" class="b">before anything is sent</text>
 
-<rect x="290" y="152" width="214" height="100" rx="10" class="indigo"/>
-<text x="306" y="176" class="tiny">HOOK · RUNS LOCALLY</text>
-<text x="306" y="200" class="h">UserPromptSubmit</text>
-<text x="306" y="222" class="b">fires before anything</text>
-<text x="306" y="240" class="b">leaves your machine</text>
+<path d="M470 206 L504 206" class="wire" marker-end="url(#ah)"/>
+<rect x="510" y="150" width="330" height="112" rx="10" class="red"/>
+<text x="528" y="174" class="tiny" style="fill:#b42318">ON A HIT</text>
+<text x="528" y="196" class="b">the turn is BLOCKED — the model gets</text>
+<text x="528" y="214" class="b">nothing, the transcript records nothing</text>
+<text x="528" y="238" class="b">the value goes to the broker, and a tier</text>
+<text x="528" y="256" class="b">is chosen for it</text>
 
-<path d="M504 202 L540 202" class="wire" marker-end="url(#ah)"/>
+<path d="M840 206 L874 206" class="wire" marker-end="url(#ah)"/>
+<rect x="880" y="150" width="352" height="112" rx="10" class="teal"/>
+<text x="898" y="174" class="tiny" style="fill:#0f766e">YOU GET BACK</text>
+<text x="898" y="200" class="b">your prompt, rewritten. Already on your</text>
+<text x="898" y="218" class="b">clipboard — repaste is one keystroke.</text>
+<text x="898" y="244" class="f">the only friction in the design, and unavoidable:</text>
+<text x="898" y="260" class="f">a hook can block a prompt but cannot rewrite one</text>
 
-<rect x="546" y="152" width="214" height="100" rx="10" class="indigo"/>
-<text x="562" y="176" class="tiny">SCAN</text>
-<text x="562" y="200" class="h">detect.py</text>
-<text x="562" y="222" class="b">220 gitleaks rules,</text>
-<text x="562" y="240" class="b">keyword + entropy gated</text>
+<!-- ── BROKER ───────────────────────────────────────────────────── -->
+<path d="M675 286 L675 316" class="wire" marker-end="url(#ah)"/>
 
-<path d="M760 202 L780 202 L780 164 L794 164" class="wire" marker-end="url(#ah)"/>
-<rect x="800" y="140" width="204" height="48" rx="10" class="teal"/>
-<text x="816" y="160" class="b">no match:</text>
-<text x="816" y="178" class="f">the prompt passes straight through</text>
+<rect x="300" y="322" width="680" height="122" rx="14" class="orange"/>
+<text x="322" y="350" class="tiny" style="fill:#c2410c">THE BROKER · A PER-USER DAEMON · THE ONLY HOLDER OF REAL VALUES</text>
+<text x="322" y="376" class="b">values live in its memory · vault on disk is encrypted, key in the OS keychain</text>
+<text x="322" y="396" class="b">a unix socket at 0600 · auto-spawns on first use, no lifecycle to manage</text>
+<text x="322" y="424" class="r">its API is use-only. There is deliberately no call that returns a raw value.</text>
+<text x="322" y="440" class="f">ssh-agent's discipline: present a reference, the broker performs the operation, the key never leaves</text>
 
-<path d="M760 202 L780 202 L780 250 L794 250" class="wire" marker-end="url(#ah)"/>
-<rect x="800" y="204" width="432" height="142" rx="10" class="red"/>
-<text x="818" y="228" class="tiny" style="fill:#b42318">SECRET FOUND — THREE THINGS HAPPEN</text>
-<text x="818" y="254" class="b">1   the turn is BLOCKED: the model receives nothing, and</text>
-<text x="818" y="272" class="b">     nothing is written to the transcript on disk</text>
-<text x="818" y="298" class="b">2   the value is filed into the vault</text>
-<text x="818" y="324" class="b">3   you get your prompt back, rewritten with $STRIPE_KEY</text>
+<!-- ── LANE B · three tiers ─────────────────────────────────────── -->
+<rect x="32" y="480" width="1216" height="430" rx="14" class="card"/>
+<text x="52" y="508" class="lane">B — OUTBOUND · APPLY THE VALUE AT THE MOMENT OF USE, THREE WAYS</text>
+<text x="52" y="530" class="f">one tier is chosen per secret automatically, and clowk list always says which — so the protection level is never ambiguous</text>
 
-<rect x="52" y="268" width="708" height="76" rx="10" class="teal"/>
-<text x="72" y="294" class="tiny" style="fill:#0f766e">WHAT THE MODEL EVER SEES</text>
-<text x="72" y="322" class="m" style="font-size:15px;fill:#0f766e">$STRIPE_KEY</text>
-<text x="196" y="322" class="b">— and nothing else: not in the prompt, not on disk, not in its env</text>
+<path d="M480 444 L480 550 L400 550 L400 566" class="owire" marker-end="url(#ao)"/>
+<path d="M640 444 L640 566" class="owire" marker-end="url(#ao)"/>
+<path d="M800 444 L800 550 L880 550 L880 566" class="owire" marker-end="url(#ao)"/>
 
-<!-- ── middle · vault + cli ─────────────────────────────────────── -->
-<path d="M1000 346 L1000 390" class="wire" marker-end="url(#ah)"/>
-<text x="1010" y="376" class="f">stores</text>
+<!-- T1 -->
+<rect x="52" y="570" width="376" height="316" rx="12" class="teal"/>
+<text x="72" y="596" class="tiny" style="fill:#0f766e">T1 · NATIVE CREDENTIAL HOOKS</text>
+<text x="72" y="620" class="h">the tool asks; the broker answers</text>
+<text x="72" y="644" class="b">The ecosystem already standardised</text>
+<text x="72" y="662" class="b">"do not store it, ask a program".</text>
+<rect x="72" y="678" width="336" height="106" rx="8" fill="#ffffff" stroke="#cfe6e1"/>
+<text x="88" y="700" class="m" style="font-size:11.5px;fill:#0f766e">git   credential.helper=clowk</text>
+<text x="88" y="720" class="m" style="font-size:11.5px;fill:#0f766e">aws   credential_process</text>
+<text x="88" y="740" class="m" style="font-size:11.5px;fill:#0f766e">docker  credsStore</text>
+<text x="88" y="760" class="m" style="font-size:11.5px;fill:#0f766e">kubectl  exec plugin</text>
+<text x="88" y="776" class="f">git is verified working today</text>
+<text x="72" y="806" class="b">Broker → tool, directly.</text>
+<text x="72" y="826" class="b">Never in env. Never in argv.</text>
+<text x="72" y="846" class="b">Never in a file the agent reads.</text>
+<text x="72" y="872" class="f">accident-proof, not adversary-proof: see below</text>
 
-<rect x="32" y="396" width="560" height="118" rx="14" class="indigo"/>
-<text x="52" y="424" class="tiny">MANAGE · /clowk</text>
-<text x="52" y="450" class="m" style="font-size:12.5px;fill:#4338ca">list · clear · rename · run · install</text>
-<text x="52" y="472" class="b">install merges the hook block into ~/.claude/settings.json</text>
-<text x="52" y="494" class="f">hooks declared in a plugin manifest do not fire; settings ones do</text>
+<!-- T2 -->
+<rect x="452" y="570" width="376" height="316" rx="12" class="teal"/>
+<text x="472" y="596" class="tiny" style="fill:#0f766e">T2 · LOCALHOST REVERSE PROXY</text>
+<text x="472" y="620" class="h">point the base URL at the broker</text>
+<text x="472" y="644" class="b">The agent's env holds a worthless</text>
+<text x="472" y="662" class="b">reference and a localhost URL:</text>
+<rect x="472" y="678" width="336" height="106" rx="8" fill="#ffffff" stroke="#cfe6e1"/>
+<text x="488" y="700" class="m" style="font-size:11px;fill:#0f766e">OPENAI_API_KEY=clowk_ref_a1b2</text>
+<text x="488" y="720" class="m" style="font-size:11px;fill:#0f766e">OPENAI_BASE_URL=</text>
+<text x="488" y="738" class="m" style="font-size:11px;fill:#0f766e">  http://127.0.0.1:7799/openai</text>
+<text x="488" y="762" class="f">plain localhost HTTP inbound; the broker</text>
+<text x="488" y="777" class="f">makes the real HTTPS call outbound</text>
+<text x="472" y="806" class="b">No HTTPS_PROXY. No TLS to</text>
+<text x="472" y="826" class="b">intercept. No CA to trust.</text>
+<text x="472" y="852" class="r">host binding is structural — a route only</text>
+<text x="472" y="870" class="r">reaches its own upstream, so a stolen</text>
+<text x="472" y="886" class="r">reference cannot be aimed elsewhere</text>
 
-<rect x="660" y="396" width="588" height="118" rx="14" class="orange"/>
-<text x="680" y="424" class="tiny" style="fill:#c2410c">THE VAULT</text>
-<text x="680" y="450" class="m" style="font-size:13px;fill:#c2410c">~/.clowk/vault.json</text>
-<text x="884" y="450" class="f">mode 0600 · one file, not per project</text>
-<text x="680" y="472" class="b">the value, when it was caught, where it came from, every command that used it</text>
-<text x="680" y="494" class="f">never settings.local.json — so it lands in no session env and races nobody's edits</text>
+<!-- T3 -->
+<rect x="852" y="570" width="376" height="316" rx="12" class="orange"/>
+<text x="872" y="596" class="tiny" style="fill:#c2410c">T3 · SCOPED INJECTION · LAST RESORT</text>
+<text x="872" y="620" class="h">one child process, one command</text>
+<text x="872" y="644" class="b">For tools with neither a credential</text>
+<text x="872" y="662" class="b">hook nor a configurable endpoint.</text>
+<rect x="872" y="678" width="336" height="106" rx="8" fill="#ffffff" stroke="#efd0ba"/>
+<text x="888" y="700" class="m" style="font-size:11.5px;fill:#c2410c">clowk run -- ./deploy.sh</text>
+<text x="888" y="722" class="f">real value in that one child's env,</text>
+<text x="888" y="738" class="f">output scrubbed, use logged</text>
+<text x="888" y="762" class="f">explicit and narrow — clowk is never in</text>
+<text x="888" y="777" class="f">the path of ls, a build, or a test run</text>
+<text x="872" y="806" class="b">Forget to use it and the reference</text>
+<text x="872" y="826" class="b">yields a 401 that says what to do:</text>
+<text x="872" y="846" class="b">it fails closed and self-corrects.</text>
+<text x="872" y="872" class="f">so nothing here needs an unverified hook API</text>
 
-<!-- ── LANE B · outbound ────────────────────────────────────────── -->
-<rect x="32" y="548" width="1216" height="436" rx="14" class="card"/>
-<text x="52" y="576" class="lane">B — OUTBOUND · LET IT BE USED WITHOUT BEING READ</text>
+<!-- ── footer ───────────────────────────────────────────────────── -->
+<rect x="32" y="934" width="596" height="156" rx="14" class="card"/>
+<text x="52" y="962" class="tiny" style="fill:#0f766e">WHAT THIS STOPS</text>
+<text x="52" y="986" class="b">a pasted key reaching the model, the transcript, or disk</text>
+<text x="52" y="1006" class="b">env or printenv — the agent's environment holds references</text>
+<text x="52" y="1026" class="b">a reference being aimed at a host it does not belong to</text>
+<text x="52" y="1046" class="b">a stolen reference being worth anything off this machine</text>
+<text x="52" y="1066" class="b">git credential fill and friends — now on the deny list</text>
+<text x="52" y="1084" class="f">that last one printed a live token during this design session</text>
 
-<rect x="52" y="596" width="316" height="88" rx="10" class="teal"/>
-<text x="68" y="620" class="tiny" style="fill:#0f766e">THE AGENT WRITES</text>
-<text x="68" y="644" class="m" style="font-size:12px;fill:#0f766e">curl -H "Authorization: Bearer</text>
-<text x="68" y="664" class="m" style="font-size:12px;fill:#0f766e">$STRIPE_KEY" api.stripe.com/v1/…</text>
-
-<path d="M368 640 L404 640" class="wire" marker-end="url(#ah)"/>
-
-<rect x="410" y="596" width="206" height="88" rx="10" class="indigo"/>
-<text x="426" y="620" class="tiny">HOOK</text>
-<text x="426" y="644" class="h">PreToolUse</text>
-<text x="426" y="666" class="b">every Bash and Read</text>
-
-<path d="M616 640 L636 640 L636 606 L650 606" class="wire" marker-end="url(#ah)"/>
-<rect x="656" y="572" width="290" height="68" rx="10" class="red"/>
-<text x="672" y="596" class="r">~/.clowk/ · .env · *.pem · id_rsa</text>
-<text x="672" y="614" class="r">→ DENIED, it never runs</text>
-<text x="672" y="632" class="f">closes the casual read of a raw value</text>
-
-<path d="M616 640 L636 640 L636 678 L650 678" class="wire" marker-end="url(#ah)"/>
-<rect x="656" y="652" width="290" height="72" rx="10" class="indigo"/>
-<text x="672" y="676" class="b">every other Bash → rewritten to</text>
-<text x="672" y="696" class="m" style="font-size:12px;fill:#4338ca">clowk run -- …</text>
-<text x="672" y="716" class="f">silently; nobody has to type it</text>
-
-<path d="M800 724 L800 748" class="wire" marker-end="url(#ah)"/>
-
-<rect x="396" y="752" width="560" height="210" rx="12" class="orange"/>
-<text x="416" y="778" class="tiny" style="fill:#c2410c">RUNNER · THE ONLY PLACE A REAL VALUE EXISTS AT RUNTIME</text>
-<text x="416" y="804" class="b">1   every command comes through here — streamed, never buffered whole</text>
-<text x="416" y="826" class="b">2   inject only the names this command mentions…</text>
-<text x="416" y="848" class="r">     …and only if the target host is one that secret belongs to</text>
-<text x="416" y="870" class="b">3   scrub both streams as they flow: the whole value, plus its first</text>
-<text x="416" y="892" class="b">     and last 12 characters, so a truncated print cannot slip out</text>
-<text x="416" y="914" class="b">4   pass the exit code, stdin and TTY through untouched</text>
-<text x="416" y="936" class="b">5   record the use — exact, not guessed by grepping commands</text>
-
-<path d="M1210 514 L1210 776 L958 776" stroke="#c2410c" stroke-width="1.4" stroke-dasharray="5 4" fill="none" marker-end="url(#ahd)"/>
-<text x="1000" y="766" class="f" style="fill:#c2410c">lends the value, records the use</text>
-
-<path d="M956 846 L992 846" class="wire" marker-end="url(#ah)"/>
-<rect x="998" y="802" width="250" height="88" rx="10" class="teal"/>
-<text x="1014" y="826" class="tiny" style="fill:#0f766e">THE AGENT SEES</text>
-<text x="1014" y="850" class="b">the scrubbed output</text>
-<text x="1014" y="870" class="f">clean enough to work with</text>
-
-<rect x="52" y="782" width="316" height="100" rx="10" fill="#eef7f5" stroke="#a9d5ce" stroke-width="1.25" stroke-dasharray="5 4"/>
-<text x="68" y="806" class="tiny" style="fill:#0f766e">MEANWHILE, IN THE AGENT'S OWN SHELL</text>
-<text x="68" y="834" class="m" style="font-size:13px;fill:#0f766e">echo $STRIPE_KEY</text>
-<text x="68" y="858" class="b">→ empty. There is nothing in</text>
-<text x="68" y="876" class="b">its environment to read.</text>
-
-<!-- ── footer · honest scope ────────────────────────────────────── -->
-<rect x="32" y="1008" width="596" height="144" rx="14" class="card"/>
-<text x="52" y="1036" class="tiny" style="fill:#0f766e">WHAT THIS STOPS</text>
-<text x="52" y="1060" class="b">a pasted key reaching the model, the transcript, or disk</text>
-<text x="52" y="1080" class="b">env or printenv — the agent's environment holds none</text>
-<text x="52" y="1100" class="b">a real value in the output of any command, wrapped or not</text>
-<text x="52" y="1120" class="b">a secret sent to a host it does not belong to</text>
-<text x="52" y="1140" class="b">a casual read of the vault, a .env, or a private key</text>
-
-<rect x="652" y="1008" width="596" height="144" rx="14" class="card"/>
-<text x="672" y="1036" class="tiny" style="fill:#b42318">WHAT IT DOES NOT</text>
-<text x="672" y="1060" class="b">a file you @-mention — the host reads that, not clowk</text>
-<text x="672" y="1080" class="b">while a command runs its env and argv hold the value: ps sees it</text>
-<text x="672" y="1100" class="b">an agent obfuscating a host, or transforming the value</text>
-<text x="672" y="1120" class="b">a credential in a format the 220 rules do not recognise</text>
-<text x="672" y="1140" class="f">closing these needs OS sandboxing — the hassle this design refuses</text>
+<rect x="652" y="934" width="596" height="156" rx="14" class="card"/>
+<text x="672" y="962" class="tiny" style="fill:#b42318">WHAT IT DOES NOT</text>
+<text x="672" y="986" class="b">T1: a deliberate agent can invoke the helper itself</text>
+<text x="672" y="1006" class="b">T3: the value is in one child's env and argv while it runs</text>
+<text x="672" y="1026" class="b">a file you @-mention — the host reads that, not clowk</text>
+<text x="672" y="1046" class="b">Grep, and possibly subagent tool calls: host-side reads</text>
+<text x="672" y="1066" class="b">a credential in a format the 220 rules do not recognise</text>
+<text x="672" y="1084" class="f">closing these needs OS sandboxing — the cost this design refuses</text>
 
 </svg>
