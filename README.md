@@ -64,7 +64,8 @@ python3 clowk/cli.py install gemini-cli   # Gemini CLI
 
 Then restart the agent. `install` merges into your existing settings, backs the file up first, and
 refuses to touch it if it is not valid UTF-8 JSON. `uninstall` removes only clowk's own entries,
-and leaves everything else exactly as you wrote it, accented characters included.
+and leaves everything else exactly as you wrote it, accented characters included. Both keep the
+file's existing permissions; a settings file clowk has to create is owner-only from the start.
 
 The registered hook command holds this clone's absolute path, so if you move or rename the
 directory, re-run `install` from the new location (and `uninstall` from the old one first).

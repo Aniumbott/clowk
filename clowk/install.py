@@ -12,6 +12,7 @@ first, refuses rather than guesses on an unparseable file, and writes atomically
 import json
 import os
 import shutil
+import stat
 
 TARGETS = {
     "claude-code": {
@@ -83,11 +84,27 @@ def _save(path, data):
     parent = os.path.dirname(path)
     if parent and not os.path.isdir(parent):
         os.makedirs(parent)
+    try:
+        mode = stat.S_IMODE(os.stat(path).st_mode)
+    except OSError:
+        mode = 0o600  # creating it: start closed rather than at whatever the umask allows
     tmp = path + ".tmp"
+    # os.replace hands the file a new inode, so the mode has to be carried over deliberately --
+    # otherwise a settings.json the user chmod'd to 0600 came back 0644, widened by the tool that
+    # exists for credential hygiene. The temp file is created closed and only then widened to the
+    # recorded mode: a crash mid-write must not leave a readable copy of an `env` block behind.
+    # O_BINARY (Windows only) keeps the newline translation in Python's text layer, where
+    # open(tmp, "w") had it.
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_BINARY", 0)
+    fd = os.open(tmp, flags, 0o600)
     # ensure_ascii=False keeps the host's own non-ASCII text exactly as it wrote it, so uninstall
     # can still put the file back byte for byte. It is safe only because the encoding is pinned.
-    with open(tmp, "w", encoding="utf-8") as f:
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+    try:
+        os.chmod(tmp, mode)  # honours only the read-only bit on Windows
+    except OSError:
+        pass
     os.replace(tmp, path)
 
 

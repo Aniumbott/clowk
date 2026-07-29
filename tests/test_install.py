@@ -1,6 +1,7 @@
 import importlib
 import json
 import os
+import stat
 import tempfile
 import unittest
 
@@ -122,6 +123,66 @@ class TestInstall(InstallCase):
     def test_unknown_host_raises(self):
         with self.assertRaises(KeyError):
             self.install.install("nope", self.root, self.settings)
+
+
+class TestFileMode(InstallCase):
+    """_save replaces the file, so the mode has to be carried across deliberately.
+
+    settings.json can hold an `env` block that auto-reloads into every session's Bash
+    environment, so it is a credential-carrying surface. A tool that exists for credential
+    hygiene must not widen a mode the user narrowed on purpose -- nor narrow one they left open.
+    Only the backup got this right, because _backup goes through shutil.copy2.
+    """
+
+    def setUp(self):
+        InstallCase.setUp(self)
+        if os.name == "nt":
+            self.skipTest("POSIX modes only; on Windows this relies on user-profile ACLs")
+        previous = os.umask(0o022)  # pinned: the bug is invisible under a strict umask
+        self.addCleanup(os.umask, previous)
+
+    def mode(self, path=None):
+        return stat.S_IMODE(os.stat(path or self.settings).st_mode)
+
+    def test_a_narrowed_mode_survives_install_and_uninstall(self):
+        self.write({"theme": "dark", "env": {"ANTHROPIC_API_KEY": "sk-" "ant-not-real"}})
+        os.chmod(self.settings, 0o600)
+        self.install.install("claude-code", self.root, self.settings)
+        self.assertEqual(self.mode(), 0o600)
+        self.install.uninstall("claude-code", self.settings)
+        self.assertEqual(self.mode(), 0o600)
+
+    def test_a_wider_mode_is_not_tightened_either(self):
+        self.write({"theme": "dark"})
+        os.chmod(self.settings, 0o640)
+        self.install.install("claude-code", self.root, self.settings)
+        self.assertEqual(self.mode(), 0o640)
+
+    def test_a_file_install_creates_from_scratch_starts_closed(self):
+        self.install.install("claude-code", self.root, self.settings)
+        self.assertEqual(self.mode(), 0o600)
+
+    def test_the_temp_file_is_never_created_wider_than_owner_only(self):
+        # If the process dies mid-write, whatever mode the temp file was created with is what a
+        # full copy of the settings keeps on disk. Create closed, widen only at the end.
+        self.write({"env": {"ANTHROPIC_API_KEY": "sk-" "ant-not-real"}})
+        os.chmod(self.settings, 0o644)
+        tmp = self.settings + ".tmp"
+        seen = []
+
+        class SpyJson(object):
+            loads = staticmethod(json.loads)
+
+            @staticmethod
+            def dump(data, handle, **kwargs):
+                seen.append(stat.S_IMODE(os.stat(tmp).st_mode))
+                json.dump(data, handle, **kwargs)
+
+        self.install.json = SpyJson
+        self.addCleanup(setattr, self.install, "json", json)
+        self.install.install("claude-code", self.root, self.settings)
+        self.assertEqual(seen, [0o600])
+        self.assertFalse(os.path.exists(tmp))
 
 
 class TestEncoding(InstallCase):
