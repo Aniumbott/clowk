@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import tempfile
+import time
 import unittest
 
 from clowk.detect import scan, secret_group
@@ -117,6 +118,46 @@ class TestRulesetShape(unittest.TestCase):
         self.assertIn("0123456789abcdef0123456789abcdef01234567",
                       [f.secret for f in scan('cohere_key = "0123456789abcdef0123456789abcdef01234567"')])
         self.assertIn(SONAR_TOKEN, [f.secret for f in scan(SONAR_PROMPT)])
+
+
+class TestScanLatency(unittest.TestCase):
+    """Bound scan()'s cost, because the host's answer to a slow hook is to transmit the prompt.
+
+    Claude Code's default hook timeout is 60s and `clowk install` writes no explicit timeout, so
+    a scan that runs long is killed -- and every host fails open on timeout, meaning the pasted
+    credential goes to the model with no block, no vault entry and no message. Nothing else in
+    the suite notices that, and rules.json is regenerated from upstream gitleaks releases, so a
+    refresh could reintroduce a pathological pattern silently.
+
+    The fixture is built from the ruleset's own keywords rather than hardcoded, so it stays a
+    worst case as rules come and go: every keyword gate opens, and cost is driven by the longest
+    unbroken [\\w.-] run, not by total input length. The budgets are ~17x the measured time and
+    ~12x under the host timeout, so this bounds a regression without racing a busy CI box.
+    """
+
+    RUN_LENGTH = 200_000
+    WORST_CASE_BUDGET = 5.0
+    ORDINARY_BUDGET = 0.25    # the project's own per-run gate
+
+    @classmethod
+    def setUpClass(cls):
+        keywords = sorted({k for r in _load_rules() for k in (r.get("keywords") or [])})
+        run = ("aB3xQ9zLmN4pR7tV2wY8.-_" * (cls.RUN_LENGTH // 23 + 1))[:cls.RUN_LENGTH]
+        cls.worst_case = " ".join(keywords) + " " + run
+
+    def _elapsed(self, text):
+        start = time.time()
+        scan(text)
+        return time.time() - start
+
+    def test_a_worst_case_paste_scans_far_inside_the_host_hook_timeout(self):
+        elapsed = self._elapsed(self.worst_case)
+        self.assertLess(elapsed, self.WORST_CASE_BUDGET, "%.1fs on a %dKB worst-case paste"
+                        % (elapsed, self.RUN_LENGTH // 1000))
+
+    def test_an_ordinary_prompt_scans_within_the_projects_own_budget(self):
+        elapsed = self._elapsed("just refactor the parser in src/main.py and rename the helper")
+        self.assertLess(elapsed, self.ORDINARY_BUDGET, "%.3fs on an ordinary prompt" % elapsed)
 
 
 class TestBrokenRuleset(unittest.TestCase):
