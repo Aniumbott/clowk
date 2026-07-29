@@ -39,6 +39,26 @@ def read_text(path):
         return f.read()
 
 
+def files_containing(root, needle):
+    """Every file under root whose bytes contain needle, sorted.
+
+    Bytes, not text: this asks "is the value on disk anywhere", so an unreadable or
+    non-UTF-8 file must still be searched rather than skipped.
+    """
+    blob = needle.encode("utf-8")
+    hits = []
+    for base, _dirs, names in os.walk(root):
+        for name in names:
+            found = os.path.join(base, name)
+            try:
+                with open(found, "rb") as f:
+                    if blob in f.read():
+                        hits.append(found)
+            except (IOError, OSError):
+                pass
+    return sorted(hits)
+
+
 class IntegrationCase(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp(prefix="clowk-integration-")
@@ -222,11 +242,29 @@ class TestCaptureThenRotate(IntegrationCase):
         self.assertEqual(vault.names(), [])
 
     def test_the_rotated_value_is_the_one_the_deny_hook_still_protects(self):
+        # The deny hook guards a directory, not a value, so "the rotated value is protected"
+        # only holds if the vault file is the value's sole home on disk. Nest the vault so the
+        # walk below can see a stray copy written OUTSIDE the protected directory -- rooted at
+        # the vault's own directory it could not.
+        os.environ["CLOWK_VAULT"] = os.path.join(self.dir, "store", "vault.json")
         self.prompt_hook({"prompt": "use " + STRIPE, "cwd": "/proj"})
         os.environ["CLOWK_VALUE"] = STRIPE_ROTATED
-        self.run_cli("set", "STRIPE_SECRET_KEY")
-        code, out, err = self.tool_hook({"tool_name": "Read", "tool_input": {"file_path": vault.path()}})
-        self.assertIn("deny", out)
+        code, out, err = self.run_cli("set", "STRIPE_SECRET_KEY")
+        self.assertEqual(code, 0)
+        self.assertEqual(vault.get("STRIPE_SECRET_KEY"), STRIPE_ROTATED)
+        self.assertNoTrace(STRIPE_ROTATED, out, err)
+
+        # Every on-disk holder of the rotated value is the vault file itself, so the deny
+        # hook's directory guard covers all of them -- no sibling copy, no leftover .tmp.
+        self.assertEqual(files_containing(self.dir, STRIPE_ROTATED), [vault.path()])
+        # And the superseded value is not still lying around next to it.
+        self.assertEqual(files_containing(self.dir, STRIPE), [])
+
+        code, out, err = self.tool_hook(
+            {"tool_name": "Read", "tool_input": {"file_path": vault.path()}})
+        self.assertEqual(code, 0)  # a deny is expressed in stdout JSON, not in the exit code
+        self.assertIn("its own store", self.deny_reason("claude-code", out, err))
+        self.assertNoTrace(STRIPE_ROTATED, out, err)
 
 
 class TestMultipleCredentialsInOnePrompt(IntegrationCase):
