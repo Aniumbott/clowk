@@ -7,7 +7,7 @@ Secret patterns are derived from gitleaks (https://github.com/gitleaks/gitleaks)
 import re, json, os, sys, warnings
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from clowk.detect import classify
+from clowk.detect import classify, secret_group
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(_HERE, "clowk", "gitleaks.toml")
@@ -59,7 +59,7 @@ for b in blocks:
     ent = float(ment.group(1)) if ment else None
     rules.append({"id": rid, "env": env_name(rid), "regex": rx, "keywords": kws,
                   "entropy": ent, "ignorecase": ignorecase,
-                  "confidence": classify(rx)})
+                  "confidence": classify(rx), "group": secret_group(rx)})
 
 with open(OUT, "w") as f:
     json.dump(rules, f, indent=1)   # pure JSON data, loaded at runtime by detect.py

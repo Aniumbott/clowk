@@ -8,7 +8,8 @@
   ],
   "entropy": 3.8,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "1password-service-account-token",
@@ -19,7 +20,8 @@
   ],
   "entropy": 4.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "adafruit-api-key",
@@ -30,7 +32,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "adobe-client-id",
@@ -41,7 +44,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "adobe-client-secret",
@@ -52,7 +56,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "age-secret-key",
@@ -63,7 +68,8 @@
   ],
   "entropy": null,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "airtable-api-key",
@@ -74,7 +80,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "algolia-api-key",
@@ -85,7 +92,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "alibaba-access-key-id",
@@ -96,7 +104,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "alibaba-secret-key",
@@ -107,7 +116,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "anthropic-admin-api-key",
@@ -118,7 +128,8 @@
   ],
   "entropy": null,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "anthropic-api-key",
@@ -129,7 +140,8 @@
   ],
   "entropy": null,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "artifactory-api-key",
@@ -140,7 +152,8 @@
   ],
   "entropy": 4.5,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 0
  },
  {
   "id": "artifactory-reference-token",
@@ -151,7 +164,8 @@
   ],
   "entropy": 4.5,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 0
  },
  {
   "id": "asana-client-id",
@@ -162,7 +176,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "asana-client-secret",
@@ -173,7 +188,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "atlassian-api-token",
@@ -187,7 +203,8 @@
   ],
   "entropy": 3.5,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "authress-service-client-access-key",
@@ -201,7 +218,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "aws-access-token",
@@ -216,7 +234,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "aws-amazon-bedrock-api-key-long-lived",
@@ -227,7 +246,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "aws-amazon-bedrock-api-key-short-lived",
@@ -238,7 +258,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "azure-ad-client-secret",
@@ -249,7 +270,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "beamer-api-token",
@@ -260,7 +282,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "bitbucket-client-id",
@@ -271,7 +294,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "bitbucket-client-secret",
@@ -282,7 +306,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "bittrex-access-key",
@@ -293,7 +318,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "bittrex-secret-key",
@@ -304,7 +330,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "cisco-meraki-api-key",
@@ -315,7 +342,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "clickhouse-cloud-api-secret-key",
@@ -326,7 +354,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "clojars-api-token",
@@ -337,7 +366,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "cloudflare-api-key",
@@ -348,7 +378,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "cloudflare-global-api-key",
@@ -359,7 +390,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "cloudflare-origin-ca-key",
@@ -371,7 +403,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "codecov-access-token",
@@ -382,7 +415,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "cohere-api-token",
@@ -394,7 +428,8 @@
   ],
   "entropy": 4.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "coinbase-access-token",
@@ -405,7 +440,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "confluent-access-token",
@@ -416,7 +452,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "confluent-secret-key",
@@ -427,7 +464,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "contentful-delivery-api-token",
@@ -438,7 +476,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "curl-auth-header",
@@ -449,7 +488,8 @@
   ],
   "entropy": 2.75,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "curl-auth-user",
@@ -460,7 +500,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "databricks-api-token",
@@ -471,7 +512,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "datadog-access-token",
@@ -482,7 +524,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "defined-networking-api-token",
@@ -493,7 +536,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "digitalocean-access-token",
@@ -504,7 +548,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "digitalocean-pat",
@@ -515,7 +560,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "digitalocean-refresh-token",
@@ -526,7 +572,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "discord-api-token",
@@ -537,7 +584,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "discord-client-id",
@@ -548,7 +596,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "discord-client-secret",
@@ -559,7 +608,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "doppler-api-token",
@@ -570,7 +620,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 0
  },
  {
   "id": "droneci-access-token",
@@ -581,7 +632,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "dropbox-api-token",
@@ -592,7 +644,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "dropbox-long-lived-api-token",
@@ -603,7 +656,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "dropbox-short-lived-api-token",
@@ -614,7 +668,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "duffel-api-token",
@@ -625,7 +680,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "dynatrace-api-token",
@@ -636,7 +692,8 @@
   ],
   "entropy": 4.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 0
  },
  {
   "id": "easypost-api-token",
@@ -647,7 +704,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 0
  },
  {
   "id": "easypost-test-api-token",
@@ -658,7 +716,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 0
  },
  {
   "id": "etsy-access-token",
@@ -669,7 +728,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "facebook-access-token",
@@ -680,7 +740,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "facebook-page-access-token",
@@ -692,7 +753,8 @@
   ],
   "entropy": 4.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "facebook-secret",
@@ -703,7 +765,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "fastly-api-token",
@@ -714,7 +777,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "finicity-api-token",
@@ -725,7 +789,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "finicity-client-secret",
@@ -736,7 +801,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "finnhub-access-token",
@@ -747,7 +813,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "flickr-access-token",
@@ -758,7 +825,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "flutterwave-encryption-key",
@@ -769,7 +837,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "flutterwave-public-key",
@@ -780,7 +849,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "flutterwave-secret-key",
@@ -791,7 +861,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "flyio-access-token",
@@ -804,7 +875,8 @@
   ],
   "entropy": 4.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "frameio-api-token",
@@ -815,7 +887,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "freemius-secret-key",
@@ -826,7 +899,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "freshbooks-access-token",
@@ -837,7 +911,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "gcp-api-key",
@@ -848,7 +923,8 @@
   ],
   "entropy": 4.0,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "generic-api-key",
@@ -868,7 +944,8 @@
   ],
   "entropy": 3.5,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "github-app-token",
@@ -880,7 +957,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 0
  },
  {
   "id": "github-fine-grained-pat",
@@ -891,7 +969,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "github-oauth",
@@ -902,7 +981,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "github-pat",
@@ -913,7 +993,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "github-refresh-token",
@@ -924,7 +1005,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "gitlab-cicd-job-token",
@@ -935,7 +1017,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "gitlab-deploy-token",
@@ -946,7 +1029,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "gitlab-feature-flag-client-token",
@@ -957,7 +1041,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "gitlab-feed-token",
@@ -968,7 +1053,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "gitlab-incoming-mail-token",
@@ -979,7 +1065,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "gitlab-kubernetes-agent-token",
@@ -990,7 +1077,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "gitlab-oauth-app-secret",
@@ -1001,7 +1089,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "gitlab-pat",
@@ -1012,7 +1101,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "gitlab-pat-routable",
@@ -1023,7 +1113,8 @@
   ],
   "entropy": 4.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "gitlab-ptt",
@@ -1034,7 +1125,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "gitlab-rrt",
@@ -1045,7 +1137,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 0
  },
  {
   "id": "gitlab-runner-authentication-token",
@@ -1056,7 +1149,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "gitlab-runner-authentication-token-routable",
@@ -1067,7 +1161,8 @@
   ],
   "entropy": 4.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "gitlab-scim-token",
@@ -1078,7 +1173,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "gitlab-session-cookie",
@@ -1089,7 +1185,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "gitter-access-token",
@@ -1100,7 +1197,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "gocardless-api-token",
@@ -1112,7 +1210,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "grafana-api-key",
@@ -1123,7 +1222,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "grafana-cloud-api-token",
@@ -1134,7 +1234,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "grafana-service-account-token",
@@ -1145,7 +1246,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "harness-api-key",
@@ -1157,7 +1259,8 @@
   ],
   "entropy": null,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 0
  },
  {
   "id": "hashicorp-tf-api-token",
@@ -1168,7 +1271,8 @@
   ],
   "entropy": 3.5,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 0
  },
  {
   "id": "hashicorp-tf-password",
@@ -1180,7 +1284,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "heroku-api-key",
@@ -1191,7 +1296,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "heroku-api-key-v2",
@@ -1202,7 +1308,8 @@
   ],
   "entropy": 4.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "hubspot-api-key",
@@ -1213,7 +1320,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "huggingface-access-token",
@@ -1224,7 +1332,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "huggingface-organization-api-token",
@@ -1235,7 +1344,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "infracost-api-token",
@@ -1246,7 +1356,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "intercom-api-key",
@@ -1257,7 +1368,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "intra42-client-secret",
@@ -1270,7 +1382,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "jfrog-api-key",
@@ -1284,7 +1397,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "jfrog-identity-token",
@@ -1298,7 +1412,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "jwt",
@@ -1309,7 +1424,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "jwt-base64",
@@ -1320,7 +1436,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "kraken-access-token",
@@ -1331,7 +1448,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "kubernetes-secret-yaml",
@@ -1342,7 +1460,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "kucoin-access-token",
@@ -1353,7 +1472,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "kucoin-secret-key",
@@ -1364,7 +1484,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "launchdarkly-access-token",
@@ -1375,7 +1496,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "linear-api-key",
@@ -1386,7 +1508,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "linear-client-secret",
@@ -1397,7 +1520,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "linkedin-client-id",
@@ -1410,7 +1534,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "linkedin-client-secret",
@@ -1423,7 +1548,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "lob-api-key",
@@ -1435,7 +1561,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "lob-pub-api-key",
@@ -1448,7 +1575,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "looker-client-id",
@@ -1459,7 +1587,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "looker-client-secret",
@@ -1470,7 +1599,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "mailchimp-api-key",
@@ -1481,7 +1611,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "mailgun-private-api-token",
@@ -1492,7 +1623,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "mailgun-pub-key",
@@ -1503,7 +1635,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "mailgun-signing-key",
@@ -1514,7 +1647,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "mapbox-api-token",
@@ -1525,7 +1659,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "mattermost-access-token",
@@ -1536,7 +1671,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "maxmind-license-key",
@@ -1547,7 +1683,8 @@
   ],
   "entropy": 4.0,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "messagebird-api-token",
@@ -1560,7 +1697,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "messagebird-client-id",
@@ -1573,7 +1711,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "microsoft-teams-webhook",
@@ -1586,7 +1725,8 @@
   ],
   "entropy": null,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 0
  },
  {
   "id": "netlify-access-token",
@@ -1597,7 +1737,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "new-relic-browser-api-token",
@@ -1608,7 +1749,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "new-relic-insert-key",
@@ -1619,7 +1761,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "new-relic-user-api-id",
@@ -1632,7 +1775,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "new-relic-user-api-key",
@@ -1643,7 +1787,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "notion-api-token",
@@ -1654,7 +1799,8 @@
   ],
   "entropy": 4.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "npm-access-token",
@@ -1665,7 +1811,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "nuget-config-password",
@@ -1676,7 +1823,8 @@
   ],
   "entropy": 1.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "nytimes-access-token",
@@ -1689,7 +1837,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "octopus-deploy-api-key",
@@ -1700,7 +1849,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "okta-access-token",
@@ -1711,7 +1861,8 @@
   ],
   "entropy": 4.0,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "openai-api-key",
@@ -1722,7 +1873,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "openshift-user-token",
@@ -1733,7 +1885,8 @@
   ],
   "entropy": 3.5,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "perplexity-api-key",
@@ -1744,7 +1897,8 @@
   ],
   "entropy": 4.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "plaid-api-token",
@@ -1755,7 +1909,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "plaid-client-id",
@@ -1766,7 +1921,8 @@
   ],
   "entropy": 3.5,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "plaid-secret-key",
@@ -1777,7 +1933,8 @@
   ],
   "entropy": 3.5,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "planetscale-api-token",
@@ -1788,7 +1945,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "planetscale-oauth-token",
@@ -1799,7 +1957,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "planetscale-password",
@@ -1810,7 +1969,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "postman-api-token",
@@ -1821,7 +1981,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "prefect-api-token",
@@ -1832,7 +1993,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "private-key",
@@ -1843,7 +2005,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 0
  },
  {
   "id": "privateai-api-token",
@@ -1856,7 +2019,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "pulumi-api-token",
@@ -1867,7 +2031,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "pypi-upload-token",
@@ -1878,7 +2043,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "rapidapi-access-token",
@@ -1889,7 +2055,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "readme-api-token",
@@ -1900,7 +2067,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "rubygems-api-token",
@@ -1911,7 +2079,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "scalingo-api-token",
@@ -1922,7 +2091,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "sendbird-access-id",
@@ -1933,7 +2103,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "sendbird-access-token",
@@ -1944,7 +2115,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "sendgrid-api-token",
@@ -1955,7 +2127,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "sendinblue-api-token",
@@ -1966,7 +2139,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "sentry-access-token",
@@ -1977,7 +2151,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "sentry-org-token",
@@ -1988,7 +2163,8 @@
   ],
   "entropy": 4.5,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "sentry-user-token",
@@ -1999,7 +2175,8 @@
   ],
   "entropy": 3.5,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "settlemint-application-access-token",
@@ -2010,7 +2187,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "settlemint-personal-access-token",
@@ -2021,7 +2199,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "settlemint-service-access-token",
@@ -2032,7 +2211,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "shippo-api-token",
@@ -2043,7 +2223,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "shopify-access-token",
@@ -2054,7 +2235,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "shopify-custom-access-token",
@@ -2065,7 +2247,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "shopify-private-app-access-token",
@@ -2076,7 +2259,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "shopify-shared-secret",
@@ -2087,7 +2271,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "sidekiq-secret",
@@ -2099,7 +2284,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "sidekiq-sensitive-url",
@@ -2111,7 +2297,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "slack-app-token",
@@ -2122,7 +2309,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "slack-bot-token",
@@ -2133,7 +2321,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "slack-config-access-token",
@@ -2145,7 +2334,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "slack-config-refresh-token",
@@ -2156,7 +2346,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "slack-legacy-bot-token",
@@ -2167,7 +2358,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "slack-legacy-token",
@@ -2179,7 +2371,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "slack-legacy-workspace-token",
@@ -2191,7 +2384,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "slack-user-token",
@@ -2203,7 +2397,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 0
  },
  {
   "id": "slack-webhook-url",
@@ -2214,7 +2409,8 @@
   ],
   "entropy": null,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 0
  },
  {
   "id": "snyk-api-token",
@@ -2225,7 +2421,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "sonar-api-token",
@@ -2236,7 +2433,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 0
  },
  {
   "id": "sourcegraph-access-token",
@@ -2248,7 +2446,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "square-access-token",
@@ -2260,7 +2459,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": false,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "squarespace-access-token",
@@ -2271,7 +2471,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "stripe-access-token",
@@ -2287,7 +2488,8 @@
   ],
   "entropy": 2.0,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "sumologic-access-id",
@@ -2298,7 +2500,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "sumologic-access-token",
@@ -2309,7 +2512,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "telegram-bot-api-token",
@@ -2320,7 +2524,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "travisci-access-token",
@@ -2331,7 +2536,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "twilio-api-key",
@@ -2342,7 +2548,8 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 0
  },
  {
   "id": "twitch-api-token",
@@ -2353,7 +2560,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "twitter-access-secret",
@@ -2364,7 +2572,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "twitter-access-token",
@@ -2375,7 +2584,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "twitter-api-key",
@@ -2386,7 +2596,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "twitter-api-secret",
@@ -2397,7 +2608,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "twitter-bearer-token",
@@ -2408,7 +2620,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "typeform-api-token",
@@ -2419,7 +2632,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "high"
+  "confidence": "high",
+  "group": 1
  },
  {
   "id": "vault-batch-token",
@@ -2430,7 +2644,8 @@
   ],
   "entropy": 4.0,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "vault-service-token",
@@ -2442,7 +2657,8 @@
   ],
   "entropy": 3.5,
   "ignorecase": false,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "yandex-access-token",
@@ -2453,7 +2669,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "yandex-api-key",
@@ -2464,7 +2681,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "yandex-aws-access-token",
@@ -2475,7 +2693,8 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  },
  {
   "id": "zendesk-secret-key",
@@ -2486,6 +2705,7 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low"
+  "confidence": "low",
+  "group": 1
  }
 ]
