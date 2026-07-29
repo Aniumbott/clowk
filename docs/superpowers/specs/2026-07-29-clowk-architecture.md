@@ -219,25 +219,60 @@ iterations of this design:
 4. Whether Claude Code fails open or closed when a hook errors.
 5. OS keychain read/write from a plain CLI on macOS and Linux without an interactive prompt per use.
 
-## 12. Ship path — leaner than the above
+## 12. Ship path — the reduction
 
-**v1 = T1 + inbound guard + the lifecycle CLI. No daemon.**
+**T1's premise does not hold.** Its pitch is "the value is not in a file the agent reads" — but it
+is, it is in clowk's own store, and clowk runs as you. Encrypting that store buys nothing, because
+the key must be reachable by the same user, so the agent reaches it too. `aws credential_process`
+moves a value from `~/.aws/credentials` to `~/.clowk/vault.json`: a different path, identically
+readable. For git it is worse than lateral — `gh auth login` already keeps the token in the OS
+keychain rather than env, and a single `git credential fill` reads it straight back out.
 
-Credential helpers are short-lived processes, so they can decrypt the vault with a keychain-held key
-per invocation. That removes the socket, the port, the proxy, the per-API auth adapters, and any
-lifecycle for the user to manage — the largest source of complexity and of Windows second-code-paths
-in this document.
+Deleting encryption then removes the keychain integration (three platform code paths plus an
+unresolved per-use-prompt question), the decrypt-per-invocation path, **and the entire `clowk export`
+recovery problem — which existed only because of the encryption.** One removal, three things go.
 
-Everything T1 does not cover stays an ordinary env var: no protection, but captured, listed,
-tiered and rotatable, and labelled honestly as unprotected. That is a narrower pitch than "the agent
-never holds a credential", and it is one that can be defended line by line.
+Plaintext at 0600 is also ecosystem parity: `~/.aws/credentials`, `~/.npmrc`,
+`~/.docker/config.json`, `.git-credentials`, an unencrypted `id_rsa`. Not a regression from the
+world, and a clear improvement on `settings.local.json`, which sits in a directory people commit and
+which every session's env loads wholesale.
 
-**v2 = T2 proxy**, once the route/auth-scheme table is work worth doing, plus the daemon it needs.
-**v2.1 = T3.**
+### v1
 
-Form factor: a CLI plus helper binaries on PATH, installed via brew or pipx, with a thin Claude Code
-plugin carrying only the inbound hook and `/clowk`. Host-agnostic by default; the plugin is the only
-Claude-Code-specific piece.
+1. **Inbound guard** — built and verified. The only part that prevents a leak at all: nothing else in
+   any version of this design stops transmission to the provider.
+2. **Store** — one plaintext file at 0600 in `~/.clowk/`.
+3. **Lifecycle CLI** — `add / set / list / clear / rename / uses`.
+4. **Rotation ledger** — first caught, source, every command that used it. This answers the original
+   pain in `DESIGN.md` §1: rotating hurts because you cannot tell what depends on the key.
+5. **PreToolUse deny** — `~/.clowk/`, `.env`, `*.pem`, `id_rsa`, `git credential fill`,
+   `security find-generic-password`. Cheap, real accident prevention, explicitly not a boundary.
+
+No daemon, proxy, credential helpers, tiers, encryption, or keychain. Mostly code that already
+exists.
+
+### What clowk is, stated honestly
+
+**The thing that catches credentials at the paste boundary and tells you what depends on them.** Not
+a security boundary — a capture-and-bookkeeping tool that closes the leak nobody else closes.
+Capture is the seam `HANDOFF.md` §4 identified, and this document has now arrived back at it twice
+from the opposite direction.
+
+**Later, as hygiene and never as enforcement:** T1 native hooks, T2 localhost proxy (bearer APIs
+only, needs a curated route and auth-scheme table), T3 `clowk run`. Each gets a value out of your
+env, which is tidiness worth having — but none of them is a control, and none should be sold as one.
+
+Form factor: a CLI installed via brew or pipx, plus a thin Claude Code plugin carrying the inbound
+hook and `/clowk`. Only the plugin is host-specific.
+
+### What a real boundary would require
+
+Recorded so that "no boundary in v1" reads as a decision rather than an oversight. Three things could
+actually stop a same-user read, and none is v1-cheap: a **separate OS user** for the agent (Claude
+Code runs as you, so not available); a **container** with clowk on the host and a mounted socket
+(genuinely enforced, but presumes containerised development); or a **macOS Keychain ACL bound to a
+code-signed `clowk` binary** (OS-enforced against the same user, but macOS-only and needs a signing
+certificate).
 
 **Deferred, deliberately:** rotation and expiry (the broker log gives exact usage, which is the data
 rotation needs), per-project scoping (routes give host binding, which was the security half of it),
