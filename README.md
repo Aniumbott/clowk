@@ -15,6 +15,11 @@ two hosts) — the value is filed in `~/.clowk/vault.json`, and you get your pro
 credential replaced by `$STRIPE_SECRET_KEY`, put on your clipboard if a clipboard tool is
 available. Repaste and carry on.
 
+One message is filed under at most 20 names. A prompt with more hits than that is a pasted log
+tripping the shape-only rules rather than a credential paste, so the rest are still redacted and
+the turn is still blocked, but they are not filed — the block message says how many, and suggests
+resending with `unclowk` if none of them are credentials.
+
 Each entry records the working directory of the session that pasted it, so `clowk uses` can tell
 you where a credential came from — a starting point for what a rotation will touch. (The vault
 reserves a `used by` list per credential, but nothing in this version fills it in automatically:

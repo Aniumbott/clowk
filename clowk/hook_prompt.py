@@ -24,6 +24,18 @@ from clowk.detect import scan
 
 BYPASS = "unclowk"
 
+# Most values one prompt will ever be filed under. A prompt with more hits than this is a pasted
+# log, not a credential paste: 1800 lines of `request_id=<32 hex>` trips the shape-only rules ~170
+# times, and vault.store reloads and rewrites the whole file per call, so filing them all costs
+# O(hits x vault size) and leaves ~170 junk entries that come back one `clowk clear` at a time.
+# Everything past the cap is still redacted and the turn is still blocked -- only filing stops.
+MAX_FILED = 20
+
+# Longest rewrite echoed into the block reason when the clipboard already has it. Without this a
+# 200 KB log paste produced a 220 KB reason, which is what the host shows the user. Never applied
+# when the clipboard copy failed: there the echo is the user's only copy of the rewrite.
+ECHO_LIMIT = 4000
+
 
 def _host_from(argv):
     for i, arg in enumerate(argv):
@@ -34,7 +46,7 @@ def _host_from(argv):
     return "claude-code"
 
 
-def build_message(rewritten, stored, tiers, copied, unfiled=()):
+def build_message(rewritten, stored, tiers, copied, unfiled=(), skipped=0):
     """The block reason. Plain text: hooks cannot set colour or markdown."""
     lines = ["clowk stopped a credential before it reached the model."]
     for name in stored:
@@ -44,10 +56,19 @@ def build_message(rewritten, stored, tiers, copied, unfiled=()):
     for name in unfiled:
         lines.append("  NOT filed as $%s -- clowk could not write %s, so keep this value "
                      "yourself (check permissions and free space)" % (name, vault.path()))
+    if skipped:
+        lines.append("  and %d more redacted but NOT filed -- %d hits in one message reads as a "
+                     "pasted log rather than a credential paste, and filing them all would bury "
+                     "the vault in junk. If none of them are credentials, resend with %s."
+                     % (skipped, skipped + len(stored) + len(unfiled), BYPASS))
     lines.append("")
     lines.append("Your prompt, rewritten%s:" % (" -- already on your clipboard" if copied else ""))
     lines.append("")
-    lines.append("    " + rewritten)
+    if copied and len(rewritten) > ECHO_LIMIT:
+        lines.append("    [%d characters, not repeated here -- paste it from the clipboard]"
+                     % len(rewritten))
+    else:
+        lines.append("    " + rewritten)
     lines.append("")
     lines.append("To send the original text instead, start your message with:  %s" % BYPASS)
     return "\n".join(lines)
@@ -111,6 +132,7 @@ def main(argv, stdin, stdout, stderr):
 def capture(event, findings):
     """File every finding, redact it out of the prompt, and return the block reason."""
     rewritten, stored, unfiled, tiers = event["prompt"], [], [], {}
+    taken, skipped = set(), 0
     # Longest secret first, and skip anything a longer match already swallowed. Rules do nest:
     # flutterwave-encryption-key's pattern is a prefix of flutterwave-secret-key's, so one
     # pasted key yields two findings. Replacing the short one first would leave the tail of the
@@ -118,27 +140,32 @@ def capture(event, findings):
     for finding in sorted(findings, key=lambda f: len(f.secret), reverse=True):
         if finding.secret not in rewritten:
             continue
-        try:
-            name = vault.store(
-                finding.env, finding.secret,
-                rule=finding.rule_id, confidence=finding.confidence, source=event["cwd"],
-            )
-        except Exception:  # noqa: BLE001 -- unwritable/full/hand-edited vault; file, do not raise
-            name = _placeholder(finding.env, stored + unfiled)
-            unfiled.append(name)
+        if len(stored) >= MAX_FILED:
+            name = _placeholder(finding.env, taken)  # redacted, deliberately not filed
+            skipped += 1
         else:
-            stored.append(name)
-        # Outside the try on purpose: a value clowk could not file must still leave the prompt,
+            try:
+                name = vault.store(
+                    finding.env, finding.secret,
+                    rule=finding.rule_id, confidence=finding.confidence, source=event["cwd"],
+                )
+            except Exception:  # noqa: BLE001 -- unwritable/full/hand-edited vault; note, not raise
+                name = _placeholder(finding.env, taken)
+                unfiled.append(name)
+            else:
+                stored.append(name)
+        taken.add(name)
+        # Outside the try on purpose: a value clowk did not file must still leave the prompt,
         # or the raw secret would land in the reason and on the clipboard.
         rewritten = rewritten.replace(finding.secret, "$" + name)
         tiers[name] = finding.confidence
 
     copied = clip.copy(rewritten)
-    return build_message(rewritten, stored, tiers, copied, unfiled)
+    return build_message(rewritten, stored, tiers, copied, unfiled, skipped)
 
 
 def _placeholder(env, taken):
-    """The $NAME to substitute for a value clowk could not file.
+    """The $NAME to substitute for a value clowk did not file. `taken` is a set of used names.
 
     Suffixed the way vault.store suffixes a clash, so two different values never collapse into
     one placeholder -- that would assert two secrets are the same secret.

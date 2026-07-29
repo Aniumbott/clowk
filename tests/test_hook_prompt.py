@@ -2,6 +2,7 @@ import importlib
 import io
 import json
 import os
+import random
 import subprocess
 import sys
 import tempfile
@@ -229,6 +230,64 @@ class TestFilingFailureStillBlocks(HookCase):
         reason = json.loads(out)["reason"]
         self.assertNotIn(self.KEY, reason)
         self.assertIn("unclowk", reason)
+
+
+class TestLogPasteDoesNotAvalanche(HookCase):
+    """A pasted app log trips the shape-only rules hundreds of times in one prompt.
+
+    Filing every hit minted one named vault entry per hit, and vault.store reloads and rewrites
+    the whole file on every call, so the cost was O(hits x vault size) -- and recovery was one
+    `clowk clear` per entry. The reason also grew to hundreds of KB, which is what the host shows
+    the user. Redaction and the block itself are NOT capped; only filing is.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        rnd = random.Random(7)
+        hexes = lambda n: "".join(rnd.choice("0123456789abcdef") for _ in range(n))
+        cls.log = "\n".join(
+            "2026-07-29T10:%02d:%02d INFO request_id=%s auth_token_hint=%s status=200"
+            % (i % 60, i % 60, hexes(32), hexes(16)) for i in range(1800))
+        from clowk.detect import scan
+
+        cls.secrets = [f.secret for f in scan(cls.log)]
+
+    def setUp(self):
+        HookCase.setUp(self)
+        self.assertGreater(len(self.secrets), 100, "fixture no longer trips the shape-only rules")
+
+    def block_reason(self, copied=False):
+        if copied:
+            self.addCleanup(setattr, self.hook.clip, "copy", self.hook.clip.copy)
+            self.hook.clip.copy = lambda text: True
+        code, out, err = self.run_hook({"prompt": self.log, "cwd": "/p"})
+        self.assertEqual(code, 0)
+        self.assertNotEqual(out, "")
+        return json.loads(out)["reason"]
+
+    def test_one_paste_files_at_most_the_cap(self):
+        self.block_reason()
+        self.assertLessEqual(len(self.vault.names()), self.hook.MAX_FILED)
+
+    def test_every_match_is_still_redacted_even_past_the_cap(self):
+        reason = self.block_reason()
+        for secret in self.secrets:
+            self.assertNotIn(secret, reason)
+
+    def test_the_reason_says_what_it_did_not_file_and_how_to_resend(self):
+        reason = self.block_reason()
+        self.assertIn("NOT filed", reason)
+        self.assertIn("unclowk", reason)
+
+    def test_the_reason_stays_small_when_the_rewrite_is_on_the_clipboard(self):
+        self.assertLess(len(self.block_reason(copied=True)), 20000)
+
+    def test_the_rewrite_is_echoed_in_full_when_there_is_no_clipboard(self):
+        # The echo is the user's only copy when no clipboard tool exists (every headless box),
+        # so it must never be truncated there -- the alternative is retyping or `unclowk`.
+        reason = self.block_reason()
+        self.assertIn("$GENERIC_API_KEY status=200", reason)
+        self.assertGreater(len(reason), len(self.log) - len("".join(self.secrets)))
 
 
 class TestStdinIsDecodedAsUtf8(HookCase):
