@@ -128,6 +128,25 @@ class TestHook(DenyCase):
         decision = json.loads(out.getvalue())["hookSpecificOutput"]
         self.assertEqual(decision["permissionDecision"], "deny")
 
+    def test_a_non_utf8_locale_does_not_disable_the_hook(self):
+        # Hosts send UTF-8 JSON (Node's JSON.stringify does not escape non-ASCII), but sys.stdin
+        # decodes with the locale codec. On a cp1252 box one accented character anywhere in the
+        # payload -- `cwd` rides along on every tool call, and this hook never even reads it --
+        # raised UnicodeDecodeError, which subclasses ValueError and so was indistinguishable
+        # from malformed JSON: exit 0, no deny, every tool call of the session allowed.
+        from clowk import hook_pretool
+
+        hook = importlib.reload(hook_pretool)
+        payload = {"tool_name": "Read", "tool_input": {"file_path": self.deny.vault.path()},
+                   "cwd": "C:\\Users\\\u0141ukasz\\proj"}
+        raw = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        stdin = io.TextIOWrapper(io.BytesIO(raw), encoding="cp1252")
+        out, err = io.StringIO(), io.StringIO()
+        code = hook.main(["--host", "claude-code"], stdin, out, err)
+        self.assertEqual(code, 0)
+        decision = json.loads(out.getvalue())["hookSpecificOutput"]
+        self.assertEqual(decision["permissionDecision"], "deny")
+
     def test_unparseable_input_is_silent(self):
         from clowk import hook_pretool
 

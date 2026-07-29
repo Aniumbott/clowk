@@ -46,6 +46,24 @@ def host_from(argv):
     return "claude-code"
 
 
+def read_payload(stdin):
+    """Return the raw payload text, decoded as UTF-8 whatever the locale codec is.
+
+    Hosts send UTF-8 JSON, but sys.stdin decodes with the locale codec, so on a non-UTF-8 locale
+    (every Windows default ANSI codepage: cp1252, cp932, cp936) one non-ASCII byte raised
+    UnicodeDecodeError -- and that subclasses ValueError, so it was indistinguishable from
+    malformed JSON and the hook exited 0. `cwd` is in every payload, so an accented character in
+    a profile path was enough to silence a hook for a whole session.
+
+    `errors="replace"` cannot raise, and U+FFFD cannot hide a credential: every rule's value half
+    is ASCII, as is every path pattern the deny list matches on.
+    """
+    raw = getattr(stdin, "buffer", None)  # absent on the StringIO the tests pass in
+    if raw is None:
+        return stdin.read()
+    return raw.read().decode("utf-8", "replace")
+
+
 def read_event(payload):
     """Normalise a host payload to {"prompt", "cwd", "session_id"}. Never raises."""
     if not isinstance(payload, dict):

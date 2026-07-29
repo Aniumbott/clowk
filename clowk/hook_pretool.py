@@ -19,7 +19,14 @@ from clowk import deny, hosts
 
 def main(argv, stdin, stdout, stderr):
     try:
-        payload = json.load(stdin)
+        text = hosts.read_payload(stdin)
+    except UnicodeDecodeError as e:
+        # A call clowk could not read is not a call clowk checked. Never deny on our own
+        # confusion, but do not look healthy either.
+        stderr.write("clowk: cannot decode this payload as %s -- NOT checking this call\n" % e.encoding)
+        return 0
+    try:
+        payload = json.loads(text)
     except ValueError:
         return 0
     if not isinstance(payload, dict):
