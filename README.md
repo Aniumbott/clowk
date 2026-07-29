@@ -1,5 +1,7 @@
 # clowk
 
+[![tests](https://github.com/Aniumbott/clowk/actions/workflows/ci.yml/badge.svg)](https://github.com/Aniumbott/clowk/actions/workflows/ci.yml)
+
 Catches credentials you paste into an AI coding agent's chat **before they reach the model**,
 files them locally, and records where each one came from.
 
@@ -212,6 +214,11 @@ No dependencies, so no setup step:
 python3 -m unittest discover -s tests        # 268 tests, ~2s
 python3 -m unittest discover -s tests -v     # per-test names
 ```
+
+CI runs the same suite on Python 3.8 through 3.13 across Linux, macOS and Windows, plus three
+checks the suite cannot make on its own: that no third-party import has crept in, that the prompt
+hook run end to end leaks the raw value into neither stream on any of the three hosts, and that
+install merges into a settings file it did not write and uninstall restores it byte for byte.
 
 `tests/test_docs.py` checks this README against the code, so a claim here that stops being true
 fails the suite.
