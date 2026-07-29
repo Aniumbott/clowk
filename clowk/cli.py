@@ -215,6 +215,16 @@ def cmd_uninstall(host, out, err):
 def main(argv, out=None, err=None):
     out = out if out is not None else sys.stdout
     err = err if err is not None else sys.stderr
+    try:
+        return _dispatch(argv, out, err)
+    except vault.VaultUnreadable as exc:
+        # One catch for every vault-touching command. Reporting an empty vault instead would
+        # both lie and invite the next write to overwrite the file.
+        err.write("%s\n" % exc)
+        return 1
+
+
+def _dispatch(argv, out, err):
     if not argv or argv[0] in ("-h", "--help", "help"):
         out.write(__doc__ + "\n")
         return 1 if not argv else 0

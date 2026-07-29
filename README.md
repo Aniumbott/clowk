@@ -108,6 +108,11 @@ so any key would have to be reachable by that same user. This is the same postur
 file is plain JSON, reading it is also your export and backup path — there is nothing to lock you
 out of your own credentials.
 
+If a hand-edit leaves the file unparseable, clowk refuses rather than guessing: every command
+prints the path and stops, and nothing is overwritten, so fixing the JSON brings everything back.
+A capture during that window still blocks the turn and still redacts the value — it just tells you
+the value was not filed.
+
 ## False positives
 
 129 of the 220 rules match on shape rather than a literal vendor prefix, so a legitimate prompt can

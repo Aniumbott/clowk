@@ -484,27 +484,48 @@ class TestRobustness(IntegrationCase):
                 self.assertEqual((repr(value), code, out, err), (repr(value), 0, "", ""))
         self.assertEqual(vault.names(), [])
 
-    def test_a_corrupt_vault_does_not_stop_a_capture(self):
+    def test_a_corrupt_vault_does_not_stop_a_block(self):
+        # An unparseable vault is a file clowk must not overwrite -- the user's only copy of
+        # everything caught so far is in it. Filing stops; blocking does not.
         with open(vault.path(), "w") as f:
             f.write("{not json")
         code, out, err = self.prompt_hook({"prompt": "use " + STRIPE, "cwd": "/p"})
-        self.assertEqual(code, 0)
-        self.assertEqual(vault.get("STRIPE_SECRET_KEY"), STRIPE)
+        self.assertEqual(code, BLOCK_CODE["claude-code"])
+        reason = self.block_reason("claude-code", out, err)
+        self.assertIn("NOT filed as $STRIPE_SECRET_KEY", reason)
+        self.assertIn("use $STRIPE_SECRET_KEY", reason)
         self.assertNoTrace(STRIPE, out, err)
+        self.assertEqual(read_text(vault.path()), "{not json")
 
-    def test_a_vault_holding_the_wrong_json_shape_does_not_stop_a_capture(self):
+    def test_a_vault_holding_the_wrong_json_shape_does_not_stop_a_block(self):
         with open(vault.path(), "w") as f:
             json.dump(["not", "a", "vault"], f)
-        self.assertEqual(self.prompt_hook({"prompt": "use " + STRIPE, "cwd": "/p"})[0], 0)
-        self.assertEqual(vault.get("STRIPE_SECRET_KEY"), STRIPE)
+        original = read_text(vault.path())
+        code, out, err = self.prompt_hook({"prompt": "use " + STRIPE, "cwd": "/p"})
+        self.assertEqual(code, BLOCK_CODE["claude-code"])
+        self.assertIn("NOT filed as $STRIPE_SECRET_KEY",
+                      self.block_reason("claude-code", out, err))
+        self.assertNoTrace(STRIPE, out, err)
+        self.assertEqual(read_text(vault.path()), original)
 
-    def test_a_corrupt_vault_leaves_the_cli_usable(self):
+    def test_a_corrupt_vault_makes_the_cli_refuse_rather_than_report_an_empty_vault(self):
         with open(vault.path(), "w") as f:
             f.write("{not json")
+        for argv in (["list"], ["uses"], ["clear", "A"], ["rename", "A", "B"]):
+            code, out, err = self.run_cli(*argv)
+            self.assertEqual((argv, code), (argv, 1))
+            self.assertNotIn("No credentials stored", out)
+            self.assertIn("fix or move the file", err)
+        os.environ["CLOWK_VALUE"] = STRIPE
+        self.assertEqual(self.run_cli("add", "NEW_KEY")[0], 1)
+        self.assertEqual(read_text(vault.path()), "{not json")
+
+    def test_a_wrong_shaped_vault_makes_the_cli_refuse_too(self):
+        with open(vault.path(), "w") as f:
+            json.dump({"version": 1, "secrets": []}, f)
         code, out, err = self.run_cli("list")
-        self.assertEqual(code, 0)
-        self.assertIn("No credentials stored", out)
-        self.assertEqual(self.run_cli("uses")[0], 0)
+        self.assertEqual(code, 1)
+        self.assertIn("fix or move the file", err)
 
     def test_a_corrupt_deny_config_still_protects_the_vault(self):
         with open(deny.config_path(), "w") as f:

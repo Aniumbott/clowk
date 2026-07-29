@@ -12,6 +12,15 @@ import os
 
 DEFAULT_PATH = os.path.join(os.path.expanduser("~"), ".clowk", "vault.json")
 _META_KEYS = ("rule", "confidence", "first_caught", "sources", "uses")
+_REFUSAL = "clowk will not modify it -- fix or move the file, then retry."
+
+
+class VaultUnreadable(Exception):
+    """The vault file exists but cannot be understood, so clowk must not write over it.
+
+    Deliberately not a ValueError: cli.cmd_allow and cmd_install already catch ValueError for
+    unrelated reasons and would swallow this.
+    """
 
 
 def path():
@@ -22,18 +31,51 @@ def _now():
     return datetime.datetime.now().isoformat(timespec="seconds")
 
 
+def _empty():
+    return {"version": 1, "secrets": {}}
+
+
 def _load():
+    """The vault as a dict, or raise VaultUnreadable rather than let a write destroy it.
+
+    Three states, not two. "Absent or blank" is an empty vault -- that is first run, and writing
+    is correct. "Present but unparseable" is NOT: every mutator loads then saves, so reading it
+    as empty made the next capture overwrite every credential the user had while reporting
+    success, with no backup. The vault is a plaintext file the README invites you to read and
+    hand-edit, so one stray comma is an ordinary accident, and the file is the only copy.
+    Same posture as install.py on an unparseable settings.json: refuse, do not guess.
+    """
+    p = path()
     try:
-        with open(path()) as f:
-            data = json.load(f)
-    except (IOError, OSError, ValueError):
-        return {"version": 1, "secrets": {}}
-    if not isinstance(data, dict) or not isinstance(data.get("secrets"), dict):
-        return {"version": 1, "secrets": {}}
+        with open(p) as f:
+            text = f.read()
+    except FileNotFoundError:
+        return _empty()  # first run
+    except UnicodeDecodeError as exc:
+        raise VaultUnreadable("%s is not %s text. %s" % (p, exc.encoding, _REFUSAL))
+    except (IOError, OSError) as exc:
+        # It exists but cannot be read (permissions, a directory, an I/O error). A file we
+        # cannot read can still be replaced, so refusing is the only safe answer.
+        raise VaultUnreadable("%s could not be read (%s). %s" % (p, exc, _REFUSAL))
+    if not text.strip():
+        return _empty()  # a zero-byte file holds nothing to lose
+    try:
+        data = json.loads(text)
+    except ValueError:
+        raise VaultUnreadable("%s is not valid JSON. %s" % (p, _REFUSAL))
+    if not isinstance(data, dict):
+        raise VaultUnreadable("%s does not contain a JSON object. %s" % (p, _REFUSAL))
+    secrets = data.get("secrets")
+    if secrets is None:
+        data["secrets"] = {}  # an object with no secrets yet: nothing to lose either
+    elif not isinstance(secrets, dict):
+        raise VaultUnreadable("%s has a 'secrets' key that is not an object. %s" % (p, _REFUSAL))
     return data
 
 
 def _save(data):
+    # No "is the file still parseable?" check here: every caller goes through _load first, so an
+    # unreadable vault has already refused by the time we get here. A re-read would only add I/O.
     p = path()
     parent = os.path.dirname(p)
     if parent:

@@ -50,10 +50,71 @@ class TestStore(VaultCase):
     def test_get_of_unknown_name_is_none(self):
         self.assertIsNone(self.vault.get("NOPE"))
 
-    def test_corrupt_file_does_not_raise(self):
+
+class TestUnreadableFile(VaultCase):
+    """An existing-but-unparseable vault is not an empty vault.
+
+    Treating the two the same made the next write overwrite every captured credential while
+    reporting success. Refuse instead, the way install.py refuses an unparseable settings.json.
+    """
+
+    def write_raw(self, text):
         with open(self.vault.path(), "w") as f:
-            f.write("{not json")
+            f.write(text)
+
+    def read_raw(self):
+        with open(self.vault.path()) as f:
+            return f.read()
+
+    def test_an_unparseable_file_raises_instead_of_reading_as_empty(self):
+        self.write_raw("{not json")
+        with self.assertRaises(self.vault.VaultUnreadable):
+            self.vault.names()
+
+    def test_an_unparseable_file_is_never_overwritten(self):
+        self.vault.store("KEEP_ME", "one")
+        original = self.read_raw()
+        self.write_raw(original + ",")  # the classic hand-edit slip
+        with self.assertRaises(self.vault.VaultUnreadable):
+            self.vault.store("NEW", "two")
+        self.assertEqual(self.read_raw(), original + ",")
+
+    def test_the_refusal_names_the_file_and_says_what_to_do(self):
+        self.write_raw("{not json")
+        with self.assertRaises(self.vault.VaultUnreadable) as caught:
+            self.vault.names()
+        self.assertIn(self.vault.path(), str(caught.exception))
+        self.assertIn("fix or move the file", str(caught.exception))
+
+    def test_a_json_value_that_is_not_an_object_raises(self):
+        self.write_raw(json.dumps(["not", "a", "vault"]))
+        with self.assertRaises(self.vault.VaultUnreadable):
+            self.vault.names()
+
+    def test_a_secrets_key_of_the_wrong_type_raises(self):
+        self.write_raw(json.dumps({"version": 1, "secrets": []}))
+        with self.assertRaises(self.vault.VaultUnreadable):
+            self.vault.names()
+
+    def test_undecodable_bytes_raise_rather_than_reading_as_empty(self):
+        with open(self.vault.path(), "wb") as f:
+            f.write(b"\xff\xfe{\x00\"a\x00")  # UTF-16-ish mangle from a bad copy
+        with self.assertRaises(self.vault.VaultUnreadable):
+            self.vault.names()
+
+    def test_an_absent_file_is_an_empty_vault(self):
+        self.assertFalse(os.path.exists(self.vault.path()))
         self.assertEqual(self.vault.names(), [])
+
+    def test_a_blank_file_is_an_empty_vault(self):
+        self.write_raw("   \n")
+        self.assertEqual(self.vault.names(), [])
+        self.assertEqual(self.vault.store("A", "one"), "A")
+
+    def test_an_object_with_no_secrets_key_is_an_empty_vault(self):
+        self.write_raw(json.dumps({"version": 1}))
+        self.assertEqual(self.vault.names(), [])
+        self.assertEqual(self.vault.store("A", "one"), "A")
 
 
 class TestMetadata(VaultCase):
