@@ -6,10 +6,10 @@ Confidence tiers: a rule whose regex carries a literal vendor prefix ending in _
 the only thing that prevents transmission -- but the tier changes the wording and lets
 false-positive junk be purged from the vault later.
 
-The test is deliberately narrow, so it is conservative rather than wrong: a prefix with no
-trailing separator (AKIA...) or one buried in an alternation group ((?:sk|rk)_live_) reads as
-"low" even though it is in fact a pinned vendor format. Never word a "low" message as "this is
-probably not a credential" -- word it as "clowk is less sure what this is".
+The test is deliberately narrow, and it errs low: a prefix with no trailing separator (AKIA...)
+reads as "low" even though it is in fact a pinned vendor format. It only ever looks at the
+value half of a rule, never at the keyword half -- see classify(). Never word a "low" message
+as "this is probably not a credential" -- word it as "clowk is less sure what this is".
 """
 import json
 import math
@@ -50,11 +50,24 @@ _LITERAL_PREFIX = re.compile(r"(?<![\\\[])([A-Za-z0-9]{2,}[_-])")
 _CHAR_CLASS = re.compile(r"\[[^\]]*\]")
 # regex metacharacters: a group body free of all of them can only match one fixed string.
 _META = frozenset("\\|.*+?[](){}^$")
+# the assignment operator in gitleaks' keyword=value template: everything before it is keyword
+# context, everything after it is the value. Present verbatim in 101 of the 220 vendored rules.
+_OPERATOR = r"(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)"
 
 
 def classify(regex):
-    """Return "high" if the pattern pins a literal vendor prefix, else "low"."""
-    return "high" if _LITERAL_PREFIX.search(_CHAR_CLASS.sub("", regex)) else "low"
+    """Return "high" if the pattern pins a literal vendor prefix, else "low".
+
+    Only the value half counts. gitleaks' generic template is
+    `<keyword-alternation><operator><captured value><delimiter>`, and a literal run in the
+    KEYWORD half says nothing about the value's shape: hashicorp-tf-password's alternation
+    is (?:administrator_login_password|password), so `administrator_` used to read as a
+    pinned vendor prefix and a plain `password = "localdevonly1"` blocked at "high" -- which
+    suppresses the very "shape-only match, run clowk clear NAME" hint it needed. Splitting is
+    monotone: it only removes text, so it can never manufacture a false "high".
+    """
+    tail = regex.split(_OPERATOR, 1)[-1]   # no operator group -> classify the whole pattern
+    return "high" if _LITERAL_PREFIX.search(_CHAR_CLASS.sub("", tail)) else "low"
 
 
 def _skip_class(rx, i):

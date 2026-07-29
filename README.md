@@ -103,9 +103,11 @@ out of your own credentials.
 
 ## False positives
 
-124 of the 220 rules match on shape rather than a literal vendor prefix, so a legitimate prompt can
+129 of the 220 rules match on shape rather than a literal vendor prefix, so a legitimate prompt can
 be blocked. (That count is deliberately conservative: a pinned format with no trailing separator,
-like `AKIA…`, is counted as shape-only too.) Every block message tells you how to bypass
+like `AKIA…`, is counted as shape-only too, and only the value half of a rule counts — a vendor
+name in the rule's keyword list says nothing about the value's shape.) Every block message tells
+you how to bypass
 (`unclowk`), and shape-only matches are flagged in `clowk list` so they are easy to purge with
 `clowk clear NAME`.
 
