@@ -130,7 +130,11 @@ def main(argv, stdin, stdout, stderr):
 
 
 def capture(event, findings):
-    """File every finding, redact it out of the prompt, and return the block reason."""
+    """Redact every finding out of the prompt, file what it can, return the block reason.
+
+    Redaction is unconditional; filing is not -- it stops at MAX_FILED and tolerates a vault
+    that cannot be written. Raising here only costs the reason text, never the block.
+    """
     rewritten, stored, unfiled, tiers = event["prompt"], [], [], {}
     taken, skipped = set(), 0
     # Longest secret first, and skip anything a longer match already swallowed. Rules do nest:
