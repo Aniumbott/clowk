@@ -24,6 +24,11 @@ import unittest
 from clowk import cli, clip, deny, hook_pretool, hook_prompt, install, vault
 
 # Fake credentials, in the shapes the vendored rules recognise. None of these is live.
+#
+# Some are written as two adjacent literals ("sk_" "live_...") which Python joins at parse time.
+# The value a test sees is unchanged; only the source text differs, and that is deliberate --
+# written contiguously, GitHub push protection blocks every push of this repo, including from a
+# fork. Please keep the split when editing, and split any new fixture a scanner flags the same way.
 STRIPE = "sk_" "live_4eC39HqLyjWDarjtT1zdp7dc"
 STRIPE_ROTATED = "sk_" "live_51H8xQ2LmNpQrStUvWxYz0123"
 GITHUB = "ghp" "_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"

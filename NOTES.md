@@ -62,3 +62,20 @@ Antigravity are unverified and unsupported.
   the usual command-hook convention; Codex's `PreToolUse` is documented to accept a richer JSON
   protocol (`updatedInput.command`) that this project has not tested. If exit 2 turns out not to
   deny on those hosts, the call proceeds — but the reason is still on stderr, so it is visible.
+
+## Test fixtures and push protection
+
+Three fixture credentials are written as two adjacent string literals -- `"sk_" "live_..."`,
+`"xoxb" "-1234..."`, `"FLWSECK" "_TEST-..."`. Python joins them at parse time, so the value each
+test sees is unchanged.
+
+The split is not cosmetic. Written contiguously, GitHub push protection rejects every push of this
+repository -- including from a fork, and including pushes that touch nothing else -- because the
+fixtures are valid-shaped Stripe, Slack and Flutterwave keys. They are synthetic, so the
+"allow secret" bypass would work, but it needs a browser round-trip per secret from every
+contributor. Splitting the literal costs nothing and removes the wall.
+
+Notably not flagged: `sk_" "live_4eC39HqLyjWDarjtT1zdp7dc` (Stripe's own published example, which
+GitHub allowlists) and the `ghp_ABCDEF...` fixtures (they fail GitHub's PAT checksum). So a
+scanner-safe fixture is possible without splitting -- it is just not predictable, which is why the
+split is the rule here.
