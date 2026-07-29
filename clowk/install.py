@@ -154,16 +154,27 @@ def uninstall(host, settings_path_override=None):
         if not isinstance(groups, list):
             continue
         kept_groups = []
+        removed_here = 0
         for group in groups:
             if not isinstance(group, dict):
                 kept_groups.append(group)
                 continue
             entries = group.get("hooks", [])
             kept = [e for e in entries if not is_clowk_entry(e)]
-            removed += len(entries) - len(kept)
+            dropped = len(entries) - len(kept)
+            if not dropped:
+                # Nothing of ours in here, so leave the group byte-for-byte as the user wrote
+                # it. Rewriting it would add a "hooks" key to a matcher-only group, and the
+                # prune below would then delete a group clowk never touched.
+                kept_groups.append(group)
+                continue
+            removed_here += dropped
             group["hooks"] = kept
             if kept:
                 kept_groups.append(group)
+        removed += removed_here
+        if not removed_here:
+            continue  # untouched event: do not rewrite or prune it
         if kept_groups:
             hooks[event] = kept_groups
         else:
