@@ -10,6 +10,8 @@ Usage:
   clowk uses [NAME]             where each credential came from and what has used it
   clowk allow PATTERN           stop denying a path or command
   clowk debug-payload           dump what a host sends this hook, to add a new host
+  clowk install [HOST]          register clowk's hooks (default host: claude-code)
+  clowk uninstall [HOST]        remove them
 
 There is no `export`: the vault is a plaintext JSON file, so reading it IS the export.
 """
@@ -20,7 +22,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from clowk import deny, vault
+from clowk import deny, install as install_mod, vault
 
 
 def _read_value(prompt):
@@ -170,6 +172,42 @@ def cmd_debug_payload(out):
     return 0
 
 
+def cmd_install(host, out, err):
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    try:
+        result = install_mod.install(host, root)
+    except KeyError:
+        err.write("Unknown host %r. Known: %s\n" % (host, ", ".join(sorted(install_mod.TARGETS))))
+        return 1
+    except (ValueError, IOError, OSError) as exc:
+        err.write("%s\n" % exc)
+        return 1
+    if result["added"]:
+        out.write("Registered %d clowk hook(s) in %s.\n" % (result["added"], result["settings"]))
+    else:
+        out.write("clowk is already registered in %s; nothing to do.\n" % result["settings"])
+    if result["backup"]:
+        out.write("Backed up your previous settings to %s.\n" % result["backup"])
+    out.write("Restart %s so it picks the hooks up.\n" % host)
+    if host == "codex":
+        out.write("Codex requires hook trust: run /hooks and approve clowk. Every clowk\n"
+                  "update changes the script hash and will ask you again.\n")
+    return 0
+
+
+def cmd_uninstall(host, out, err):
+    try:
+        result = install_mod.uninstall(host)
+    except KeyError:
+        err.write("Unknown host %r. Known: %s\n" % (host, ", ".join(sorted(install_mod.TARGETS))))
+        return 1
+    except (ValueError, IOError, OSError) as exc:
+        err.write("%s\n" % exc)
+        return 1
+    out.write("Removed %d clowk hook(s) from %s.\n" % (result["removed"], result["settings"]))
+    return 0
+
+
 def main(argv, out=None, err=None):
     out = out if out is not None else sys.stdout
     err = err if err is not None else sys.stderr
@@ -195,6 +233,10 @@ def main(argv, out=None, err=None):
         return cmd_uses(args[0] if args else "", out, err)
     if cmd == "allow" and len(args) == 1:
         return cmd_allow(args[0], out, err)
+    if cmd == "install" and len(args) <= 1:
+        return cmd_install(args[0] if args else "claude-code", out, err)
+    if cmd == "uninstall" and len(args) <= 1:
+        return cmd_uninstall(args[0] if args else "claude-code", out, err)
     if cmd == "debug-payload" and not args:
         return cmd_debug_payload(out)
     err.write("Unknown command, or wrong number of arguments. Run `clowk help`.\n")
