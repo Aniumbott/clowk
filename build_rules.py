@@ -33,7 +33,7 @@ def env_name(rule_id):
 
 text = open(SRC).read()
 blocks = text.split('[[rules]]')[1:]
-rules, skipped = [], []
+rules, skipped, ignored_groups = [], [], []
 for b in blocks:
     mid = re.search(r'^\s*id\s*=\s*"([^"]+)"', b, re.M)
     mrx = re.search(r"^\s*regex\s*=\s*'''(.*?)'''", b, re.M)
@@ -57,14 +57,26 @@ for b in blocks:
     kws = re.findall(r'"([^"]*)"', mkw.group(1)) if mkw else []
     ment = re.search(r'^\s*entropy\s*=\s*([\d.]+)', b, re.M)
     ent = float(ment.group(1)) if ment else None
+    # gitleaks' `secretGroup = N` says "the value is group N, not the whole match". It is the
+    # vendor's own answer to which group holds the credential, so it outranks our heuristic.
+    msg = re.search(r'^\s*secretGroup\s*=\s*(\d+)', b, re.M)
+    sg = int(msg.group(1)) if msg else None
+    if sg is not None and not 0 <= sg <= re.compile(rx, flags).groups:
+        ignored_groups.append((rid, sg))   # declaration cannot apply to this compiled pattern
+        sg = None
     rules.append({"id": rid, "env": env_name(rid), "regex": rx, "keywords": kws,
                   "entropy": ent, "ignorecase": ignorecase,
-                  "confidence": classify(rx), "group": secret_group(rx)})
+                  "confidence": classify(rx), "secret_group": sg,
+                  "group": sg if sg is not None else secret_group(rx)})
 
 with open(OUT, "w") as f:
     json.dump(rules, f, indent=1)   # pure JSON data, loaded at runtime by detect.py
 
 print(f"wrote {len(rules)} rules to {OUT}")
+declared = sum(1 for r in rules if r["secret_group"] is not None)
+print(f"honoured {declared} declared secretGroup(s); derived the rest")
 print(f"skipped {len(skipped)} incompatible regexes")
 for rid, err in skipped[:8]:
     print(f"  - {rid}: {err}")
+for rid, sg in ignored_groups:
+    print(f"  ! {rid}: ignored out-of-range secretGroup {sg}")

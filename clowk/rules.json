@@ -9,6 +9,7 @@
   "entropy": 3.8,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -21,6 +22,7 @@
   "entropy": 4.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -33,6 +35,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -45,6 +48,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -57,6 +61,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -69,6 +74,7 @@
   "entropy": null,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -81,6 +87,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -93,6 +100,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -105,6 +113,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -117,6 +126,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -129,6 +139,7 @@
   "entropy": null,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -141,6 +152,7 @@
   "entropy": null,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -153,6 +165,7 @@
   "entropy": 4.5,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -165,6 +178,7 @@
   "entropy": 4.5,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -177,6 +191,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -189,6 +204,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -204,6 +220,7 @@
   "entropy": 3.5,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -219,6 +236,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -235,6 +253,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -247,6 +266,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -259,6 +279,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -271,6 +292,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -283,6 +305,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -295,6 +318,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -307,6 +331,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -319,6 +344,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -331,6 +357,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -343,6 +370,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -355,6 +383,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -367,6 +396,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -379,6 +409,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -391,6 +422,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -404,6 +436,7 @@
   "entropy": 2.0,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -416,6 +449,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -429,6 +463,7 @@
   "entropy": 4.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -441,6 +476,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -453,6 +489,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -465,6 +502,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -477,6 +515,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -489,6 +528,7 @@
   "entropy": 2.75,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -501,6 +541,7 @@
   "entropy": 2.0,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -513,6 +554,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -525,6 +567,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -537,6 +580,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -549,6 +593,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -561,6 +606,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -573,6 +619,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -585,6 +632,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -597,6 +645,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -609,6 +658,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -621,6 +671,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -633,6 +684,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -645,6 +697,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -657,6 +710,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -669,6 +723,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -681,6 +736,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -693,6 +749,7 @@
   "entropy": 4.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -705,6 +762,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -717,6 +775,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -729,6 +788,7 @@
   "entropy": 3.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -741,6 +801,7 @@
   "entropy": 3.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -754,6 +815,7 @@
   "entropy": 4.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -766,6 +828,7 @@
   "entropy": 3.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -778,6 +841,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -790,6 +854,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -802,6 +867,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -814,6 +880,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -826,6 +893,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -838,6 +906,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -850,6 +919,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -862,6 +932,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -876,6 +947,7 @@
   "entropy": 4.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -888,6 +960,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -900,6 +973,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -912,6 +986,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -924,6 +999,7 @@
   "entropy": 4.0,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -945,6 +1021,7 @@
   "entropy": 3.5,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -958,6 +1035,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -970,6 +1048,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -982,6 +1061,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -994,6 +1074,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -1006,6 +1087,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -1018,6 +1100,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -1030,6 +1113,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -1042,6 +1126,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -1054,6 +1139,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -1066,6 +1152,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -1078,6 +1165,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -1090,6 +1178,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -1102,6 +1191,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -1114,6 +1204,7 @@
   "entropy": 4.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -1126,6 +1217,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -1138,6 +1230,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -1150,6 +1243,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -1162,6 +1256,7 @@
   "entropy": 4.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -1174,6 +1269,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -1186,6 +1282,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -1198,6 +1295,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1211,6 +1309,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1223,6 +1322,7 @@
   "entropy": 3.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1235,6 +1335,7 @@
   "entropy": 3.0,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1247,6 +1348,7 @@
   "entropy": 3.0,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1260,6 +1362,7 @@
   "entropy": null,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -1272,6 +1375,7 @@
   "entropy": 3.5,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -1285,6 +1389,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1297,6 +1402,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1309,6 +1415,7 @@
   "entropy": 4.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1321,6 +1428,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1333,6 +1441,7 @@
   "entropy": 2.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1345,6 +1454,7 @@
   "entropy": 2.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1357,6 +1467,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1369,6 +1480,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1383,6 +1495,7 @@
   "entropy": 3.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1398,6 +1511,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1413,6 +1527,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1425,6 +1540,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1437,6 +1553,7 @@
   "entropy": 2.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -1449,6 +1566,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1461,6 +1579,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1473,6 +1592,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1485,6 +1605,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1497,6 +1618,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1509,6 +1631,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -1521,6 +1644,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1535,6 +1659,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1549,6 +1674,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1562,6 +1688,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1576,6 +1703,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1588,6 +1716,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1600,6 +1729,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1612,6 +1742,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1624,6 +1755,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1636,6 +1768,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1648,6 +1781,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1660,6 +1794,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1672,6 +1807,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1684,6 +1820,7 @@
   "entropy": 4.0,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1698,6 +1835,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1712,6 +1850,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1726,6 +1865,7 @@
   "entropy": null,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -1738,6 +1878,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1750,6 +1891,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1762,6 +1904,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1776,6 +1919,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1788,6 +1932,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1800,6 +1945,7 @@
   "entropy": 4.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1812,6 +1958,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1824,6 +1971,7 @@
   "entropy": 1.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1838,6 +1986,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1850,6 +1999,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1862,6 +2012,7 @@
   "entropy": 4.0,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1874,6 +2025,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1886,6 +2038,7 @@
   "entropy": 3.5,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1898,6 +2051,7 @@
   "entropy": 4.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1910,6 +2064,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1922,6 +2077,7 @@
   "entropy": 3.5,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1934,6 +2090,7 @@
   "entropy": 3.5,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1946,6 +2103,7 @@
   "entropy": 3.0,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1958,6 +2116,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1970,6 +2129,7 @@
   "entropy": 3.0,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1982,6 +2142,7 @@
   "entropy": 3.0,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -1994,6 +2155,7 @@
   "entropy": 2.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2006,6 +2168,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -2020,6 +2183,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2032,6 +2196,7 @@
   "entropy": 2.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2044,6 +2209,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -2056,6 +2222,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2068,6 +2235,7 @@
   "entropy": 2.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2080,6 +2248,7 @@
   "entropy": 2.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2092,6 +2261,7 @@
   "entropy": 2.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2104,6 +2274,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2116,6 +2287,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2128,6 +2300,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2140,6 +2313,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2152,6 +2326,7 @@
   "entropy": 3.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2164,6 +2339,7 @@
   "entropy": 4.5,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -2176,6 +2352,7 @@
   "entropy": 3.5,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2188,6 +2365,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2200,6 +2378,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2212,6 +2391,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2224,6 +2404,7 @@
   "entropy": 2.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2236,6 +2417,7 @@
   "entropy": 2.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -2248,6 +2430,7 @@
   "entropy": 2.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -2260,6 +2443,7 @@
   "entropy": 2.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -2272,6 +2456,7 @@
   "entropy": 2.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -2285,6 +2470,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2298,6 +2484,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2310,6 +2497,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -2322,6 +2510,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -2335,6 +2524,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -2347,6 +2537,7 @@
   "entropy": 2.0,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -2359,6 +2550,7 @@
   "entropy": 2.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -2372,6 +2564,7 @@
   "entropy": 2.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -2385,6 +2578,7 @@
   "entropy": 2.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -2398,6 +2592,7 @@
   "entropy": 2.0,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -2410,6 +2605,7 @@
   "entropy": null,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -2422,6 +2618,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2434,7 +2631,8 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "high",
-  "group": 0
+  "secret_group": 2,
+  "group": 2
  },
  {
   "id": "sourcegraph-access-token",
@@ -2447,6 +2645,7 @@
   "entropy": 3.0,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2460,6 +2659,7 @@
   "entropy": 2.0,
   "ignorecase": false,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2472,6 +2672,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2489,6 +2690,7 @@
   "entropy": 2.0,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2501,6 +2703,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2513,6 +2716,7 @@
   "entropy": 3.0,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2525,6 +2729,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2537,6 +2742,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2549,6 +2755,7 @@
   "entropy": 3.0,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 0
  },
  {
@@ -2561,6 +2768,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2573,6 +2781,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2585,6 +2794,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2597,6 +2807,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2609,6 +2820,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2621,6 +2833,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2633,6 +2846,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "high",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2645,6 +2859,7 @@
   "entropy": 4.0,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2658,6 +2873,7 @@
   "entropy": 3.5,
   "ignorecase": false,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2670,6 +2886,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2682,6 +2899,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2694,6 +2912,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  },
  {
@@ -2706,6 +2925,7 @@
   "entropy": null,
   "ignorecase": true,
   "confidence": "low",
+  "secret_group": null,
   "group": 1
  }
 ]

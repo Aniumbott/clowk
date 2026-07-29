@@ -47,6 +47,11 @@ class TestSecretSpan(unittest.TestCase):
     def test_sonar_token_is_covered_not_the_login_keyword(self):
         self._assert_covered(SONAR_PROMPT, SONAR_TOKEN)
 
+    def test_sonar_token_is_captured_exactly_via_its_declared_secret_group(self):
+        # gitleaks.toml declares `secretGroup = 2` for this rule; honouring it turns the safe
+        # whole-match over-capture into the exact token, so $SONAR_API_TOKEN expands correctly.
+        self.assertIn(SONAR_TOKEN, [f.secret for f in scan(SONAR_PROMPT)])
+
     def test_teams_webhook_key_is_covered_not_a_uuid_chunk(self):
         self._assert_covered(TEAMS_PROMPT, "0123456789abcdef0123456789abcdef")
 
@@ -74,6 +79,12 @@ class TestSecretGroupMetadata(unittest.TestCase):
             pat = re.compile(r["regex"])
             self.assertLessEqual(r["group"], pat.groups, r["id"])
             self.assertGreaterEqual(r["group"], 0, r["id"])
+
+    def test_a_declared_secret_group_wins_over_the_derived_one(self):
+        rules = {r["id"]: r for r in _load_rules()}
+        sonar = rules["sonar-api-token"]
+        self.assertEqual(sonar["secret_group"], 2)   # as declared in gitleaks.toml
+        self.assertEqual(sonar["group"], 2)
 
     def test_group_metadata_matches_what_the_resolver_derives(self):
         # rules.json is generated; a hand-edit that drops the key must not silently change tiers
