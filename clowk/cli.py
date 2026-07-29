@@ -8,7 +8,8 @@ Usage:
   clowk clear NAME              forget a credential
   clowk rename OLD NEW          rename one
   clowk uses [NAME]             where each credential was caught, and its (unfilled) used-by list
-  clowk allow PATTERN           stop denying a path or command
+  clowk allow PATTERN           stop denying one of clowk's rules -- a filename, a suffix or a
+                                command phrase, exactly as the deny message prints it
   clowk debug-payload           dump what a host sends this hook, to add a new host
   clowk install [HOST]          register clowk's hooks (default host: claude-code)
   clowk uninstall [HOST]        remove them
@@ -143,6 +144,24 @@ def _without(cfg, key, pattern):
         cfg[key] = [item for item in value if item != pattern]
 
 
+def _is_a_rule(cfg, pattern):
+    """True if an allow entry for `pattern` actually changes what clowk denies.
+
+    deny.py compares its allow list, string for string, against its built-in rule patterns, and
+    cmd_allow additionally drops a matching hand-added rule. Those are the only arguments this
+    command can act on -- an absolute path, a glob or a longer command line is inert, and saying
+    "clowk will no longer deny it" about one is a plain untruth.
+    """
+    for names in (deny.DEFAULT_PATHS, deny.DEFAULT_SUFFIXES, deny.DEFAULT_COMMANDS):
+        if pattern in names:
+            return True
+    for key in ("deny_paths", "deny_commands"):
+        value = cfg.get(key)
+        if isinstance(value, list) and pattern in value:
+            return True
+    return False
+
+
 def cmd_allow(pattern, out, err):
     path = deny.config_path()
     try:
@@ -158,6 +177,18 @@ def cmd_allow(pattern, out, err):
         return 1
     except (IOError, OSError, ValueError):
         cfg = {}
+    if not _is_a_rule(cfg, pattern):
+        # Check the claim before making it. deny.check already computes the pattern the user needs
+        # and prints it in its hint, so hand them its own answer rather than a second guess at it.
+        reason = (deny.check("Read", {"file_path": pattern})
+                  or deny.check("Bash", {"command": pattern}))
+        if reason:
+            err.write("Nothing to allow: %r is not one of clowk's deny rule patterns. What clowk "
+                      "denies here is:\n  %s\n" % (pattern, reason))
+            return 1
+        out.write("clowk does not deny %r, so there is nothing to allow.\n" % pattern)
+        out.write("The vault's own directory stays protected either way.\n")
+        return 0
     allow = [a for a in cfg.get("allow", []) if isinstance(a, str)]
     if pattern not in allow:
         allow.append(pattern)

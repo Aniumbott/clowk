@@ -132,6 +132,54 @@ class TestAllow(CliCase):
         cfg = self.deny_config()
         self.assertEqual(cfg["allow"].count(".env"), 1)
 
+    def test_allowing_a_concrete_path_refuses_and_names_the_rule_that_denies_it(self):
+        """The allow list is only ever compared, string for string, against rule patterns.
+
+        `clowk allow /proj/work/.env` wrote an entry that filters nothing and printed "clowk will
+        no longer deny it", while the same file stayed denied -- so the next step for the user is a
+        bug report or an uninstall.
+        """
+        code, out, err = self.run_cli("allow", "/proj/work/.env")
+        self.assertEqual(code, 1)
+        self.assertIn(".env", err)
+        self.assertNotIn("no longer deny", out + err)
+        self.assertFalse(os.path.exists(os.environ["CLOWK_DENY"]))
+        from clowk import deny
+
+        self.assertIsNotNone(deny.check("Read", {"file_path": "/proj/work/.env"}))
+
+    def test_allowing_a_file_by_path_when_a_suffix_rule_denies_it_refuses(self):
+        code, out, err = self.run_cli("allow", "/etc/ssl/server.key")
+        self.assertEqual(code, 1)
+        self.assertIn(".key", err)
+        self.assertFalse(os.path.exists(os.environ["CLOWK_DENY"]))
+
+    def test_allowing_a_longer_command_line_refuses_and_names_the_phrase(self):
+        # Commands are matched by substring, so the command line a user copies out of the deny
+        # message is not the phrase the allow list compares against.
+        code, out, err = self.run_cli("allow", "git credential fill --no-interactive")
+        self.assertEqual(code, 1)
+        self.assertIn("git credential fill", err)
+        self.assertFalse(os.path.exists(os.environ["CLOWK_DENY"]))
+        from clowk import deny
+
+        self.assertIsNotNone(deny.check("Bash", {"command": "git credential fill --no-interactive"}))
+
+    def test_a_pattern_nothing_denies_is_reported_and_not_written(self):
+        code, out, err = self.run_cli("allow", "notes.txt")
+        self.assertEqual(code, 0)
+        self.assertIn("does not deny", out)
+        self.assertNotIn("no longer deny", out)
+        self.assertFalse(os.path.exists(os.environ["CLOWK_DENY"]))
+
+    def test_a_publishable_variant_is_reported_as_already_allowed(self):
+        # `.pub` is exempt through ALLOW_SUFFIXES, not through the allow list, so an entry for it
+        # would have been inert too.
+        code, out, err = self.run_cli("allow", "id_rsa.pub")
+        self.assertEqual(code, 0)
+        self.assertIn("does not deny", out)
+        self.assertFalse(os.path.exists(os.environ["CLOWK_DENY"]))
+
     def test_allow_also_drops_a_user_added_deny_rule(self):
         with open(os.environ["CLOWK_DENY"], "w") as f:
             json.dump({"deny_paths": ["secrets.txt"], "deny_commands": ["vault read"]}, f)
