@@ -36,8 +36,30 @@ class TestPaths(DenyCase):
         self.assertIsNotNone(self.deny.check("Read", {"file_path": "/home/me/.ssh/id_rsa"}))
         self.assertIsNotNone(self.deny.check("Read", {"file_path": "/certs/server.pem"}))
 
+    def test_ssh_public_keys_are_allowed(self):
+        # `id_rsa` matches `id_rsa.pub` through the `pattern + "."` branch that exists for
+        # `.env.local`-style variants. A .pub is publishable by definition -- and the escape the
+        # deny message offered (`clowk allow 'id_rsa'`) also stopped denying the private key.
+        for name in ("id_rsa.pub", "id_ed25519.pub", "id_ecdsa.pub"):
+            path = "/home/me/.ssh/" + name
+            self.assertIsNone(self.deny.check("Read", {"file_path": path}), name)
+            self.assertIsNone(self.deny.check("Bash", {"command": "ssh-keygen -lf " + path}), name)
+
+    def test_private_key_copies_and_backups_stay_denied(self):
+        # The same prefix branch is what catches these, so allowing .pub must not disarm it.
+        for name in ("id_rsa.bak", "id_rsa.old", "id_ed25519.backup", ".env.local"):
+            self.assertIsNotNone(self.deny.check("Read", {"file_path": "/home/me/" + name}), name)
+
     def test_the_vault_itself_is_denied(self):
         self.assertIsNotNone(self.deny.check("Read", {"file_path": self.deny.vault.path()}))
+
+    def test_the_vault_directory_stays_protected_whatever_a_file_is_called(self):
+        # The allow-suffix exemption used to run before the store check, so a `vault.json.md` or
+        # an `x.example` inside ~/.clowk was readable -- and now that .pub is exempt too, that
+        # ordering would have widened the hole rather than left it where it was.
+        for name in ("vault.json.md", "vault.json.pub", "x.example"):
+            path = os.path.join(self.dir, name)
+            self.assertIsNotNone(self.deny.check("Read", {"file_path": path}), name)
 
     def test_an_ordinary_source_file_is_allowed(self):
         self.assertIsNone(self.deny.check("Read", {"file_path": "/proj/src/main.py"}))

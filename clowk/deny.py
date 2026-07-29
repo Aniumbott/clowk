@@ -17,7 +17,11 @@ from clowk import vault
 
 DEFAULT_PATHS = (".env", "id_rsa", "id_ed25519", "id_ecdsa", ".git-credentials", ".netrc")
 DEFAULT_SUFFIXES = (".pem", ".key", ".p12", ".pfx")
-ALLOW_SUFFIXES = (".example", ".sample", ".template", ".dist", ".md")
+# Suffixes that mean "this variant is publishable", exempting a name that would otherwise match
+# a pattern through the `pattern + "."` branch below. `.pub` belongs here for the same reason
+# `.example` does: `id_rsa.pub` is a public key, and the alternative -- `clowk allow 'id_rsa'`,
+# which the deny message printed -- stopped denying the private key too.
+ALLOW_SUFFIXES = (".example", ".sample", ".template", ".dist", ".md", ".pub")
 DEFAULT_COMMANDS = (
     "git credential fill",
     "git credential-osxkeychain get",
@@ -60,13 +64,16 @@ def _rules():
 
 def _path_reason(target, paths, allow):
     base = os.path.basename(target)
-    if any(base.endswith(suffix) for suffix in ALLOW_SUFFIXES):
-        return None
+    # The store's own directory first: an allow suffix exempts a *variant of a pattern*, and it
+    # must not exempt a file inside ~/.clowk. `clowk allow` promises that directory stays
+    # protected either way, so `~/.clowk/vault.json.md` cannot be a way around it.
     protected = os.path.dirname(vault.path())
     if protected and os.path.abspath(target).startswith(os.path.abspath(protected) + os.sep):
         return "clowk denied a read of its own store (%s)." % target
     if os.path.abspath(target) == os.path.abspath(vault.path()):
         return "clowk denied a read of its own store (%s)." % target
+    if any(base.endswith(suffix) for suffix in ALLOW_SUFFIXES):
+        return None
     for pattern in paths:
         if base == pattern or base.startswith(pattern + "."):
             return "clowk denied a read of %s -- it usually holds credentials. %s" % (
