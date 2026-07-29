@@ -120,6 +120,97 @@ class TestRulesetShape(unittest.TestCase):
         self.assertIn(SONAR_TOKEN, [f.secret for f in scan(SONAR_PROMPT)])
 
 
+# A git SHA-1 is 40 hex characters, and sourcegraph-access-token's regex ends in a bare
+# [a-fA-F0-9]{40} alternative -- so every commit hash matches its pattern. Its entropy floor of
+# 3.0 cannot filter hex (max 4.0), which leaves the keyword gate as the ONLY thing between
+# ordinary git chatter and a blocked turn.
+GIT_SHA = "9f2c1b7ae4d5c60813fa27bd9e0a4c3f5d6e7a8b"
+# Far from generic-api-key's 3.5 entropy floor in both directions, deliberately: a fixture that
+# sits within 0.01 of the threshold tests a coincidence, not the mechanism.
+LOW_ENTROPY = "x" * 40                                    # 0.0
+HIGH_ENTROPY = "aB3xQ9zLmN4pR7tV2wY8kC6jH1sD5fG7wZ0uT8vE"  # 5.17
+
+# Ordinary agent-coding prompts. Verified clean against the shipped ruleset by running scan(),
+# not by picking strings that looked safe.
+CLEAN_PROMPTS = [
+    "git rev-parse HEAD gives %s -- is that the merge base?" % GIT_SHA,
+    "the sha256 of the tarball is 4f8b2c1d9e0a3b5c7d6e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c",
+    'the config has token = "%s" which is obviously fake' % LOW_ENTROPY,
+    'api_key: "REPLACE_ME_WITH_YOUR_KEY_HERE_0000000000"',
+    'password = "hunter2hunter2hunter2hunter2hunter2"',
+    "set the api_key to <your-key-here> before running the seed script",
+    "the request id in the log is a1b2c3d4-e5f6-7890-abcd-ef1234567890, can you trace it?",
+    "our build id is Zm9vYmFyYmF6cXV1eGNvcmdlZ3JhdWx0 -- decode it and tell me what it means",
+    'in package-lock.json the entry is "integrity": "sha512-abcdefabcdefabcdefabcdefabcdef=="',
+    "rename the getUserSecret helper to loadUserCredential across the auth package",
+    "why does my password field lose focus when the modal closes?",
+    "add an access_token column to the sessions table, nullable, with an index",
+    "the docker image digest is sha256:" + "0" * 64,
+    "bump the api client to 2.4.0 and regenerate the typed key map",
+    "AUTH_SECRET is read from the environment; document that in the README",
+    "curl -sS https://api.example.com/v1/health | jq .status",
+    "grep -rn 'apiKey' src/ and tell me which modules read it directly",
+    "the test asserts credentials are never logged; it fails on line 42",
+]
+
+
+class TestFalsePositives(unittest.TestCase):
+    """The keyword gate and the entropy filter are the only two things holding false positives
+    down across 220 rules, 129 of which match on shape alone. Stubbing either one out used to
+    leave the whole suite green while ordinary prompts started getting blocked, so regressions
+    that break DETECTION were caught and regressions that break SUPPRESSION were invisible.
+    """
+
+    def test_ordinary_developer_prompts_are_not_blocked(self):
+        blocked = [(p, [f.rule_id for f in scan(p)]) for p in CLEAN_PROMPTS if scan(p)]
+        self.assertEqual(blocked, [])
+
+    def test_the_keyword_gate_is_what_keeps_a_git_sha_from_being_a_credential(self):
+        self.assertEqual(scan("git bisect points at %s, revert it" % GIT_SHA), [])
+        # ...and the gate, not the regex, is doing it: name the vendor and the same hash matches
+        with_keyword = [f.rule_id for f in scan("the sourcegraph key is %s" % GIT_SHA)]
+        self.assertIn("sourcegraph-access-token", with_keyword)
+
+    def test_the_entropy_filter_drops_a_low_entropy_placeholder(self):
+        self.assertEqual(scan('token = "%s"' % LOW_ENTROPY), [])
+        # ...and it is the filter, not the pattern: the same shape with real entropy is kept
+        self.assertIn(HIGH_ENTROPY, [f.secret for f in scan('token = "%s"' % HIGH_ENTROPY)])
+
+
+class TestGuardMetadata(unittest.TestCase):
+    """rules.json is generated, and detect reads both guards with `r.get(...)` short-circuits, so
+    a build-script regression that dropped these keys would silently disable both at once."""
+
+    def test_every_rule_still_carries_its_keyword_gate(self):
+        missing = [r["id"] for r in _load_rules() if not r.get("keywords")]
+        self.assertEqual(missing, [])
+
+    def test_the_two_load_bearing_guards_are_intact(self):
+        rules = {r["id"]: r for r in _load_rules()}
+        self.assertEqual(rules["generic-api-key"]["entropy"], 3.5)
+        self.assertEqual(sorted(rules["sourcegraph-access-token"]["keywords"]),
+                         ["sgp_", "sourcegraph"])
+
+
+class TestKnownFalsePositives(unittest.TestCase):
+    """Prompts that clowk DOES block today and arguably should not.
+
+    Recorded rather than dropped from CLEAN_PROMPTS: quietly deleting them would turn that corpus
+    into a curated snapshot that hides the real false-positive surface. If a future change fixes
+    one of these, this test fails and the case moves to CLEAN_PROMPTS.
+    """
+
+    def test_naming_the_vendor_beside_a_commit_hash_blocks(self):
+        # sourcegraph-access-token's bare 40-hex branch + a substring keyword gate
+        self.assertTrue(scan("sourcegraph indexed our repo at commit %s" % GIT_SHA))
+
+    def test_a_high_entropy_placeholder_still_blocks(self):
+        # entropy 3.68, over generic-api-key's 3.5 floor -- flagged shape-only, at least
+        findings = scan('api_key: "REPLACE_ME_WITH_YOUR_TOKEN_HERE_00000000"')
+        self.assertTrue(findings)
+        self.assertEqual([f.confidence for f in findings], ["low"])
+
+
 class TestScanLatency(unittest.TestCase):
     """Bound scan()'s cost, because the host's answer to a slow hook is to transmit the prompt.
 
