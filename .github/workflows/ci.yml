@@ -19,15 +19,20 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      # Explicit combinations rather than a full product: Python 3.8 has no arm64 macOS build, so
-      # the floor is tested on the x86 runner. The floor and the newest release are covered on all
-      # three operating systems, which is what the README promises.
+      # Explicit combinations rather than a full product, because not every pair exists.
+      #
+      # The declared 3.8 floor runs on Linux and Windows. It is deliberately NOT run on macOS:
+      # setup-python has no arm64 build below 3.11, and the x86 macos-13 runner that could provide
+      # one no longer gets scheduled on the free tier -- the job sat queued indefinitely and the
+      # whole run never completed. macOS gets 3.11 and 3.13 instead. What that leaves uncovered is
+      # 3.8-specific behaviour that manifests only on macOS and not on Linux; both are POSIX and
+      # clowk's platform-specific code is all in the POSIX-vs-Windows split, so that gap is thin.
       matrix:
         include:
           - { os: ubuntu-22.04, python: "3.8" }
           - { os: ubuntu-latest, python: "3.9" }
           - { os: ubuntu-latest, python: "3.13" }
-          - { os: macos-13, python: "3.8" }
+          - { os: macos-latest, python: "3.11" }
           - { os: macos-latest, python: "3.13" }
           - { os: windows-latest, python: "3.8" }
           - { os: windows-latest, python: "3.13" }
