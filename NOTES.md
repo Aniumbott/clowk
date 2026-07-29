@@ -75,7 +75,8 @@ fixtures are valid-shaped Stripe, Slack and Flutterwave keys. They are synthetic
 "allow secret" bypass would work, but it needs a browser round-trip per secret from every
 contributor. Splitting the literal costs nothing and removes the wall.
 
-Notably not flagged: `sk_" "live_4eC39HqLyjWDarjtT1zdp7dc` (Stripe's own published example, which
-GitHub allowlists) and the `ghp_ABCDEF...` fixtures (they fail GitHub's PAT checksum). So a
-scanner-safe fixture is possible without splitting -- it is just not predictable, which is why the
-split is the rule here.
+Do not assume a given fixture is safe. Stripe's own published example key is flagged too, and
+which shapes trip the scanner is not predictable from the outside -- the `ghp_...` fixtures pass
+(they fail GitHub's PAT checksum) while Stripe, Slack and Flutterwave shapes do not. GitHub also
+reports only a subset of violations per push, so fixing what it names and retrying just surfaces
+the next batch. Split every vendor-prefixed fixture up front and you never meet the wall.
