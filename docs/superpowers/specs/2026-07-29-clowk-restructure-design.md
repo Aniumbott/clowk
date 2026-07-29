@@ -78,7 +78,22 @@ Single JSON file at `~/.clowk/vault.json`, mode 0600, atomic replace. Path overr
   between chunks so a value split across a read boundary still matches.
 - Needles per secret: the whole value, plus its first 12 and last 12 characters. Catches the
   common accident of a CLI printing a truncated key.
-- Passes stdin through, preserves a TTY when the parent has one, and exits with the child's code.
+- Passes stdin through and exits with the child's code. **No TTY handling.** Giving the child the
+  real terminal and scrubbing its output are mutually exclusive, and the Bash tool is
+  non-interactive anyway, so there is no TTY to preserve. Some tools will drop colour because they
+  see a pipe — already true without clowk, so no regression.
+- Runs the command through `sh -c`, since commands contain pipes, redirects and `&&`.
+
+**Command handoff** — `PreToolUse` rewrites to `clowk run --b64 <base64 of the original command>`.
+Quoting arbitrary shell into another shell string mangles some fraction of commands silently;
+base64 has no escaping surface at all. The runner decodes and hands the result to `sh -c`.
+
+**Double-wrap guard** — `PreToolUse` skips any command already starting with `clowk run`, so a
+command the agent echoes back or reuses is not wrapped twice.
+
+**Latency budget** — neither `hook_pretool.py` nor `runner.py` may import `detect.py`. They need
+vault names and values only. Compiling 220 regexes costs ~100ms measured, and this path now runs on
+*every* Bash call, twice. Keeping detection out of it is what keeps "hassle-free" true.
 
 **`hook_pretool.py`** — reads the PreToolUse payload, emits `updatedInput` to wrap, or a deny
 decision. Depends on `vault` (names only, never values).
@@ -115,7 +130,20 @@ Stated in the diagram footer and to go in the README verbatim:
 - Concurrent sessions both catching a secret can lose one entry to a read-modify-write race.
   `ponytail:` note the ceiling; add a lock only if it is ever observed.
 
-## 6. Testing
+## 6. Deliberately out of scope
+
+Not gaps — decided omissions, recorded so they are not rediscovered as surprises:
+
+- **Rotation and expiry.** The vault records every use, which is the data rotation needs, but there
+  is no `clowk rotate` and no age warning. `clowk uses NAME` is ~5 lines when it is wanted.
+- **Multi-host packaging** (codex, gemini/antigravity CLI, opencode). The Python core is
+  host-agnostic and the runner needs no platform cooperation, so this is packaging work: per-host
+  registration manifests. Deferred until the Claude Code path is proven.
+- **Per-project scoping.** The vault is global; any project's agent can request any secret. The host
+  check is the mitigation. Full group/ACL scoping is a platform feature and was the direction that
+  walked into the crowded category.
+
+## 7. Testing
 
 One `test_clowk.py`, assert-based, no framework, run with `python3 test_clowk.py`:
 
@@ -126,7 +154,7 @@ One `test_clowk.py`, assert-based, no framework, run with `python3 test_clowk.py
 4. host check: a secret is not injected for a host outside its list.
 5. install idempotency: running it twice leaves one hook entry and a backup.
 
-## 7. Build order
+## 8. Build order
 
 **Step 0 is a gate.** Empirically verify that `PreToolUse` `updatedInput` is honored in this
 build. `updatedToolOutput` was documented and believed verified too, and turned out inert here —
