@@ -104,9 +104,13 @@ def check(tool_name, tool_input):
             if phrase.lower() in lowered:
                 return "clowk denied `%s` -- it prints a live credential. %s" % (
                     phrase, HINT % (phrase, config_path()))
+        # os.altsep as well as os.sep: on Windows os.sep is "\\" and "/" is os.altsep, and cmd,
+        # PowerShell and Git Bash all take forward slashes -- so `type C:/repo/.env`, the ordinary
+        # way a model writes that path, skipped the check entirely. None on POSIX, so no change.
+        separators = tuple(s for s in (os.sep, os.altsep) if s)
         for token in command.split():
             stripped = token.strip("'\"")
-            if stripped.startswith(("/", "~", ".")) or os.sep in stripped:
+            if stripped.startswith(("/", "~", ".")) or any(s in stripped for s in separators):
                 reason = _path_reason(os.path.expanduser(stripped), paths, allow)
                 if reason:
                     return reason

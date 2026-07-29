@@ -4,6 +4,7 @@ import json
 import os
 import tempfile
 import unittest
+from unittest import mock
 
 
 class DenyCase(unittest.TestCase):
@@ -83,6 +84,36 @@ class TestCommands(DenyCase):
     def test_reason_explains_how_to_allow_it(self):
         reason = self.deny.check("Bash", {"command": "git credential fill"})
         self.assertIn("clowk allow", reason)
+
+
+class TestPlatformSeparators(DenyCase):
+    """os.sep is "\\" on Windows and os.altsep is "/". Both spell a path there."""
+
+    def windows_separators(self):
+        return mock.patch.object(os, "sep", "\\"), mock.patch.object(os, "altsep", "/")
+
+    def test_forward_slash_paths_are_checked_when_the_platform_separator_is_backslash(self):
+        # cmd, PowerShell and Git Bash all accept forward slashes, so `type C:/repo/.env` is the
+        # ordinary way a model writes a Windows path -- not obfuscation. It matched neither
+        # startswith(("/", "~", ".")) nor `os.sep in stripped`, so the token was never handed to
+        # the path matcher, which resolves it correctly once it gets it.
+        sep, altsep = self.windows_separators()
+        with sep, altsep:
+            for command in ("type C:/repo/.env", "more C:/certs/server.pem",
+                            "cat C:/Users/me/.ssh/id_rsa", "type repo/.env"):
+                self.assertIsNotNone(self.deny.check("Bash", {"command": command}), command)
+
+    def test_an_ordinary_windows_command_is_still_allowed(self):
+        sep, altsep = self.windows_separators()
+        with sep, altsep:
+            for command in ("git status", "dir /s", "type C:/repo/main.py"):
+                self.assertIsNone(self.deny.check("Bash", {"command": command}), command)
+
+    def test_posix_behaviour_is_unchanged(self):
+        # os.altsep is None on POSIX, so the added clause is a falsy no-op there.
+        self.assertIsNone(os.altsep)
+        self.assertIsNotNone(self.deny.check("Bash", {"command": "cat /repo/.env"}))
+        self.assertIsNone(self.deny.check("Bash", {"command": "git status"}))
 
 
 class TestUserConfig(DenyCase):
