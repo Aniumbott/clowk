@@ -1,0 +1,147 @@
+import importlib
+import io
+import json
+import os
+import tempfile
+import unittest
+
+
+class CliCase(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        os.environ["CLOWK_VAULT"] = os.path.join(self.dir, "vault.json")
+        os.environ["CLOWK_DENY"] = os.path.join(self.dir, "deny.json")
+        from clowk import vault
+
+        self.vault = importlib.reload(vault)
+        from clowk import deny
+
+        importlib.reload(deny)
+        from clowk import cli
+
+        self.cli = importlib.reload(cli)
+
+    def tearDown(self):
+        for key in ("CLOWK_VAULT", "CLOWK_DENY", "CLOWK_VALUE"):
+            os.environ.pop(key, None)
+
+    def run_cli(self, *argv):
+        out, err = io.StringIO(), io.StringIO()
+        code = self.cli.main(list(argv), out, err)
+        return code, out.getvalue(), err.getvalue()
+
+    def deny_config(self):
+        with open(os.environ["CLOWK_DENY"]) as f:
+            return json.load(f)
+
+
+class TestList(CliCase):
+    def test_empty_vault_says_so(self):
+        code, out, err = self.run_cli("list")
+        self.assertEqual(code, 0)
+        self.assertIn("No credentials stored", out)
+
+    def test_list_shows_names_and_never_values(self):
+        self.vault.store("STRIPE_KEY", "sk_" "live_secretvalue", rule="stripe", confidence="high", source="/p")
+        code, out, err = self.run_cli("list")
+        self.assertIn("STRIPE_KEY", out)
+        self.assertNotIn("sk_" "live_secretvalue", out)
+
+    def test_low_confidence_entries_are_flagged(self):
+        self.vault.store("A", "v", confidence="low")
+        code, out, err = self.run_cli("list")
+        self.assertIn("shape-only", out)
+
+
+class TestAddAndSet(CliCase):
+    def test_add_reads_the_value_from_the_environment_not_argv(self):
+        os.environ["CLOWK_VALUE"] = "sk_" "live_typedbyhand"
+        code, out, err = self.run_cli("add", "MY_KEY")
+        self.assertEqual(code, 0)
+        self.assertEqual(self.vault.get("MY_KEY"), "sk_" "live_typedbyhand")
+        self.assertNotIn("sk_" "live_typedbyhand", out)
+
+    def test_add_rejects_a_value_passed_as_an_argument(self):
+        code, out, err = self.run_cli("add", "MY_KEY", "sk_" "live_oops")
+        self.assertEqual(code, 1)
+        self.assertIn("never pass the value", err.lower())
+        self.assertEqual(self.vault.names(), [])
+
+    def test_set_replaces_an_existing_value(self):
+        self.vault.store("MY_KEY", "old")
+        os.environ["CLOWK_VALUE"] = "new"
+        code, out, err = self.run_cli("set", "MY_KEY")
+        self.assertEqual(code, 0)
+        self.assertEqual(self.vault.get("MY_KEY"), "new")
+        self.assertEqual(self.vault.names(), ["MY_KEY"])
+
+    def test_set_on_unknown_name_fails(self):
+        os.environ["CLOWK_VALUE"] = "new"
+        code, out, err = self.run_cli("set", "NOPE")
+        self.assertEqual(code, 1)
+
+    def test_empty_value_is_rejected(self):
+        os.environ["CLOWK_VALUE"] = ""
+        code, out, err = self.run_cli("add", "MY_KEY")
+        self.assertEqual(code, 1)
+
+
+class TestLifecycle(CliCase):
+    def test_clear_and_rename(self):
+        self.vault.store("A", "one")
+        self.assertEqual(self.run_cli("rename", "A", "B")[0], 0)
+        self.assertEqual(self.vault.get("B"), "one")
+        self.assertEqual(self.run_cli("clear", "B")[0], 0)
+        self.assertEqual(self.vault.names(), [])
+
+    def test_clear_unknown_returns_one(self):
+        self.assertEqual(self.run_cli("clear", "NOPE")[0], 1)
+
+    def test_uses_reports_recorded_paths(self):
+        self.vault.store("A", "one", source="/p")
+        self.vault.record_use("A", "/q")
+        code, out, err = self.run_cli("uses", "A")
+        self.assertIn("/q", out)
+
+    def test_uses_with_no_name_lists_all(self):
+        self.vault.store("A", "one", source="/p")
+        code, out, err = self.run_cli("uses")
+        self.assertIn("A", out)
+
+
+class TestAllow(CliCase):
+    def test_allow_writes_the_pattern_into_the_deny_config(self):
+        code, out, err = self.run_cli("allow", "git credential fill")
+        self.assertEqual(code, 0)
+        cfg = self.deny_config()
+        self.assertIn("git credential fill", cfg["allow"])
+
+    def test_allow_is_idempotent(self):
+        self.run_cli("allow", ".env")
+        self.run_cli("allow", ".env")
+        cfg = self.deny_config()
+        self.assertEqual(cfg["allow"].count(".env"), 1)
+
+    def test_allow_also_drops_a_user_added_deny_rule(self):
+        with open(os.environ["CLOWK_DENY"], "w") as f:
+            json.dump({"deny_paths": ["secrets.txt"], "deny_commands": ["vault read"]}, f)
+        self.assertEqual(self.run_cli("allow", "secrets.txt")[0], 0)
+        from clowk import deny
+
+        self.assertIsNone(deny.check("Read", {"file_path": "/proj/secrets.txt"}))
+        self.assertEqual(self.deny_config()["deny_paths"], [])
+        self.assertEqual(self.deny_config()["deny_commands"], ["vault read"])
+
+
+class TestUsage(CliCase):
+    def test_no_args_prints_usage_and_returns_one(self):
+        code, out, err = self.run_cli()
+        self.assertEqual(code, 1)
+        self.assertIn("clowk", out + err)
+
+    def test_unknown_command_returns_one(self):
+        self.assertEqual(self.run_cli("frobnicate")[0], 1)
+
+
+if __name__ == "__main__":
+    unittest.main()
