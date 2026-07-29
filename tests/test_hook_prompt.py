@@ -2,8 +2,12 @@ import importlib
 import io
 import json
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class HookCase(unittest.TestCase):
@@ -102,6 +106,72 @@ class TestCapture(HookCase):
         self.assertEqual(code, 2)
         self.assertNotIn(self.KEY, err)
         self.assertIn("unclowk", err)
+
+
+class TestStdinIsDecodedAsUtf8(HookCase):
+    """Hosts send UTF-8 JSON. Reading it through the locale codec is a silent pass-through.
+
+    UnicodeDecodeError subclasses ValueError, so a locale that cannot decode the payload was
+    indistinguishable from malformed JSON: exit 0, nothing on either stream, credential
+    transmitted. Windows' default ANSI codepages cannot decode most non-ASCII UTF-8, and Claude
+    Code puts `cwd` in every payload -- so one accented character in a profile path disabled the
+    hook for every prompt. These run the real entrypoint, because the bug lives in the stream
+    sys.stdin hands us and no in-process StringIO can see it.
+    """
+
+    TOKEN = "ghp" "_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    # ď encodes as C4 8F, and 0x8F is undefined in cp1252; cp932 rejects the pair too.
+    PROMPT = "nasaď " + TOKEN + " na server"
+    REWRITE = "nasaď $GITHUB_TOKEN na server"
+
+    def run_script(self, encoding):
+        payload = json.dumps({"prompt": self.PROMPT, "cwd": "/p"}, ensure_ascii=False)
+        env = dict(os.environ)
+        env["PYTHONIOENCODING"] = encoding
+        env.pop("PYTHONUTF8", None)
+        env["PATH"] = self.dir  # no clipboard tool on PATH: never touch the developer's clipboard
+        proc = subprocess.Popen(
+            [sys.executable, os.path.join(REPO_ROOT, "clowk", "hook_prompt.py"),
+             "--host", "claude-code"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
+        )
+        try:
+            out, err = proc.communicate(payload.encode("utf-8"), timeout=60)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.communicate()
+            self.fail("the hook hung under %s -- every host reads that as a pass-through" % encoding)
+        return proc.returncode, out.decode("utf-8", "replace"), err.decode("utf-8", "replace")
+
+    def assert_blocked_and_filed(self, encoding):
+        code, out, err = self.run_script(encoding)
+        self.assertEqual(code, 0, "stderr: " + err)
+        self.assertNotEqual(out, "", "no block under %s: the credential was transmitted" % encoding)
+        reason = json.loads(out)["reason"]
+        self.assertNotIn(self.TOKEN, reason)
+        self.assertEqual(self.vault.names(), ["GITHUB_TOKEN"])
+        self.assertEqual(self.vault.get("GITHUB_TOKEN"), self.TOKEN)
+        return reason
+
+    def test_a_utf8_locale_blocks_and_files_the_token(self):
+        self.assertIn(self.REWRITE, self.assert_blocked_and_filed("utf-8"))
+
+    def test_a_cp1252_locale_still_blocks_and_the_rewrite_is_not_mojibake(self):
+        self.assertIn(self.REWRITE, self.assert_blocked_and_filed("cp1252"))
+
+    def test_a_cp932_locale_still_blocks_and_the_rewrite_is_not_mojibake(self):
+        self.assertIn(self.REWRITE, self.assert_blocked_and_filed("cp932"))
+
+    def test_a_stream_that_cannot_be_decoded_says_so_instead_of_looking_clean(self):
+        class Undecodable(object):
+            def read(self):
+                raise UnicodeDecodeError("charmap", b"\x8f", 0, 1, "undefined")
+
+        out, err = io.StringIO(), io.StringIO()
+        code = self.hook.main(["--host", "claude-code"], Undecodable(), out, err)
+        self.assertEqual(code, 0)          # a payload we cannot read is not ours to block on
+        self.assertEqual(out.getvalue(), "")
+        self.assertIn("NOT scanning", err.getvalue())
 
 
 if __name__ == "__main__":

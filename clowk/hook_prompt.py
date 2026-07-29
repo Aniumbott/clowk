@@ -50,10 +50,35 @@ def build_message(rewritten, stored, tiers, copied):
     return "\n".join(lines)
 
 
+def read_payload(stdin):
+    """Return the raw payload text, decoded as UTF-8 whatever the locale codec is.
+
+    Hosts send UTF-8 JSON, but sys.stdin decodes with the locale codec, so on a non-UTF-8 locale
+    (every Windows default ANSI codepage: cp1252, cp932, cp936) one non-ASCII byte raised
+    UnicodeDecodeError -- and that subclasses ValueError, so it was indistinguishable from
+    malformed JSON: exit 0, no block, credential transmitted. Claude Code puts `cwd` in every
+    payload, so an accented character in a profile path disabled the hook for every prompt.
+
+    `errors="replace"` cannot raise, and U+FFFD cannot hide a credential: every rule's value
+    half is ASCII. Non-UTF-8 stdio also mojibaked the rewrite the user is told to repaste.
+    """
+    raw = getattr(stdin, "buffer", None)  # absent on the StringIO the tests pass in
+    if raw is None:
+        return stdin.read()
+    return raw.read().decode("utf-8", "replace")
+
+
 def main(argv, stdin, stdout, stderr):
     host = _host_from(argv)
     try:
-        payload = json.load(stdin)
+        text = read_payload(stdin)
+    except UnicodeDecodeError as e:
+        # A scan that did not happen is not a clean prompt. Never block on a payload we cannot
+        # read -- it may not even be ours -- but do not look healthy either.
+        stderr.write("clowk: cannot decode this payload as %s -- NOT scanning it\n" % e.encoding)
+        return 0
+    try:
+        payload = json.loads(text)
     except ValueError:
         return 0  # unparseable input: never block on our own confusion
 
