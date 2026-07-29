@@ -57,8 +57,16 @@ def _command(root, script, host):
 def _load(path):
     if not os.path.exists(path):
         return {}, False
-    with open(path) as f:
-        text = f.read()
+    # encoding="utf-8" explicitly: settings.json is UTF-8 (hosts write it with JS JSON.stringify,
+    # which emits non-ASCII raw), but open() with no encoding uses the locale codec -- the ANSI
+    # codepage on stock Windows. That read either mangled a valid file into permanent mojibake or
+    # refused it with a raw codec error blaming JSON that was never invalid.
+    try:
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+    except UnicodeDecodeError:
+        raise ValueError(
+            "%s is not UTF-8. clowk will not modify it -- re-save it as UTF-8, then retry." % path)
     if not text.strip():
         return {}, True
     try:
@@ -76,8 +84,10 @@ def _save(path, data):
     if parent and not os.path.isdir(parent):
         os.makedirs(parent)
     tmp = path + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(data, f, indent=2)
+    # ensure_ascii=False keeps the host's own non-ASCII text exactly as it wrote it, so uninstall
+    # can still put the file back byte for byte. It is safe only because the encoding is pinned.
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
     os.replace(tmp, path)
 
 

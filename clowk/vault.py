@@ -47,7 +47,9 @@ def _load():
     """
     p = path()
     try:
-        with open(p) as f:
+        # encoding="utf-8", not the locale codec: clowk's own writes are pure ASCII, but a
+        # hand-edited source path is not, and a cp1252 read would mojibake it and write that back.
+        with open(p, encoding="utf-8") as f:
             text = f.read()
     except FileNotFoundError:
         return _empty()  # first run
@@ -84,8 +86,8 @@ def _save(data):
         except OSError:
             pass  # already exists
     tmp = p + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(data, f, indent=2)
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)  # ensure_ascii on, so the file stays ASCII-only either way
     try:
         os.chmod(tmp, 0o600)  # no-op on Windows; NTFS relies on user-profile ACLs
     except OSError:

@@ -4,6 +4,8 @@ import os
 import tempfile
 import unittest
 
+from tests import default_encoding
+
 
 class InstallCase(unittest.TestCase):
     def setUp(self):
@@ -103,6 +105,56 @@ class TestInstall(InstallCase):
     def test_unknown_host_raises(self):
         with self.assertRaises(KeyError):
             self.install.install("nope", self.root, self.settings)
+
+
+class TestEncoding(InstallCase):
+    """settings.json is UTF-8. Hosts write it with JS JSON.stringify, which emits raw UTF-8.
+
+    Reading it with the locale codec instead either mangles a valid file -- a cp1252 read plus an
+    escaped write leaves permanent mojibake in the user's live settings, with only clowk's backup
+    still holding the original -- or refuses it outright, since a byte undefined in cp1252 raises
+    a UnicodeDecodeError that cmd_install reports as if the JSON were the user's fault.
+    """
+
+    def write_bytes(self, raw):
+        with open(self.settings, "wb") as f:
+            f.write(raw)
+
+    def read_bytes(self):
+        with open(self.settings, "rb") as f:
+            return f.read()
+
+    def test_non_ascii_settings_survive_install_unchanged(self):
+        text = "café — déjà vu"
+        self.write_bytes(json.dumps({"note": text}, ensure_ascii=False).encode("utf-8"))
+        with default_encoding("cp1252"):
+            self.install.install("claude-code", self.root, self.settings)
+        self.assertIn(text.encode("utf-8"), self.read_bytes())
+
+    def test_a_byte_undefined_in_the_locale_codec_does_not_block_install(self):
+        name = "Łukasz"  # U+0141 is C5 81 in UTF-8; 0x81 is undefined in cp1252
+        self.write_bytes(json.dumps({"user": name}, ensure_ascii=False).encode("utf-8"))
+        with default_encoding("cp1252"):
+            result = self.install.install("claude-code", self.root, self.settings)
+        self.assertEqual(result["added"], 2)
+        self.assertIn(name.encode("utf-8"), self.read_bytes())
+
+    def test_uninstall_puts_a_non_ascii_file_back_byte_for_byte(self):
+        raw = json.dumps({"note": "café", "hooks": {}}, ensure_ascii=False, indent=2)
+        self.write_bytes(raw.encode("utf-8"))
+        with default_encoding("cp1252"):
+            self.install.install("claude-code", self.root, self.settings)
+            self.install.uninstall("claude-code", self.settings)
+        self.assertEqual(self.read_bytes(), raw.encode("utf-8"))
+
+    def test_a_settings_file_that_is_not_utf8_is_refused_with_a_clear_message(self):
+        self.write_bytes(json.dumps({"note": "café"}, ensure_ascii=False).encode("cp1252"))
+        with self.assertRaises(ValueError) as caught:
+            self.install.install("claude-code", self.root, self.settings)
+        self.assertIn("UTF-8", str(caught.exception))
+        self.assertIn(self.settings, str(caught.exception))
+        self.assertEqual(self.read_bytes(),
+                         json.dumps({"note": "café"}, ensure_ascii=False).encode("cp1252"))
 
 
 class TestUninstall(InstallCase):

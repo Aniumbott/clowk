@@ -4,6 +4,8 @@ import stat
 import tempfile
 import unittest
 
+from tests import default_encoding
+
 
 class VaultCase(unittest.TestCase):
     def setUp(self):
@@ -115,6 +117,22 @@ class TestUnreadableFile(VaultCase):
         self.write_raw(json.dumps({"version": 1}))
         self.assertEqual(self.vault.names(), [])
         self.assertEqual(self.vault.store("A", "one"), "A")
+
+
+class TestEncoding(VaultCase):
+    def test_a_hand_edited_utf8_vault_reads_the_same_under_any_locale_codec(self):
+        # clowk's own writes are pure ASCII, but the README invites you to read and edit this
+        # file, and a source path can hold anything. Decoding it with the locale codec turned a
+        # non-ASCII path into mojibake and then wrote the mojibake back.
+        source = "/Users/José/proj"
+        with open(self.vault.path(), "w", encoding="utf-8") as f:
+            json.dump({"version": 1, "secrets": {
+                "A": {"value": "one", "sources": [source], "uses": []}}}, f, ensure_ascii=False)
+        with default_encoding("cp1252"):
+            self.assertEqual(self.vault.names(), ["A"])
+            self.assertEqual(self.vault.list_secrets()["A"]["sources"], [source])
+            self.vault.record_use("A", "/p")
+        self.assertEqual(self.vault.list_secrets()["A"]["sources"], [source])
 
 
 class TestMetadata(VaultCase):

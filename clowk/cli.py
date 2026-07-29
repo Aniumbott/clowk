@@ -127,10 +127,16 @@ def _without(cfg, key, pattern):
 def cmd_allow(pattern, out, err):
     path = deny.config_path()
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             cfg = json.load(f)
         if not isinstance(cfg, dict):
             cfg = {}
+    except UnicodeDecodeError:
+        # A file we cannot decode is not "no config": falling through to {} would overwrite the
+        # user's whole hand-written deny list while printing success.
+        err.write("%s is not UTF-8. clowk will not modify it -- re-save it as UTF-8, "
+                  "then retry.\n" % path)
+        return 1
     except (IOError, OSError, ValueError):
         cfg = {}
     allow = [a for a in cfg.get("allow", []) if isinstance(a, str)]
@@ -148,7 +154,9 @@ def cmd_allow(pattern, out, err):
         except OSError:
             pass
     tmp = path + ".tmp"
-    with open(tmp, "w") as f:
+    # ensure_ascii stays on here (unlike install.py): deny.py reads this file back with the
+    # locale codec, so keeping it pure ASCII is what makes a non-ASCII pattern survive the trip.
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2)
     os.replace(tmp, path)
     out.write("Allowed %r. clowk will no longer deny it.\n" % pattern)

@@ -5,6 +5,8 @@ import os
 import tempfile
 import unittest
 
+from tests import default_encoding
+
 
 class CliCase(unittest.TestCase):
     def setUp(self):
@@ -31,8 +33,12 @@ class CliCase(unittest.TestCase):
         return code, out.getvalue(), err.getvalue()
 
     def deny_config(self):
-        with open(os.environ["CLOWK_DENY"]) as f:
+        with open(os.environ["CLOWK_DENY"], encoding="utf-8") as f:
             return json.load(f)
+
+    def deny_bytes(self):
+        with open(os.environ["CLOWK_DENY"], "rb") as f:
+            return f.read()
 
 
 class TestList(CliCase):
@@ -131,6 +137,39 @@ class TestAllow(CliCase):
         self.assertIsNone(deny.check("Read", {"file_path": "/proj/secrets.txt"}))
         self.assertEqual(self.deny_config()["deny_paths"], [])
         self.assertEqual(self.deny_config()["deny_commands"], ["vault read"])
+
+
+class TestAllowEncoding(CliCase):
+    """The deny config is UTF-8, whatever the locale codec is.
+
+    Reading it with the locale codec made a non-ASCII pattern raise UnicodeDecodeError, which is a
+    ValueError -- so `allow` fell through to "no config at all" and overwrote the user's whole
+    hand-written deny list while printing success.
+    """
+
+    def write_deny_bytes(self, raw):
+        with open(os.environ["CLOWK_DENY"], "wb") as f:
+            f.write(raw)
+
+    def test_a_non_ascii_deny_rule_survives_allow(self):
+        self.write_deny_bytes(json.dumps(
+            {"allow": [".env"], "deny_paths": ["secrets-Łukasz.txt"], "deny_commands": ["vault read"]},
+            ensure_ascii=False).encode("utf-8"))
+        with default_encoding("cp1252"):
+            code, out, err = self.run_cli("allow", "id_rsa")
+        self.assertEqual((code, err), (0, ""))
+        cfg = self.deny_config()
+        self.assertEqual(cfg["deny_paths"], ["secrets-Łukasz.txt"])
+        self.assertEqual(cfg["deny_commands"], ["vault read"])
+        self.assertEqual(sorted(cfg["allow"]), [".env", "id_rsa"])
+
+    def test_a_deny_config_that_is_not_utf8_is_refused_not_discarded(self):
+        raw = json.dumps({"deny_paths": ["café.txt"]}, ensure_ascii=False).encode("cp1252")
+        self.write_deny_bytes(raw)
+        code, out, err = self.run_cli("allow", "id_rsa")
+        self.assertEqual(code, 1)
+        self.assertIn("UTF-8", err)
+        self.assertEqual(self.deny_bytes(), raw)
 
 
 class TestUsage(CliCase):
