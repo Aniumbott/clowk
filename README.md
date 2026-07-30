@@ -150,6 +150,12 @@ path to this directory:
 
 Point the marketplace at this clone rather than at a git URL: a URL marketplace clones a second
 copy, so the slash command would end up running different code from the hooks you just registered.
+Both copies read the same vault, so nothing breaks immediately — but after you pull, the hooks are
+new and `/clowk` is still the snapshot the plugin installed, and they can disagree.
+
+If you do use the URL, it needs the `.git` suffix — `https://github.com/Aniumbott/clowk/` fails
+with `repository not found`, `https://github.com/Aniumbott/clowk.git` works. To move an existing
+URL install onto your clone: `/plugin marketplace remove clowk-dev`, then add the local path.
 The plugin declares no hooks of its own (see `NOTES.md`), so it cannot double-register anything, and
 skipping it costs you only the slash command — every operation is available from the CLI below.
 
