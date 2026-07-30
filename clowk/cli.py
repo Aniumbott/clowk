@@ -7,7 +7,8 @@ Usage:
   clowk set NAME                replace a value after rotating it upstream
   clowk clear NAME              forget a credential
   clowk rename OLD NEW          rename one
-  clowk uses [NAME]             where each credential was caught, and its (unfilled) used-by list
+  clowk run -- '<cmd>'          run one command with a credential lent to it, quoted as one arg
+  clowk uses [NAME]             where each credential was caught, and what has used it
   clowk allow PATTERN           stop denying one of clowk's rules -- a filename, a suffix or a
                                 command phrase, exactly as the deny message prints it
   clowk debug-payload           dump what a host sends this hook, to add a new host
@@ -23,7 +24,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from clowk import deny, install as install_mod, vault
+from clowk import deny, install as install_mod, runner, vault
 
 
 def _use_utf8(*streams):
@@ -319,6 +320,8 @@ def _dispatch(argv, out, err):
         return cmd_install(args[0] if args else "claude-code", out, err)
     if cmd == "uninstall" and len(args) <= 1:
         return cmd_uninstall(args[0] if args else "claude-code", out, err)
+    if cmd == "run":
+        return runner.main(args, out, err)
     if cmd == "debug-payload" and not args:
         return cmd_debug_payload(out)
     err.write("Unknown command, or wrong number of arguments. Run `clowk help`.\n")

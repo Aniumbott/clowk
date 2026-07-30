@@ -21,6 +21,7 @@ TARGETS = {
         "prompt_event": "UserPromptSubmit",
         "tool_event": "PreToolUse",
         "tool_matcher": "Bash|Read",
+        "session_event": "SessionStart",
     },
     "codex": {
         "settings": os.path.join("~", ".codex", "hooks.json"),
@@ -49,7 +50,8 @@ def is_clowk_entry(entry):
         return False
     command = entry.get("command")
     return isinstance(command, str) and MARKER in command and (
-        "hook_prompt.py" in command or "hook_pretool.py" in command)
+        "hook_prompt.py" in command or "hook_pretool.py" in command
+        or "hook_session.py" in command)
 
 
 def _command(root, script, host):
@@ -269,6 +271,11 @@ def install(host, root, settings_path_override=None):
     added = _add(hooks, target["prompt_event"], None, _command(root, "hook_prompt.py", host), path)
     added += _add(hooks, target["tool_event"], target["tool_matcher"],
                   _command(root, "hook_pretool.py", host), path)
+    # Only where the host has a session event: without the briefing the agent treats $NAME as an
+    # ordinary shell variable, finds it empty, and asks the human to paste the value again.
+    if target.get("session_event"):
+        added += _add(hooks, target["session_event"], None,
+                      _command(root, "hook_session.py", host), path)
 
     _save(path, data)
     return {"settings": path, "backup": backup, "added": added}
@@ -286,7 +293,10 @@ def uninstall(host, settings_path_override=None):
         return {"settings": path, "removed": 0}
 
     removed = 0
-    for event in (target["prompt_event"], target["tool_event"]):
+    events = [target["prompt_event"], target["tool_event"]]
+    if target.get("session_event"):
+        events.append(target["session_event"])
+    for event in events:
         groups = hooks.get(event)
         if not isinstance(groups, list):
             continue

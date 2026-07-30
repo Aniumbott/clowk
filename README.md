@@ -22,10 +22,10 @@ tripping the shape-only rules rather than a credential paste, so the rest are st
 the turn is still blocked, but they are not filed — the block message says how many, and suggests
 resending with `unclowk` if none of them are credentials.
 
-Each entry records the working directory of the session that pasted it, so `clowk uses` can tell
-you where a credential came from — a starting point for what a rotation will touch. (The vault
-reserves a `used by` list per credential, but nothing in this version fills it in automatically:
-expect it to read `(nothing recorded yet)`.)
+Each entry records the working directory of the session that pasted it, and every command run
+through `clowk run` is added to that credential's `used by` list — so `clowk uses` tells you both
+where a credential came from and what has actually consumed it. A credential you have never run
+through `clowk run` reads `(nothing recorded yet)`.
 
 Connection strings are handled as a unit: paste `postgresql://user:pw@host/db` and the whole URI is
 filed as `$DATABASE_URL`, not just the password, so the host and database name do not travel to the
@@ -202,6 +202,36 @@ clowk install [HOST]       register clowk's hooks; uninstall removes them
 ```
 
 `add` and `set` never take the value as an argument — that would put it in your shell history.
+
+## Using a captured credential
+
+A captured value is **not** in your agent's environment — `echo $DATABASE_URL` prints nothing, and
+that is the point. To let one command use it, run that command through clowk, quoted as a single
+argument:
+
+```bash
+clowk run -- 'psql $DATABASE_URL -c "select 1"'
+```
+
+clowk puts the value into that one child process, and scrubs it back out of the output — so a
+command that echoes the credential prints `$DATABASE_URL`, not the value. The single quotes matter:
+unquoted, your own shell expands `$DATABASE_URL` to nothing before clowk ever sees it.
+
+References are recognised however the command spells them — `$NAME`, `${NAME}`, `%NAME%`, or the
+bare name as a whole word, which covers `os.environ["NAME"]` and `process.env.NAME`. When the
+reference lives inside a script instead (`npm run deploy`), there is nothing to spot, so lend
+everything explicitly:
+
+```bash
+clowk run --all -- 'npm run deploy'
+```
+
+`clowk install` also registers a `SessionStart` hook that tells the agent which credentials exist
+and how to use them — names only, never values. Without it the agent treats `$DATABASE_URL` as an
+ordinary shell variable, finds it empty, and asks you to paste the real one again.
+
+Running a credential through `clowk run` is also the only thing that fills the `used by` list, so
+`clowk uses` tells you what a rotation would actually touch.
 
 To send a message without scanning it, start it with `unclowk`.
 

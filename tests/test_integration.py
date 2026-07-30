@@ -420,8 +420,12 @@ class TestInstallUninstallRoundTrip(IntegrationCase):
     def _round_trip(self, host):
         original = self.write_settings(self.MESSY)
 
+        # Two hooks everywhere, plus the SessionStart briefing where the host has a session event.
+        # Derived rather than written as 2, so adding an event does not turn this red while the
+        # thing it actually checks -- that uninstall restores the file byte for byte -- still holds.
+        expected_hooks = 2 + (1 if install.TARGETS[host].get("session_event") else 0)
         result = install.install(host, "/opt/clowk", self.settings)
-        self.assertEqual(result["added"], 2)
+        self.assertEqual(result["added"], expected_hooks)
         registered = read_text(self.settings)
         self.assertIn("hook_prompt.py", registered)
         self.assertIn("hook_pretool.py", registered)
@@ -430,7 +434,7 @@ class TestInstallUninstallRoundTrip(IntegrationCase):
                          "Write", "Edit"):
             self.assertIn(survivor, registered)
 
-        self.assertEqual(install.uninstall(host, self.settings)["removed"], 2)
+        self.assertEqual(install.uninstall(host, self.settings)["removed"], expected_hooks)
         self.assertEqual(read_text(self.settings), original)
 
     def test_claude_code_round_trips_to_an_identical_file(self):

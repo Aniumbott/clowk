@@ -8,6 +8,19 @@ import unittest
 from tests import default_encoding
 
 
+def hook_count(host):
+    """How many hooks a host gets: prompt + tool, plus a session briefing where the host has a
+    session event.
+
+    Derived from TARGETS rather than written as a literal. These assertions used to say 2, and
+    adding the SessionStart briefing turned eight of them red at once while asserting nothing
+    useful -- the count is an implementation detail, "all of this host's events" is the intent.
+    """
+    from clowk import install
+
+    return 2 + (1 if install.TARGETS[host].get("session_event") else 0)
+
+
 class InstallCase(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
@@ -37,7 +50,7 @@ class InstallCase(unittest.TestCase):
 class TestInstall(InstallCase):
     def test_creates_settings_when_absent(self):
         result = self.install.install("claude-code", self.root, self.settings)
-        self.assertEqual(result["added"], 2)
+        self.assertEqual(result["added"], hook_count("claude-code"))
         hooks = self.read()["hooks"]
         self.assertIn("UserPromptSubmit", hooks)
         self.assertIn("PreToolUse", hooks)
@@ -103,7 +116,7 @@ class TestInstall(InstallCase):
     def test_a_group_with_no_hooks_key_at_all_is_still_fine(self):
         # A matcher-only group is legal and common; "absent" must not be confused with "wrong".
         self.write({"hooks": {"PreToolUse": [{"matcher": "Write"}]}})
-        self.assertEqual(self.install.install("claude-code", self.root, self.settings)["added"], 2)
+        self.assertEqual(self.install.install("claude-code", self.root, self.settings)["added"], hook_count("claude-code"))
         self.assertIn({"matcher": "Write"}, self.read()["hooks"]["PreToolUse"])
 
     def test_codex_uses_its_own_event_names(self):
@@ -219,7 +232,7 @@ class TestEncoding(InstallCase):
         self.write_bytes(json.dumps({"user": name}, ensure_ascii=False).encode("utf-8"))
         with default_encoding("cp1252"):
             result = self.install.install("claude-code", self.root, self.settings)
-        self.assertEqual(result["added"], 2)
+        self.assertEqual(result["added"], hook_count("claude-code"))
         self.assertIn(name.encode("utf-8"), self.read_bytes())
 
     def test_uninstall_puts_a_non_ascii_file_back_byte_for_byte(self):
@@ -245,7 +258,7 @@ class TestUninstall(InstallCase):
         self.write({"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": "echo mine"}]}]}})
         self.install.install("claude-code", self.root, self.settings)
         result = self.install.uninstall("claude-code", self.settings)
-        self.assertEqual(result["removed"], 2)
+        self.assertEqual(result["removed"], hook_count("claude-code"))
         commands = json.dumps(self.read()["hooks"])
         self.assertIn("echo mine", commands)
         self.assertNotIn("hook_prompt.py", commands)

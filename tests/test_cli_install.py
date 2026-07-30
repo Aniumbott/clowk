@@ -20,6 +20,7 @@ import tempfile
 import unittest
 
 from clowk import cli, install
+from tests.test_install import hook_count
 
 # Literals on purpose: deriving these from install.TARGETS would assert the table against itself,
 # and a typo in a host's filename is precisely what this file exists to catch.
@@ -76,12 +77,16 @@ class TestInstallThroughTheCli(CliInstallCase):
             path, prompt_event, tool_event = EXPECTED[host]
             code, out, err = self.run_cli("install", host)
             self.assertEqual((host, code, err), (host, 0, ""))
-            self.assertIn("Registered 2 clowk hook(s)", out)
+            self.assertIn("Registered %d clowk hook(s)" % hook_count(host), out)
             self.assertIn(self.settings_for(host), out)
             self.assertTrue(os.path.exists(self.settings_for(host)),
                             "%s: no hooks written to %s" % (host, path))
             hooks = self.read_settings(host)["hooks"]
-            self.assertEqual(sorted(hooks), sorted([prompt_event, tool_event]))
+            expected = [prompt_event, tool_event]
+            session = install.TARGETS[host].get("session_event")
+            if session:
+                expected.append(session)   # the briefing, where the host has a session event
+            self.assertEqual(sorted(hooks), sorted(expected))
             blob = json.dumps(hooks)
             self.assertIn("--host " + host, blob)
             self.assertIn("hook_prompt.py", blob)
@@ -187,7 +192,7 @@ class TestUninstallThroughTheCli(CliInstallCase):
             self.assertEqual(self.run_cli("install", host)[0], 0)
             code, out, err = self.run_cli("uninstall", host)
             self.assertEqual((host, code, err), (host, 0, ""))
-            self.assertIn("Removed 2 clowk hook(s)", out)
+            self.assertIn("Removed %d clowk hook(s)" % hook_count(host), out)
             self.assertIn(self.settings_for(host), out)
             self.assertNotIn("clowk", json.dumps(self.read_settings(host)))
 
@@ -195,7 +200,7 @@ class TestUninstallThroughTheCli(CliInstallCase):
         self.run_cli("install")
         code, out, err = self.run_cli("uninstall")
         self.assertEqual((code, err), (0, ""))
-        self.assertIn("Removed 2", out)
+        self.assertIn("Removed %d" % hook_count("claude-code"), out)
         self.assertIn(self.settings_for("claude-code"), out)
 
     def test_uninstalling_one_host_leaves_another_hosts_hooks_alone(self):
