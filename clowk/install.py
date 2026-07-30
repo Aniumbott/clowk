@@ -91,6 +91,16 @@ terminal and cannot be driven from here -- tell the user to run them in their ow
 
 
 def command_path():
+    """Where the unnamespaced /clowk command lives. CLOWK_COMMANDS overrides it, for tests.
+
+    An override rather than letting tests reassign HOME: on Windows expanduser("~") reads
+    USERPROFILE, not HOME, so setting HOME redirected nothing and the tests wrote into the real
+    user profile -- then failed on the directory already existing. CLOWK_VAULT and CLOWK_DENY
+    already work this way, so this is the established pattern here.
+    """
+    override = os.environ.get("CLOWK_COMMANDS")
+    if override:
+        return override
     return os.path.expanduser(os.path.join("~", ".claude", "commands", "clowk.md"))
 
 
@@ -105,8 +115,11 @@ def install_command(root):
         except (IOError, OSError, UnicodeDecodeError):
             return None
     parent = os.path.dirname(path)
-    if parent and not os.path.isdir(parent):
-        os.makedirs(parent)
+    if parent:
+        try:
+            os.makedirs(parent)
+        except OSError:
+            pass          # already there, which is the normal case
     cli = os.path.join(root, "clowk", "cli.py")
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8", newline="") as f:

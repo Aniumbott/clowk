@@ -19,18 +19,13 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 class CommandFileCase(unittest.TestCase):
     def setUp(self):
-        # A temp HOME, so a test run can never touch the developer's real ~/.claude/commands.
+        # CLOWK_COMMANDS, not a reassigned HOME: on Windows expanduser("~") reads USERPROFILE, so
+        # setting HOME redirected nothing and these tests wrote into the real user profile.
         self.home = tempfile.mkdtemp(prefix="clowk-home-")
         self.addCleanup(shutil.rmtree, self.home, True)
-        self.original = os.environ.get("HOME")
-        os.environ["HOME"] = self.home
-        self.addCleanup(self._restore_home)
-
-    def _restore_home(self):
-        if self.original is None:
-            os.environ.pop("HOME", None)
-        else:
-            os.environ["HOME"] = self.original
+        self.target = os.path.join(self.home, ".claude", "commands", "clowk.md")
+        os.environ["CLOWK_COMMANDS"] = self.target
+        self.addCleanup(os.environ.pop, "CLOWK_COMMANDS", None)
 
     def read(self):
         with open(install.command_path(), encoding="utf-8") as f:
@@ -40,7 +35,7 @@ class CommandFileCase(unittest.TestCase):
 class TestWriting(CommandFileCase):
     def test_it_lands_in_the_unnamespaced_commands_directory(self):
         path = install.install_command(ROOT)
-        self.assertEqual(path, os.path.join(self.home, ".claude", "commands", "clowk.md"))
+        self.assertEqual(path, self.target)
         self.assertTrue(os.path.exists(path))
 
     def test_frontmatter_is_the_very_first_line(self):
@@ -55,9 +50,10 @@ class TestWriting(CommandFileCase):
     def test_the_interpreter_and_cli_path_both_exist_on_disk(self):
         install.install_command(ROOT)
         body = self.read()
-        line = [ln for ln in body.splitlines() if ln.startswith("!`")][0]
-        interpreter = line.split('"')[0].lstrip("!`").strip()
-        cli = line.split('"')[1]
+        lines = [ln for ln in body.splitlines() if ln.startswith("!`")]
+        self.assertEqual(len(lines), 1, "expected exactly one command line, got %r" % lines)
+        interpreter = lines[0].split('"')[0].lstrip("!`").strip()
+        cli = lines[0].split('"')[1]
         self.assertTrue(os.path.exists(interpreter), "interpreter missing: %r" % interpreter)
         self.assertTrue(os.path.exists(cli), "cli.py missing: %r" % cli)
 
@@ -75,7 +71,9 @@ class TestWriting(CommandFileCase):
 class TestNotClobbering(CommandFileCase):
     def write_foreign(self):
         path = install.command_path()
-        os.makedirs(os.path.dirname(path))
+        parent = os.path.dirname(path)
+        if not os.path.isdir(parent):
+            os.makedirs(parent)
         with open(path, "w", encoding="utf-8") as f:
             f.write("---\ndescription: my own clowk command\n---\ndo not touch\n")
         return path

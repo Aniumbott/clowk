@@ -99,7 +99,9 @@ class TestInstallThroughTheCli(CliInstallCase):
         self.assertEqual((code, err), (0, ""))
         written = self.home_files()
         self.assertIn(EXPECTED["claude-code"][0], written)
-        self.assertIn(".claude/commands/clowk.md", written)
+        # normalise separators: home_files() yields OS-native paths, and Windows uses backslashes
+        normalised = [w.replace(os.sep, "/") for w in written]
+        self.assertIn(".claude/commands/clowk.md", normalised)
         for host in ("codex", "gemini-cli"):
             self.assertNotIn(EXPECTED[host][0], written,
                              "installing for claude-code wrote %s's settings" % host)
