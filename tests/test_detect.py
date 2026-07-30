@@ -282,12 +282,30 @@ class TestBrokenRuleset(unittest.TestCase):
         return mod
 
     def _assert_degrades(self, rules_json):
+        """A broken ruleset costs the 220 vendored rules but NOT the standalone-token rule.
+
+        This used to assert scan() returned nothing at all. That stopped being true once the
+        standalone rule was added, and the new behaviour is strictly better: the standalone rule
+        is clowk's own and reads no file, so a corrupt rules.json degrades detection rather than
+        disabling it. Both halves are pinned here so neither can regress silently.
+        """
         mod = self._load(rules_json)
-        self.assertEqual(mod.scan("here is the key sk_" "live_4eC39HqLyjWDarjtT1zdp7dc please"), [])
         self.assertTrue(mod.RULESET_ERROR, "a disabled ruleset must be reported, not silent")
         # loud, not silent: a hook that looks healthy while scanning nothing is worse than one
         # that says so, because nothing else in clowk ever reports a broken ruleset
         self.assertIn("NOT scanning", self.warning.getvalue())
+
+        # Gone with the vendored rules: a Slack token is lowercase, digits and dashes only, so the
+        # standalone rule's mixed-case requirement cannot reach it. Only slack-bot-token could.
+        slack = "xoxb" + "-123456789012-123456789012-abcdefghijklmnopqrstuvwx"
+        self.assertEqual(mod.scan("slack token " + slack), [],
+                         "a vendored rule fired with the ruleset broken")
+
+        # Still working: mixed-case high-entropy tokens, because that rule reads no file.
+        generic = "DL" + "fdfnU8pAERrHbccVspNtcq37DhhIyh"
+        surviving = mod.scan("here is the key " + generic)
+        self.assertTrue(surviving, "a broken ruleset must not disable standalone detection too")
+        self.assertEqual(surviving[0].rule_id, mod.STANDALONE_ID)
         return mod
 
     def test_a_missing_ruleset_degrades_instead_of_raising(self):

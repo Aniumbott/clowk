@@ -11,6 +11,8 @@ reads as "low" even though it is in fact a pinned vendor format. It only ever lo
 value half of a rule, never at the keyword half -- see classify(). Never word a "low" message
 as "this is probably not a credential" -- word it as "clowk is less sure what this is".
 """
+import base64
+import binascii
 import json
 import math
 import os
@@ -178,6 +180,112 @@ def _shannon(s):
     return -sum((c / n) * math.log2(c / n) for c in freq.values())
 
 
+# --- standalone credential tokens -------------------------------------------------------------
+# The vendored gitleaks rules split into two kinds. 96 pin a literal vendor prefix and match the
+# value itself, so they work in any phrasing. The other 124 need `keyword <operator> value`, which
+# is a SOURCE CODE shape -- and clowk's whole job is catching what a human types into a chat, where
+# people write "here's the api key - VALUE", "my api key is VALUE", or just paste the value alone.
+# Measured on a labelled corpus, the shipped ruleset caught 11 of 20 realistic pastes: every miss
+# was a prefix-less credential in natural language.
+#
+# This rule closes that, with no keyword requirement at all. It is the only rule here that clowk
+# adds to the vendored set, and it is tagged "low" because a bare token carries no vendor evidence.
+#
+# The discriminator is that ordinary high-entropy text in a developer's prompt is overwhelmingly
+# single-case hex (git SHAs, md5, sha256, request ids) or carries a structural marker (sha256:,
+# base64,), while real credentials mix case and digits. Validated against 704 prompts the author
+# had actually typed to agents: 3 hits, all 3 genuine secrets, no false positives.
+STANDALONE_ID = "clowk-standalone-token"
+STANDALONE_ENV = "SECRET"
+# 3.5 is the floor gitleaks uses for its own generic rule, so this matches the vendored set
+# rather than being tuned. Shannon entropy is capped at log2(len), which is only 4.58 for a
+# 24-char token -- a 4.0 floor sat above the 5th percentile of real 128-bit base64 keys and
+# dropped 7% of them. Measured across 3.4-3.8 the choice makes no difference to precision.
+MIN_ENTROPY = 3.5
+
+# Upper bound covers a 2048-bit secret: 256 random bytes is 512 hex chars or 342 base64 chars.
+# A 64-char cap -- the obvious first guess -- silently missed every key of 512 bits or more,
+# including a Rails secret_key_base (128 hex) and any base64-encoded 512-bit secret (86 chars).
+MAX_TOKEN = 512
+
+# 20-512 chars, not glued to a path, URL, version string or assignment. +/= are allowed because
+# base64 secrets contain them, which is also why the decodes-to-text check below has to exist.
+# The FIRST character accepts + and / too: those are in the base64 alphabet, so ~3% of keys
+# start with one, and requiring an alphanumeric there made them unmatchable -- the lookbehind
+# then blocks every later start position, so the token was skipped entirely rather than trimmed.
+_TOKEN = re.compile(r"(?<![\w./:=+-])([A-Za-z0-9+/][A-Za-z0-9_+/=-]{19,%d})(?![\w./=+-])" % (MAX_TOKEN - 1))
+_UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
+_HEX_ONLY = re.compile(r"^[0-9a-f]+$", re.I)
+_LOWER = re.compile(r"[a-z]")
+_UPPER = re.compile(r"[A-Z]")
+_DIGIT = re.compile(r"[0-9]")
+
+# A preceding marker that says "this is a digest, not a credential".
+_STRUCTURAL = ("sha256:", "sha512-", "sha512:", "sha1-", "sha1:", "md5:", "base64,")
+
+# Infrastructure id namespaces. These are mixed-case and high-entropy, so they look exactly like
+# credentials, and they are not. Without this, 79 of 704 real prompts matched -- every one an
+# agent-harness tool-use id echoed back in a notification. Blocking those would have wedged the
+# session on messages the user never typed.
+_NAMESPACES = (
+    "toolu_", "msg_", "req_", "run_", "task_", "wf_", "call_", "asst_", "thread_",
+    "evt_", "job_", "sess_", "span_", "trace_",
+)
+
+
+def _decodes_to_text(tok):
+    """True if this base64-decodes to readable ASCII, i.e. it is encoded TEXT, not a key.
+
+    A credential's bytes are random, so its base64 decodes to mostly unprintable bytes -- measured
+    at 0.36-0.38 printable for real keys against 1.00 for encoded prose. Without this, someone
+    pasting `Zm9vYmFyYmF6...  -- decode this for me` gets their turn blocked, which is a normal
+    thing to ask an agent to do.
+    """
+    padded = tok + "=" * (-len(tok) % 4)
+    try:
+        raw = base64.b64decode(padded, validate=True)
+    except (binascii.Error, ValueError):
+        return False                      # not base64 at all, so this test says nothing
+    if len(raw) < 8:
+        return False
+    printable = sum(1 for b in bytearray(raw) if 32 <= b <= 126)
+    return printable / float(len(raw)) > 0.85
+
+
+def standalone_findings(text):
+    """Findings for credential-shaped tokens that stand alone, with no keyword anywhere near.
+
+    Hex-only tokens are deliberately NOT reported here, and that is a real limitation rather than
+    an oversight: a 64-character hex string is shape-identical to a sha256 digest, and a 40-char
+    one to a git object id. Nothing about the token separates a 256-bit HMAC secret from a hash, so
+    reporting them would block `git show <sha>`. Hex secrets are reachable only through a keyword,
+    which is why the keyword rules accept prose operators -- see build_rules.py.
+    """
+    out = []
+    for m in _TOKEN.finditer(text):
+        tok = m.group(1)
+        # The marker can sit either just before the token (`base64,AAAA`) or inside it, when the
+        # token boundary opens on a quote: `"sha512-oGMAgG..."` matches from the s, so the marker
+        # becomes a prefix of the token rather than context around it. Checking only one of those
+        # let every npm lockfile integrity hash read as a credential.
+        lowered = tok.lower()
+        before = text[max(0, m.start(1) - 12):m.start(1)].lower()
+        if any(marker in before or lowered.startswith(marker) for marker in _STRUCTURAL):
+            continue
+        if any(tok.startswith(ns) for ns in _NAMESPACES):
+            continue
+        if _UUID.match(tok) or _HEX_ONLY.match(tok):
+            continue
+        if not (_LOWER.search(tok) and _UPPER.search(tok) and _DIGIT.search(tok)):
+            continue
+        if _shannon(tok) < MIN_ENTROPY:
+            continue
+        if _decodes_to_text(tok):
+            continue
+        out.append(Finding(STANDALONE_ID, STANDALONE_ENV, tok, m.start(1), m.end(1), "low"))
+    return out
+
+
 def compile_rules(rules):
     """Compile once, defensively. A rule this Python cannot use is skipped, never fatal.
 
@@ -231,4 +339,8 @@ def scan(text):
                 continue
             conf = r.get("confidence") or classify(r["regex"])
             out.setdefault(secret, Finding(r["id"], r["env"], secret, start, end, conf))
+    # Last, and only for values no vendored rule claimed: a rule that named the vendor is always
+    # the better label, and setdefault keeps whichever landed first.
+    for finding in standalone_findings(text):
+        out.setdefault(finding.secret, finding)
     return list(out.values())

@@ -98,8 +98,12 @@ Specifically, it does **not** protect against:
 - **Files you `@`-mention.** The host reads those, not clowk.
 - **Grep**, which shows file contents to the model. The deny hook is registered on `Bash` and
   `Read` only, so anything else that reads a file goes around it.
-- **Unrecognised formats.** Detection is regex over 220 gitleaks rules. A novel or custom
-  credential shape goes straight through.
+- **Unrecognised formats.** Detection is 220 gitleaks rules plus one rule of clowk's own for
+  credential-shaped tokens standing alone. A shape none of them knows goes straight through.
+- **Hex-only secrets with no keyword near them.** A 64-character hex string is a sha256 digest and
+  a 256-bit HMAC secret at the same time; nothing about the token separates them. Reporting them
+  standing alone would block `git show <sha>`, so clowk does not. With a keyword nearby
+  (`webhook_secret = <hex>`) they are caught. This is a deliberate trade, measured, not an oversight.
 - **Partially matched credentials.** A rule matches a span, and only that span is replaced. If your
   credential is longer than the pattern that caught it — a vendor variant, a key with a suffix the
   rule does not know — the remainder stays in the rewritten prompt, while the block message still
@@ -204,8 +208,8 @@ the value was not filed.
 
 ## False positives
 
-129 of the 220 rules match on shape rather than a literal vendor prefix, so a legitimate prompt can
-be blocked. (That count is deliberately conservative: a pinned format with no trailing separator,
+129 of the 220 rules match on shape rather than a literal vendor prefix, and clowk's own
+standalone-token rule matches on shape alone, so a legitimate prompt can be blocked. (That count is deliberately conservative: a pinned format with no trailing separator,
 like `AKIA…`, is counted as shape-only too, and only the value half of a rule counts — a vendor
 name in the rule's keyword list says nothing about the value's shape.) Every block message tells
 you how to bypass
