@@ -139,6 +139,42 @@ jobs:
           print("clean prompt passes through silently")
           PY
 
+      - name: A lent credential is usable by the command but absent from its output
+        shell: bash
+        run: |
+          python - <<'PY'
+          """clowk run's two load-bearing properties, on every platform.
+
+          The command must be able to USE the value, and the value must not come back in the
+          output. A test that only checked the second could be passed by lending nothing at all,
+          so the first is checked by length rather than by content.
+          """
+          import io, os, sys, tempfile
+          sys.path.insert(0, ".")
+          os.environ["CLOWK_VAULT"] = os.path.join(tempfile.mkdtemp(), "vault.json")
+          from clowk import runner, vault
+
+          SECRET = "sk_" + "live_4eC39HqLyjWDarjtT1zdp7dc"
+          vault.store("STRIPE_KEY", SECRET)
+
+          out, err = io.StringIO(), io.StringIO()
+          code = runner.main(["--", sys.executable + ' -c "import os;print(len(os.environ[chr(83)+\'TRIPE_KEY\']))" # $STRIPE_KEY'], out, err)
+          assert code == 0, "command failed: %r" % err.getvalue()
+          assert out.getvalue().strip() == str(len(SECRET)), \
+              "the command could not use the value: %r" % out.getvalue()
+          print("usable:  the command saw a %d-character value" % len(SECRET))
+
+          out, err = io.StringIO(), io.StringIO()
+          runner.main(["--", "echo $STRIPE_KEY"], out, err)
+          blob = out.getvalue() + err.getvalue()
+          assert SECRET not in blob, "clowk run LEAKED the value into its own output"
+          assert "$STRIPE_KEY" in blob, "the value was not scrubbed back to its name: %r" % blob
+          print("not readable: echoing it printed $STRIPE_KEY")
+
+          assert vault.list_secrets()["STRIPE_KEY"]["uses"], "the used-by ledger was not recorded"
+          print("ledger:  the use was recorded")
+          PY
+
       - name: Install and uninstall round-trip on a temp settings file
         shell: bash
         run: |
@@ -162,9 +198,13 @@ jobs:
               json.dump(original, f)
 
           for host in ("claude-code", "codex", "gemini-cli"):
+              # Two hooks everywhere, plus the SessionStart briefing where the host has a session
+              # event. Derived from TARGETS, not written as 2 -- a literal here turned all seven
+              # jobs red the moment a third hook was added, while checking nothing that mattered.
+              expected = 2 + (1 if install.TARGETS[host].get("session_event") else 0)
               before = copy.deepcopy(json.load(open(settings, encoding="utf-8")))
               added = install.install(host, os.getcwd(), settings)["added"]
-              assert added == 2, "%s registered %d hooks, expected 2" % (host, added)
+              assert added == expected, "%s registered %d hooks, expected %d" % (host, added, expected)
               text = json.dumps(json.load(open(settings, encoding="utf-8")))
               assert "echo mine" in text and "echo theirs" in text, "%s clobbered existing hooks" % host
               assert install.install(host, os.getcwd(), settings)["added"] == 0, "%s not idempotent" % host
