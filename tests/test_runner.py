@@ -142,8 +142,11 @@ class TestGuidance(RunnerCase):
         self.assertIn("not in the vault", err)
 
     def test_an_ordinary_environment_variable_is_not_flagged(self):
-        # $HOME and $PATH are not near misses, and warning about them would make the warning noise.
-        code, out, err = self.run_it("--", "echo $HOME")
+        # A variable the environment already defines is not a near miss, and warning about it would
+        # turn the warning into noise. PATH rather than HOME: HOME does not exist on Windows, where
+        # it is USERPROFILE, so the warning fired correctly and it was the test that was wrong.
+        self.assertIn("PATH", os.environ, "this test needs PATH to exist")
+        code, out, err = self.run_it("--", "echo $PATH")
         self.assertNotIn("not in the vault", err)
 
     def test_naming_nothing_says_nothing_was_lent(self):
