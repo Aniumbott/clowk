@@ -250,6 +250,14 @@ def cmd_install(host, out, err):
         out.write("clowk is already registered in %s; nothing to do.\n" % result["settings"])
     if result["backup"]:
         out.write("Backed up your previous settings to %s.\n" % result["backup"])
+    if host == "claude-code":
+        # Only Claude Code has ~/.claude/commands; the other hosts use different mechanisms.
+        command = install_mod.install_command(root)
+        if command:
+            out.write("Wrote %s, so `/clowk` works without installing the plugin.\n" % command)
+        else:
+            out.write("Left %s alone -- it exists and clowk did not write it.\n"
+                      % install_mod.command_path())
     out.write("Restart %s so it picks the hooks up.\n" % host)
     if host == "codex":
         out.write("Codex requires hook trust: run /hooks and approve clowk. Every clowk\n"
@@ -267,6 +275,8 @@ def cmd_uninstall(host, out, err):
         err.write("%s\n" % exc)
         return 1
     out.write("Removed %d clowk hook(s) from %s.\n" % (result["removed"], result["settings"]))
+    if install_mod.uninstall_command():
+        out.write("Removed %s.\n" % install_mod.command_path())
     return 0
 
 

@@ -104,6 +104,10 @@ Specifically, it does **not** protect against:
   a 256-bit HMAC secret at the same time; nothing about the token separates them. Reporting them
   standing alone would block `git show <sha>`, so clowk does not. With a keyword nearby
   (`webhook_secret = <hex>`) they are caught. This is a deliberate trade, measured, not an oversight.
+- **128-bit hex secrets, about 18% of the time, even with a keyword.** Hex has 16 symbols, so a
+  32-character hex string caps out at 4.0 bits of entropy against the 3.5 floor gitleaks sets for
+  its generic rule, and measured over 2000 samples 17.8% fall under it. The floor is left at
+  gitleaks' value rather than re-tuned for one key size. 256-bit hex and larger are unaffected.
 - **Partially matched credentials.** A rule matches a span, and only that span is replaced. If your
   credential is longer than the pattern that caught it — a vendor variant, a key with a suffix the
   rule does not know — the remainder stays in the rewritten prompt, while the block message still
@@ -141,7 +145,14 @@ directory, re-run `install` from the new location (and `uninstall` from the old 
 On Codex, hooks require trust: run `/hooks` and approve clowk. Because trust is hash-based, every
 clowk update will ask again.
 
-### The `/clowk` slash command — a separate, optional step
+### The `/clowk` slash command
+
+`clowk install` writes `~/.claude/commands/clowk.md`, so `/clowk` works with no further steps. It
+generates that file rather than copying the one in `commands/` — that copy resolves
+`${CLAUDE_PLUGIN_ROOT}`, which is only set for plugin commands. If you already have your own
+`/clowk` command, clowk refuses to overwrite it and says so.
+
+#### Installing as a plugin instead — optional
 
 `clowk install` registers hooks and nothing else. `/clowk` is a Claude Code plugin command, so it
 takes its own install, independent of the one above. Inside Claude Code, with `<clone>` the absolute
@@ -160,8 +171,10 @@ new and `/clowk` is still the snapshot the plugin installed, and they can disagr
 If you do use the URL, it needs the `.git` suffix — `https://github.com/Aniumbott/clowk/` fails
 with `repository not found`, `https://github.com/Aniumbott/clowk.git` works. To move an existing
 URL install onto your clone: `/plugin marketplace remove clowk-dev`, then add the local path.
-The plugin declares no hooks of its own (see `NOTES.md`), so it cannot double-register anything, and
-skipping it costs you only the slash command — every operation is available from the CLI below.
+The plugin declares no hooks of its own (see `NOTES.md`), so it cannot double-register anything.
+Note that a plugin command is always namespaced `<plugin>:<command>`, so the plugin's copy is
+reachable as `/clowk:clowk` rather than `/clowk` — which is why `install` writes the user-level file
+as well. Installing the plugin is entirely optional.
 
 ## Use
 

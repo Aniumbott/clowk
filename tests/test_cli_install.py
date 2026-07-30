@@ -87,10 +87,22 @@ class TestInstallThroughTheCli(CliInstallCase):
             self.assertIn("hook_prompt.py", blob)
             self.assertIn("hook_pretool.py", blob)
 
-    def test_install_with_no_host_writes_claude_codes_file_and_nothing_else(self):
+    def test_install_with_no_host_touches_only_claude_codes_files(self):
+        """Defaulting to claude-code must not write into ~/.codex or ~/.gemini.
+
+        It writes two files, not one: the hook registration, and the unnamespaced /clowk command
+        (the plugin's copy is only reachable as /clowk:clowk). The assertion that matters is that
+        no OTHER host's settings appear, so it is spelled that way rather than as an exact list --
+        the previous exact-list form failed the moment a legitimate second file was added.
+        """
         code, out, err = self.run_cli("install")
         self.assertEqual((code, err), (0, ""))
-        self.assertEqual(self.home_files(), [EXPECTED["claude-code"][0]])
+        written = self.home_files()
+        self.assertIn(EXPECTED["claude-code"][0], written)
+        self.assertIn(".claude/commands/clowk.md", written)
+        for host in ("codex", "gemini-cli"):
+            self.assertNotIn(EXPECTED[host][0], written,
+                             "installing for claude-code wrote %s's settings" % host)
         self.assertIn("--host claude-code", json.dumps(self.read_settings("claude-code")))
 
     def test_the_prompt_hook_lands_on_the_command_this_clone_can_actually_run(self):
