@@ -233,6 +233,62 @@ _NAMESPACES = (
 )
 
 
+# --- credentials embedded in a connection URI ---------------------------------------------------
+# scheme://user:password@host -- a database URL, a broker URL, a registry URL. This needs its own
+# rule for two reasons, both found by a real paste that went straight through:
+#
+#   1. The standalone rule cannot see it. The character before the password is ":", which sits in
+#      that rule's negative lookbehind -- the guard that stops it matching inside paths and URLs.
+#      So the very construct most likely to carry a credential was the one it was blind to.
+#   2. No vendored gitleaks rule covers connection strings; the closest are curl-auth-* and
+#      sidekiq-sensitive-url, neither of which matches a bare postgresql:// URL.
+#
+# Confidence is HIGH, unlike the standalone rule: a password in a URI's userinfo section is not a
+# shape that happens to look like a credential, it is definitionally one.
+#
+# The whole URL is captured, not just the password. Replacing only the password would leave the
+# host, username and database name in the prompt -- internal topology the model does not need --
+# and a single $DATABASE_URL is also how the value is actually consumed.
+URI_ID = "clowk-connection-uri"
+_URI = re.compile(
+    r"\b([a-z][a-z0-9+.\-]{1,31}://[^\s:/?#\[\]@]+:([^\s/?#\[\]@]+)@[^\s/?#\[\]]+[^\s\"'<>]*)",
+    re.I)
+
+# scheme -> the env name a human would actually use for it
+_URI_ENV = {
+    "postgres": "DATABASE_URL", "postgresql": "DATABASE_URL", "mysql": "DATABASE_URL",
+    "mariadb": "DATABASE_URL", "mssql": "DATABASE_URL", "sqlserver": "DATABASE_URL",
+    "mongodb": "MONGODB_URI", "mongodb+srv": "MONGODB_URI",
+    "redis": "REDIS_URL", "rediss": "REDIS_URL",
+    "amqp": "AMQP_URL", "amqps": "AMQP_URL", "kafka": "KAFKA_URL",
+    "clickhouse": "CLICKHOUSE_URL", "elasticsearch": "ELASTICSEARCH_URL",
+    "ftp": "FTP_URL", "sftp": "SFTP_URL", "ssh": "SSH_URL",
+    "http": "SERVICE_URL", "https": "SERVICE_URL",
+}
+
+# A placeholder password is not a credential. These are what documentation and .env.example use.
+_URI_PLACEHOLDERS = frozenset((
+    "password", "passwd", "pass", "secret", "changeme", "change_me", "your_password",
+    "yourpassword", "xxx", "xxxx", "placeholder", "example", "test", "postgres", "root",
+    "admin", "user", "username", "mypassword", "hunter2", "redacted", "none", "null",
+))
+
+
+def uri_findings(text):
+    """Findings for scheme://user:password@host, capturing the whole URI."""
+    out = []
+    for m in _URI.finditer(text):
+        uri, password = m.group(1), m.group(2)
+        if password.lower() in _URI_PLACEHOLDERS:
+            continue
+        if password.startswith("$") or password.startswith("%"):
+            continue                       # already a reference: $DB_PASS, %ENV%
+        scheme = uri.split("://", 1)[0].lower()
+        env = _URI_ENV.get(scheme, "CONNECTION_URL")
+        out.append(Finding(URI_ID, env, uri, m.start(1), m.end(1), "high"))
+    return out
+
+
 def _decodes_to_text(tok):
     """True if this base64-decodes to readable ASCII, i.e. it is encoded TEXT, not a key.
 
@@ -339,6 +395,10 @@ def scan(text):
                 continue
             conf = r.get("confidence") or classify(r["regex"])
             out.setdefault(secret, Finding(r["id"], r["env"], secret, start, end, conf))
+    # Connection URIs first among clowk's own rules: the whole URI is the useful unit, and claiming
+    # it before the standalone rule stops the password inside it being filed separately as well.
+    for finding in uri_findings(text):
+        out.setdefault(finding.secret, finding)
     # Last, and only for values no vendored rule claimed: a rule that named the vendor is always
     # the better label, and setdefault keeps whichever landed first.
     for finding in standalone_findings(text):

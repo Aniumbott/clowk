@@ -109,9 +109,24 @@ def check(tool_name, tool_input):
         # way a model writes that path, skipped the check entirely. None on POSIX, so no change.
         separators = tuple(s for s in (os.sep, os.altsep) if s)
         for token in command.split():
-            stripped = token.strip("'\"")
+            stripped = _strip_edges(token)
             if stripped.startswith(("/", "~", ".")) or any(s in stripped for s in separators):
                 reason = _path_reason(os.path.expanduser(stripped), paths, allow)
                 if reason:
                     return reason
     return None
+
+
+# Shell and prose punctuation that can sit against a path but is not part of it. A trailing
+# sentence period is the one that matters: a command mentioning ".env.example." in a comment or a
+# heredoc yielded the token ".env.example." , whose basename does not end in ".example", so the
+# allow-suffix check missed and the command was denied. Found when this hook blocked a command
+# whose only sin was writing about .env.example in a sentence.
+_EDGES = "'\"`,;:!?()[]{}<>|&"
+
+
+def _strip_edges(token):
+    """A token as written in a command, minus quoting and sentence punctuation around it."""
+    token = token.strip(_EDGES)
+    # Trailing dots only: a leading dot is meaningful (".env"), a trailing one never is.
+    return token.rstrip(".")

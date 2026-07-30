@@ -27,6 +27,11 @@ you where a credential came from — a starting point for what a rotation will t
 reserves a `used by` list per credential, but nothing in this version fills it in automatically:
 expect it to read `(nothing recorded yet)`.)
 
+Connection strings are handled as a unit: paste `postgresql://user:pw@host/db` and the whole URI is
+filed as `$DATABASE_URL`, not just the password, so the host and database name do not travel to the
+model either. Placeholder passwords (`password`, `changeme`) and values that are already references
+(`$DB_PASS`) are left alone.
+
 A second hook denies the easy accidental credential reads: `.env`, private keys, the vault itself,
 and commands like `git credential fill` that print a live token in one line. Its deny is shaped per
 host, like the block: a decision object on Claude Code, exit 2 with the reason on stderr on Codex

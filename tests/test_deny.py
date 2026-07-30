@@ -210,5 +210,36 @@ class TestHook(DenyCase):
         self.assertEqual(hook.main(["--host", "claude-code"], io.StringIO("{nope"), out, err), 0)
 
 
+class TestPunctuationAroundPaths(DenyCase):
+    """A path written in prose or shell punctuation still has to be recognised as that path.
+
+    Found when this hook denied a command whose only offence was writing about the example env
+    file in a sentence: the trailing full stop made the token end in ".", so its basename no longer
+    ended in ".example", the allow-suffix check missed, and the deny fired.
+
+    The filenames are assembled from parts so that this test file, and any command that reads it,
+    is not itself a deny trigger.
+    """
+
+    DOT_ENV = "." + "env"
+
+    def denied(self, command):
+        return self.deny.check("Bash", {"command": command}) is not None
+
+    def test_a_trailing_sentence_period_does_not_defeat_an_allowed_suffix(self):
+        self.assertFalse(self.denied("echo see %s%s. it is safe" % (self.DOT_ENV, ".example")))
+
+    def test_surrounding_punctuation_does_not_hide_a_denied_path(self):
+        for wrapper in ("cat %s;", "read (%s)", "look at %s.", 'echo "%s",', "[%s]"):
+            command = wrapper % self.DOT_ENV
+            self.assertTrue(self.denied(command),
+                            "punctuation hid a denied path: %r" % command)
+
+    def test_a_leading_dot_is_still_meaningful(self):
+        # Trailing dots are stripped, leading ones are not: stripping a leading dot would turn the
+        # env filename into "env" and lose the match entirely.
+        self.assertTrue(self.denied("cat %s" % self.DOT_ENV))
+
+
 if __name__ == "__main__":
     unittest.main()
