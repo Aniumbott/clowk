@@ -267,7 +267,7 @@ shape-only too, and only the value half of a rule counts.) Every block says how 
 No dependencies, so no setup step:
 
 ```bash
-python3 -m unittest discover -s tests        # 340 tests, ~2s
+python3 -m unittest discover -s tests        # 341 tests, ~2s
 ```
 
 CI runs the same suite on Python 3.8 through 3.13 across Linux, macOS and Windows, plus three checks

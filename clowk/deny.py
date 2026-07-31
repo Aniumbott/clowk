@@ -38,8 +38,13 @@ def config_path():
 
 
 def _config():
+    # encoding is explicit because the locale codec is not UTF-8 on Windows, and UnicodeDecodeError
+    # subclasses ValueError -- so a deny.json holding one non-ASCII rule was caught below and
+    # silently became "no config": every user-added deny rule and every allow gone, on the one
+    # platform that cannot be tested by running the suite there. cli.py already reads it as UTF-8,
+    # so the CLI preserved a rule the hook then ignored.
     try:
-        with open(config_path()) as f:
+        with open(config_path(), encoding="utf-8") as f:
             data = json.load(f)
     except (IOError, OSError, ValueError):
         return {}

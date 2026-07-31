@@ -34,7 +34,7 @@ def load_rules(path):
     instead of looking healthy -- see RULESET_ERROR below.
     """
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             rules = json.load(f)
     except Exception as e:  # noqa: BLE001 -- missing/corrupt/unreadable; the type is the diagnosis
         return [], "cannot read %s (%s)" % (path, type(e).__name__)

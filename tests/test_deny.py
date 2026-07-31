@@ -6,6 +6,8 @@ import tempfile
 import unittest
 from unittest import mock
 
+from tests import default_encoding
+
 
 class DenyCase(unittest.TestCase):
     def setUp(self):
@@ -141,6 +143,19 @@ class TestUserConfig(DenyCase):
         with open(self.deny.config_path(), "w") as f:
             f.write("{not json")
         self.assertIsNotNone(self.deny.check("Bash", {"command": "git credential fill"}))
+
+    def test_a_non_ascii_rule_is_still_enforced_under_a_non_utf8_locale(self):
+        # deny.json is written as UTF-8 by `clowk allow`, and read back here. Reading it with the
+        # locale codec instead -- cp1252 on stock Windows -- raised UnicodeDecodeError, which
+        # subclasses ValueError and so was caught as "corrupt config": every user-added rule and
+        # every allow silently dropped. One accented filename in the config disarmed the hook.
+        with open(self.deny.config_path(), "w", encoding="utf-8") as f:
+            json.dump({"deny_paths": ["secrets-Łukasz.txt"], "allow": ["git credential fill"]},
+                      f, ensure_ascii=False)
+        with default_encoding("cp1252"):
+            self.assertIsNotNone(
+                self.deny.check("Bash", {"command": "cat /repo/secrets-Łukasz.txt"}))
+            self.assertIsNone(self.deny.check("Bash", {"command": "git credential fill"}))
 
     def test_a_wrongly_typed_config_value_is_ignored_not_iterated(self):
         # deny.json is hand-edited, so a bare string or number where a list belongs is likely.

@@ -69,7 +69,7 @@ class TestRulesFile(unittest.TestCase):
         # misrepresents the false-positive surface.
         low = sum(1 for r in _load_rules() if r["confidence"] == "low")
         readme = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "README.md")
-        with open(readme) as f:
+        with open(readme, encoding="utf-8") as f:   # README has emoji; cp1252 cannot read it
             self.assertIn("%d of the %d rules" % (low, len(_load_rules())), f.read())
 
 
