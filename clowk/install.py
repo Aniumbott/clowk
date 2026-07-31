@@ -43,13 +43,20 @@ def settings_path(host):
     return os.path.expanduser(TARGETS[host]["settings"])
 
 
+# Every hook script clowk has ever registered, including ones it no longer ships. hook_session.py
+# was removed in favour of a pointer in the repasted prompt, but dropping it from this list left it
+# registered in users' settings forever -- uninstall could not see it as ours, so a deleted script
+# stayed wired to SessionStart and failed silently on every session start.
+OUR_SCRIPTS = ("hook_prompt.py", "hook_pretool.py", "hook_session.py")
+
+
 def is_clowk_entry(entry):
     """True if this hook entry is one of ours -- used by uninstall to remove only our own."""
     if not isinstance(entry, dict):
         return False
     command = entry.get("command")
-    return isinstance(command, str) and MARKER in command and (
-        "hook_prompt.py" in command or "hook_pretool.py" in command)
+    return isinstance(command, str) and MARKER in command and any(
+        script in command for script in OUR_SCRIPTS)
 
 
 def _command(root, script, host):
@@ -268,7 +275,7 @@ def _backup(path):
     return None
 
 
-def _add(hooks, event, matcher, command, path):
+def _add(hooks, event, matcher, command, path, script_name):
     """Append our entry to `event`, reusing a group with the same matcher. Returns 1 if added."""
     groups = hooks.setdefault(event, [])
     if not isinstance(groups, list):
@@ -289,9 +296,21 @@ def _add(hooks, event, matcher, command, path):
             raise ValueError(
                 "%s has a %r hook group whose 'hooks' value is not an array. clowk will not "
                 "modify it -- fix or move the file, then retry." % (path, event))
+        # Match on the SCRIPT, not the whole command string. Comparing whole strings meant that
+        # running install from a different interpreter -- a venv, a new Homebrew Python, a moved
+        # clone -- produced a different string and appended a second entry instead of recognising
+        # the first. A real settings.json ended up with UserPromptSubmit and PreToolUse registered
+        # twice, scanning every prompt and checking every tool call twice over. Replacing the stale
+        # entry rather than skipping it also repairs a registration whose interpreter has since
+        # moved, which would otherwise be a hook that can never run.
         for entry in entries:
-            if isinstance(entry, dict) and entry.get("command") == command:
-                return 0  # already registered -- idempotent
+            if not (isinstance(entry, dict) and is_clowk_entry(entry)):
+                continue
+            if script_name in entry.get("command", ""):
+                if entry["command"] == command:
+                    return 0                  # already exactly right -- idempotent
+                entry["command"] = command    # same hook, different interpreter or path
+                return 0
     entry = {"type": "command", "command": command}
     for group in groups:
         if isinstance(group, dict) and group.get("matcher") == matcher:
@@ -314,9 +333,10 @@ def install(host, root, settings_path_override=None):
     if not isinstance(hooks, dict):
         raise ValueError("%s has a 'hooks' key that is not an object. clowk will not modify it." % path)
 
-    added = _add(hooks, target["prompt_event"], None, _command(root, "hook_prompt.py", host), path)
+    added = _add(hooks, target["prompt_event"], None,
+             _command(root, "hook_prompt.py", host), path, "hook_prompt.py")
     added += _add(hooks, target["tool_event"], target["tool_matcher"],
-                  _command(root, "hook_pretool.py", host), path)
+                  _command(root, "hook_pretool.py", host), path, "hook_pretool.py")
 
     _save(path, data)
     return {"settings": path, "backup": backup, "added": added}
@@ -334,7 +354,12 @@ def uninstall(host, settings_path_override=None):
         return {"settings": path, "removed": 0}
 
     removed = 0
-    for event in (target["prompt_event"], target["tool_event"]):
+    # Every event in the file, not just the two this version registers. Sweeping only the current
+    # pair left a SessionStart entry -- from a version that briefly shipped one -- wired to a script
+    # that no longer exists, failing silently on every session start with no way to remove it short
+    # of hand-editing. Uninstall has to be able to clean up whatever clowk ever wrote, and
+    # is_clowk_entry is what makes that safe: nothing else's entries are touched.
+    for event in list(hooks):
         groups = hooks.get(event)
         if not isinstance(groups, list):
             continue

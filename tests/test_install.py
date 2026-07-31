@@ -283,6 +283,61 @@ class TestUninstall(InstallCase):
         self.write({"theme": "dark"})
         self.assertEqual(self.install.uninstall("claude-code", self.settings)["removed"], 0)
 
+class TestLegacyAndDuplicateRegistrations(InstallCase):
+    """Registrations from an older clowk, and from a different interpreter.
+
+    Both were found in a real settings.json: UserPromptSubmit and PreToolUse each registered twice,
+    and a SessionStart entry pointing at a script clowk no longer ships -- failing silently on every
+    session start with no way to remove it short of hand-editing.
+    """
+
+    LEGACY = '"py" "/opt/clowk/clowk/hook_session.py" --host claude-code'
+
+    def test_a_second_install_from_another_interpreter_does_not_duplicate(self):
+        self.install.install("claude-code", self.root, self.settings)
+        data = self.read()
+        for groups in data["hooks"].values():
+            for group in groups:
+                for entry in group.get("hooks", []):
+                    entry["command"] = entry["command"].replace(
+                        __import__("sys").executable, "/other/venv/bin/python3")
+        self.write(data)
+
+        self.assertEqual(self.install.install("claude-code", self.root, self.settings)["added"], 0)
+        for event, groups in self.read()["hooks"].items():
+            ours = [e for g in groups for e in g.get("hooks", [])
+                    if self.install.is_clowk_entry(e)]
+            self.assertEqual(len(ours), 1, "%s ended up with %d entries" % (event, len(ours)))
+
+    def test_a_stale_interpreter_is_repaired_rather_than_left_unrunnable(self):
+        # A hook whose interpreter has moved can never run. Replacing the command is the repair;
+        # skipping it as "already registered" would leave it broken forever.
+        self.install.install("claude-code", self.root, self.settings)
+        data = self.read()
+        groups = data["hooks"]["UserPromptSubmit"]
+        groups[0]["hooks"][0]["command"] = '"/gone/python3" "%s" --host claude-code' % os.path.join(
+            self.root, "clowk", "hook_prompt.py")
+        self.write(data)
+        self.install.install("claude-code", self.root, self.settings)
+        command = self.read()["hooks"]["UserPromptSubmit"][0]["hooks"][0]["command"]
+        self.assertNotIn("/gone/python3", command)
+
+    def test_uninstall_removes_an_entry_on_an_event_this_version_never_registers(self):
+        self.write({"hooks": {"SessionStart": [{"hooks": [
+            {"type": "command", "command": self.LEGACY},
+            {"type": "command", "command": "echo someone-elses-session-hook"}]}]}})
+        self.install.install("claude-code", self.root, self.settings)
+        self.install.uninstall("claude-code", self.settings)
+        blob = json.dumps(self.read())
+        self.assertNotIn("hook_session.py", blob, "a legacy clowk entry survived uninstall")
+        self.assertIn("someone-elses-session-hook", blob, "someone else's hook was removed")
+
+    def test_a_removed_script_is_still_recognised_as_ours(self):
+        # Dropping hook_session.py from the recognised list is what stranded it: uninstall could not
+        # see it as clowk's, so it stayed registered forever.
+        self.assertTrue(self.install.is_clowk_entry({"command": self.LEGACY}))
+
+
 
 if __name__ == "__main__":
     unittest.main()
