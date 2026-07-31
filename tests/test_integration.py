@@ -359,8 +359,16 @@ class TestDenyHookAndVault(IntegrationCase):
         reason = self.assertDenied({"tool_name": "Bash", "tool_input": {"command": "cat " + vault.path()}})
         self.assertIn("its own store", reason)
 
-    def test_the_whole_vault_directory_is_protected_including_the_deny_config(self):
-        self.assertDenied({"tool_name": "Read", "tool_input": {"file_path": deny.config_path()}})
+    def test_the_vaults_own_variants_are_protected_but_its_neighbours_are_not(self):
+        # Narrowed from the whole directory to the file that holds values. sessions.json and
+        # deny.json sit beside the vault and contain no credential -- opaque session ids and this
+        # hook's own configuration -- so denying them only blocked people diagnosing clowk.
+        for suffix in (".tmp", ".bak", ".md"):
+            self.assertDenied({"tool_name": "Read",
+                               "tool_input": {"file_path": vault.path() + suffix}})
+        self.assertIsNone(
+            deny.check("Read", {"file_path": deny.config_path()}),
+            "the deny config holds no credential and should be readable")
 
     def test_allowing_the_vault_by_name_does_not_unprotect_it(self):
         # `clowk allow` prints "the vault's own directory stays protected either way" -- check it.

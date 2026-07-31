@@ -10,6 +10,7 @@ Usage:
   clowk get NAME                print one value, for use ONLY inside $( ) -- see skills/clowk
   clowk uses [NAME]             where each credential was caught, and what has used it
   clowk allow PATTERN           stop denying one of clowk's rules -- a filename, a suffix or a
+  clowk deny PATTERN            undo an allow, putting the rule back
                                 command phrase, exactly as the deny message prints it
   clowk debug-payload           dump what a host sends this hook, to add a new host
   clowk install [HOST]          register clowk's hooks (default host: claude-code)
@@ -161,6 +162,41 @@ def _is_a_rule(cfg, pattern):
         if isinstance(value, list) and pattern in value:
             return True
     return False
+
+
+def cmd_deny(pattern, out, err):
+    """Undo an allow. `clowk allow` had no inverse, so relaxing a rule was a one-way door and the
+    only way back was hand-editing the deny config -- for a security tool, the wrong asymmetry."""
+    path = deny.config_path()
+    try:
+        with open(path, encoding="utf-8") as f:
+            cfg = json.load(f)
+        if not isinstance(cfg, dict):
+            cfg = {}
+    except (IOError, OSError, ValueError):
+        cfg = {}
+    allow = [a for a in cfg.get("allow", []) if isinstance(a, str)]
+    if pattern not in allow:
+        err.write("%r is not on the allow list. `clowk list`-style rules in effect are the "
+                  "defaults; nothing to undo.\n" % pattern)
+        return 1
+    cfg["allow"] = [a for a in allow if a != pattern]
+    _write_deny_config(path, cfg)
+    out.write("Denying %r again.\n" % pattern)
+    return 0
+
+
+def _write_deny_config(path, cfg):
+    parent = os.path.dirname(path)
+    if parent:
+        try:
+            os.makedirs(parent)
+        except OSError:
+            pass
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8", newline="") as f:
+        json.dump(cfg, f, indent=2)
+    os.replace(tmp, path)
 
 
 def cmd_allow(pattern, out, err):
@@ -345,6 +381,8 @@ def _dispatch(argv, out, err):
         return cmd_rename(args[0], args[1], out, err)
     if cmd == "uses" and len(args) <= 1:
         return cmd_uses(args[0] if args else "", out, err)
+    if cmd == "deny" and len(args) == 1:
+        return cmd_deny(args[0], out, err)
     if cmd == "allow" and len(args) == 1:
         return cmd_allow(args[0], out, err)
     if cmd == "install" and len(args) <= 1:

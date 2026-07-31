@@ -54,13 +54,21 @@ class TestPaths(DenyCase):
     def test_the_vault_itself_is_denied(self):
         self.assertIsNotNone(self.deny.check("Read", {"file_path": self.deny.vault.path()}))
 
-    def test_the_vault_directory_stays_protected_whatever_a_file_is_called(self):
-        # The allow-suffix exemption used to run before the store check, so a `vault.json.md` or
-        # an `x.example` inside ~/.clowk was readable -- and now that .pub is exempt too, that
-        # ordering would have widened the hole rather than left it where it was.
-        for name in ("vault.json.md", "vault.json.pub", "x.example"):
+    def test_a_variant_of_the_vault_filename_cannot_use_an_allow_suffix(self):
+        # The allow-suffix exemption used to run before the store check, so `vault.json.md` was
+        # readable -- and .pub being exempt would have widened that. The vault check now runs first,
+        # and covers the vault's own name plus anything suffixed onto it.
+        for name in ("vault.json.md", "vault.json.pub", "vault.json.tmp", "vault.json.bak"):
             path = os.path.join(self.dir, name)
             self.assertIsNotNone(self.deny.check("Read", {"file_path": path}), name)
+
+    def test_an_unrelated_file_beside_the_vault_is_readable(self):
+        # The rule used to cover the whole directory, which denied sessions.json (opaque ids) and
+        # deny.json (this hook's own config). Neither holds a credential, and denying them blocked
+        # reads that were diagnosing clowk itself.
+        for name in ("sessions.json", "deny.json", "x.example", "notes.txt"):
+            path = os.path.join(self.dir, name)
+            self.assertIsNone(self.deny.check("Read", {"file_path": path}), name)
 
     def test_an_ordinary_source_file_is_allowed(self):
         self.assertIsNone(self.deny.check("Read", {"file_path": "/proj/src/main.py"}))
@@ -208,6 +216,60 @@ class TestHook(DenyCase):
         hook = importlib.reload(hook_pretool)
         out, err = io.StringIO(), io.StringIO()
         self.assertEqual(hook.main(["--host", "claude-code"], io.StringIO("{nope"), out, err), 0)
+
+
+class TestOnlyTheVaultFileIsProtectedNotTheWholeDirectory(DenyCase):
+    """The file with values in it, not the folder it lives in.
+
+    The rule covered all of ~/.clowk, so reading sessions.json -- opaque session ids -- or deny.json
+    -- this hook's own configuration -- was denied. Neither holds a credential, and blocking them
+    blocked reads that were diagnosing clowk itself.
+    """
+
+    def vault_dir(self):
+        return os.path.dirname(self.deny.vault.path())
+
+    def test_the_vault_and_its_variants_are_denied(self):
+        base = self.deny.vault.path()
+        for path in (base, base + ".tmp", base + ".bak",
+                     base + ".md"):   # .md is an allow suffix; it must not exempt the vault
+            self.assertIsNotNone(self.deny.check("Read", {"file_path": path}),
+                                 "not denied: %s" % path)
+
+    def test_the_hooks_own_state_and_config_are_readable(self):
+        for name in ("sessions.json", "deny.json"):
+            path = os.path.join(self.vault_dir(), name)
+            self.assertIsNone(self.deny.check("Read", {"file_path": path}),
+                              "%s holds no credential and should be readable" % name)
+
+
+class TestAllowIsReversible(DenyCase):
+    """`clowk allow` had no inverse, so relaxing a rule was a one-way door."""
+
+    def run_cli(self, *argv):
+        import importlib
+        import io
+
+        from clowk import cli
+
+        module = importlib.reload(cli)
+        out, err = io.StringIO(), io.StringIO()
+        code = module.main(list(argv), out, err)
+        return code, out.getvalue(), err.getvalue()
+
+    def test_deny_puts_a_rule_back_after_allow(self):
+        key = "/home/me/.ssh/id_rsa"
+        self.assertIsNotNone(self.deny.check("Read", {"file_path": key}))
+        self.run_cli("allow", "id_rsa")
+        self.assertIsNone(self.deny.check("Read", {"file_path": key}))
+        code, out, err = self.run_cli("deny", "id_rsa")
+        self.assertEqual(code, 0)
+        self.assertIsNotNone(self.deny.check("Read", {"file_path": key}))
+
+    def test_denying_something_never_allowed_says_so(self):
+        code, out, err = self.run_cli("deny", "never-allowed")
+        self.assertEqual(code, 1)
+        self.assertIn("not on the allow list", err)
 
 
 class TestAPhraseCountsOnlyAtACommandHead(DenyCase):

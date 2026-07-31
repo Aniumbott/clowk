@@ -65,12 +65,18 @@ def _rules():
 
 def _path_reason(target, paths, allow):
     base = os.path.basename(target)
-    # The store's own directory first: an allow suffix exempts a *variant of a pattern*, and it
-    # must not exempt a file inside ~/.clowk. `clowk allow` promises that directory stays
-    # protected either way, so `~/.clowk/vault.json.md` cannot be a way around it.
-    protected = os.path.dirname(vault.path())
-    if protected and os.path.abspath(target).startswith(os.path.abspath(protected) + os.sep):
-        return "clowk denied a read of its own store (%s)." % target
+    # The vault file and its own variants -- vault.json.tmp from an interrupted write, a
+    # vault.json.bak someone made, vault.json.md as a way around the suffix exemption. Checked
+    # before ALLOW_SUFFIXES so an allow suffix cannot exempt the one file with values in it.
+    #
+    # Deliberately NOT the whole ~/.clowk directory, which is what this was. sessions.json holds
+    # opaque session ids and deny.json holds this hook's own configuration -- neither contains a
+    # credential, and denying them blocked reads that were diagnosing clowk itself. Protect the file
+    # that holds secrets, not the folder it happens to live in.
+    vault_base = os.path.basename(vault.path())
+    if os.path.dirname(os.path.abspath(target)) == os.path.dirname(os.path.abspath(vault.path())):
+        if base == vault_base or base.startswith(vault_base + "."):
+            return "clowk denied a read of its own store (%s)." % target
     if os.path.abspath(target) == os.path.abspath(vault.path()):
         return "clowk denied a read of its own store (%s)." % target
     if any(base.endswith(suffix) for suffix in ALLOW_SUFFIXES):

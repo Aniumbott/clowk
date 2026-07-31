@@ -201,6 +201,7 @@ clowk rename OLD NEW       rename one
 clowk uses [NAME]          where a credential was caught, and its (unfilled) used-by list
 clowk allow PATTERN        stop denying one of clowk's rules — a filename, a suffix or a command
                            phrase, as the deny message prints it, not a full path
+clowk deny PATTERN         undo an allow, putting the rule back
 clowk install [HOST]       register clowk's hooks; uninstall removes them
 ```
 
