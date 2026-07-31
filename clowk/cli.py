@@ -7,7 +7,7 @@ Usage:
   clowk set NAME                replace a value after rotating it upstream
   clowk clear NAME              forget a credential
   clowk rename OLD NEW          rename one
-  clowk run -- '<cmd>'          run one command with a credential lent to it, quoted as one arg
+  clowk get NAME                print one value, for use ONLY inside $( ) -- see skills/clowk
   clowk uses [NAME]             where each credential was caught, and what has used it
   clowk allow PATTERN           stop denying one of clowk's rules -- a filename, a suffix or a
                                 command phrase, exactly as the deny message prints it
@@ -24,7 +24,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from clowk import deny, install as install_mod, runner, vault
+from clowk import deny, install as install_mod, vault
 
 
 def _use_utf8(*streams):
@@ -235,6 +235,31 @@ def cmd_debug_payload(out):
     return 0
 
 
+def cmd_get(name, out, err):
+    """Print one value, with no trailing newline, for command substitution.
+
+    This is the only command that prints a credential, and it exists so a command can use one
+    without anybody reading it: `psql "$(clowk get DATABASE_URL)"`. The value passes through the
+    shell into the command's arguments and never reaches a transcript.
+
+    Used bare -- `clowk get NAME` on its own -- it prints straight into the transcript, which is
+    exactly what clowk exists to prevent. That cannot be detected from in here: a process cannot
+    tell it was command-substituted, because the shell's own command line is not visible to it in
+    an agent harness. So the guard lives in the PreToolUse hook, which sees the whole command before
+    it runs. See deny.check().
+    """
+    value = vault.get(name)
+    if value is None:
+        err.write("No credential named %s. Run `clowk list` to see the stored names.\n" % name)
+        return 1
+    out.write(value)          # no newline: $( ) strips one, and a stray one breaks a header
+    try:
+        vault.record_use(name, os.getcwd())
+    except Exception:  # noqa: BLE001 -- bookkeeping must never fail the command that needed the value
+        pass
+    return 0
+
+
 def cmd_install(host, out, err):
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     try:
@@ -259,6 +284,10 @@ def cmd_install(host, out, err):
         else:
             out.write("Left %s alone -- it exists and clowk did not write it.\n"
                       % install_mod.command_path())
+        skill = install_mod.install_skill(root)
+        if skill:
+            out.write("Wrote %s -- the assistant reads this to learn how to use a credential "
+                      "without reading it.\n" % skill)
     out.write("Restart %s so it picks the hooks up.\n" % host)
     if host == "codex":
         out.write("Codex requires hook trust: run /hooks and approve clowk. Every clowk\n"
@@ -278,6 +307,8 @@ def cmd_uninstall(host, out, err):
     out.write("Removed %d clowk hook(s) from %s.\n" % (result["removed"], result["settings"]))
     if install_mod.uninstall_command():
         out.write("Removed %s.\n" % install_mod.command_path())
+    if install_mod.uninstall_skill():
+        out.write("Removed %s.\n" % install_mod.skill_path())
     return 0
 
 
@@ -320,8 +351,8 @@ def _dispatch(argv, out, err):
         return cmd_install(args[0] if args else "claude-code", out, err)
     if cmd == "uninstall" and len(args) <= 1:
         return cmd_uninstall(args[0] if args else "claude-code", out, err)
-    if cmd == "run":
-        return runner.main(args, out, err)
+    if cmd == "get" and len(args) == 1:
+        return cmd_get(args[0], out, err)
     if cmd == "debug-payload" and not args:
         return cmd_debug_payload(out)
     err.write("Unknown command, or wrong number of arguments. Run `clowk help`.\n")

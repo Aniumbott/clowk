@@ -22,10 +22,10 @@ tripping the shape-only rules rather than a credential paste, so the rest are st
 the turn is still blocked, but they are not filed — the block message says how many, and suggests
 resending with `unclowk` if none of them are credentials.
 
-Each entry records the working directory of the session that pasted it, and every command run
-through `clowk run` is added to that credential's `used by` list — so `clowk uses` tells you both
-where a credential came from and what has actually consumed it. A credential you have never run
-through `clowk run` reads `(nothing recorded yet)`.
+Each entry records the working directory of the session that pasted it, and every `clowk get` is
+added to that credential's `used by` list — so `clowk uses` tells you both where a credential came
+from and what has actually consumed it. A credential nothing has used yet reads
+`(nothing recorded yet)`.
 
 Connection strings are handled as a unit: paste `postgresql://user:pw@host/db` and the whole URI is
 filed as `$DATABASE_URL`, not just the password, so the host and database name do not travel to the
@@ -206,37 +206,31 @@ clowk install [HOST]       register clowk's hooks; uninstall removes them
 ## Using a captured credential
 
 A captured value is **not** in your agent's environment — `echo $DATABASE_URL` prints nothing, and
-that is the point. To let one command use it, run that command through clowk, quoted as a single
-argument:
+that is the point. To let a command use one, substitute it at the point of use:
 
 ```bash
-clowk run -- 'psql $DATABASE_URL -c "select 1"'
+psql "$(clowk get DATABASE_URL)"
+curl -H "Authorization: Bearer $(clowk get STRIPE_SECRET_KEY)" https://api.stripe.com/v1/charges
 ```
 
-clowk puts the value into that one child process, and scrubs it back out of the output — so a
-command that echoes the credential prints `$DATABASE_URL`, not the value. The single quotes matter:
-unquoted, your own shell expands `$DATABASE_URL` to nothing before clowk ever sees it.
+The shell runs `clowk get`, captures the value, and hands it straight to the command as an argument.
+Your command stays your command — nothing wraps it, so the host's own permission rules still match
+what you actually ran, and nothing spawns a shell around it.
 
-References are recognised however the command spells them — `$NAME`, `${NAME}`, `%NAME%`, or the
-bare name as a whole word, which covers `os.environ["NAME"]` and `process.env.NAME`. When the
-reference lives inside a script instead (`npm run deploy`), there is nothing to spot, so lend
-everything explicitly:
+**`clowk get` is the only command that prints a credential, and it is guarded.** Used any other way
+the value lands in the transcript, so clowk's tool hook denies a bare `clowk get`, a substitution fed
+to `echo`/`cat`/`printf`, a pipe, a redirect, and capture into a shell variable. The guard lives in
+the hook rather than in `clowk get` because a process cannot tell whether it was
+command-substituted — measured, not assumed: the invoking shell's command line is not visible to it
+in an agent harness.
 
-```bash
-clowk run --all -- 'npm run deploy'
-```
+`clowk install` also copies `skills/clowk/SKILL.md` to `~/.claude/skills/`, and every block message
+ends with a pointer to it. So the rule — *never read the plain value* — arrives in the same message
+as the `$NAME` it applies to, exactly when it becomes relevant, and the agent reads the full skill
+before doing anything else with the credential.
 
-`clowk install` also registers a `SessionStart` hook that tells the agent which credentials exist
-and how to use them — names only, never values. Without it the agent treats `$DATABASE_URL` as an
-ordinary shell variable, finds it empty, and asks you to paste the real one again.
-
-Running a credential through `clowk run` is also the only thing that fills the `used by` list, so
-`clowk uses` tells you what a rotation would actually touch.
-
-To send a message without scanning it, start it with `unclowk`.
-
-Inside Claude Code, once the plugin above is installed, `/clowk` runs the same commands, except
-`add` and `set`: those need a terminal to type the value into, so run them in your own shell.
+Running a credential through `clowk get` is also what fills the `used by` list, so `clowk uses` tells
+you what a rotation would actually touch.
 
 ## Storage
 

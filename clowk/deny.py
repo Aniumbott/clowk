@@ -12,6 +12,7 @@ someone's config, and a tool that silently breaks `cat` gets uninstalled.
 """
 import json
 import os
+import re
 
 from clowk import vault
 
@@ -85,11 +86,82 @@ def _path_reason(target, paths, allow):
     return None
 
 
+# `clowk get NAME` prints a credential. That is deliberate -- it exists so a command can use one
+# via `psql "$(clowk get DATABASE_URL)"`, where the value passes through the shell into the
+# command's arguments and never reaches a transcript. Used any other way it prints straight into the
+# transcript, which is the exact leak clowk exists to prevent.
+#
+# The guard has to live here rather than in `clowk get` itself: a process cannot tell whether it was
+# command-substituted, because in an agent harness the invoking shell's command line is not visible
+# to it -- measured, not assumed. This hook is the only layer that sees the whole command before it
+# runs, so this is the only place the rule can be enforced.
+_GET = re.compile(r"clowk(?:/cli\.py)?['\"]?\s+get\b|cli\.py['\"]?\s+get\b")
+# A substitution whose output is immediately printed leaks just as surely as a bare call.
+_PRINTERS = ("echo", "printf", "print", "cat", "tee", "head", "tail", "less", "more",
+             "xxd", "hexdump", "base64", "od", "strings", "write", "logger")
+
+
+def get_misuse(command):
+    """A reason to deny a `clowk get` that would print a credential, or None if it is used safely."""
+    match = _GET.search(command)
+    if not match:
+        return None
+    hint = ("Use it only inside a command substitution, so the value goes to the command and not to "
+            "the transcript:\n    psql \"$(clowk get DATABASE_URL)\"\nSee the clowk skill.")
+
+    # Every substitution in the command, as (open_index, body).
+    substitutions = []
+    i = 0
+    while True:
+        start = command.find("$(", i)
+        if start < 0:
+            break
+        depth, j = 1, start + 2
+        while j < len(command) and depth:
+            if command[j] == "(":
+                depth += 1
+            elif command[j] == ")":
+                depth -= 1
+            j += 1
+        substitutions.append((start, command[start + 2:j - 1]))
+        i = start + 2
+
+    inside = [s for s in substitutions if _GET.search(s[1])]
+    if not inside:
+        return ("clowk denied a bare `clowk get`: it would print a credential into the transcript. "
+                + hint)
+
+    # Inside a substitution, but is the surrounding command one that prints it straight back?
+    for start, _body in inside:
+        prefix = command[:start]
+        # The head of the pipeline segment the substitution sits in -- not the word immediately
+        # before it. `printf "%s" "$(clowk get X)"` puts a format string in that position, so
+        # looking only at the nearest word let printf through while catching echo.
+        segment = re.split(r"\|\||&&|[|;\n]", prefix)[-1].strip()
+        words = [w.strip("'\"") for w in segment.split() if w.strip("'\"")]
+        if words and os.path.basename(words[0]).lower() in _PRINTERS:
+            return ("clowk denied this: `%s` prints its argument, so substituting a credential into "
+                    "it puts the value in the transcript. " % os.path.basename(words[0])) + hint
+        # Capturing into a shell variable. There is no use for this that substituting at the point
+        # of use does not serve, and the next command touching that variable prints the value -- by
+        # which time the substitution is out of sight and nothing here can see the leak coming.
+        if re.search(r"(?:^|[\s;&|])[A-Za-z_][A-Za-z0-9_]*=$", prefix):
+            return ("clowk denied capturing a credential into a shell variable: whatever reads that "
+                    "variable next puts the value in the transcript. " + hint)
+    return None
+
+
 def check(tool_name, tool_input):
     """Return a reason string to deny the call, or None to allow it. Never raises."""
     if not isinstance(tool_input, dict):
         return None
     paths, commands, allow = _rules()
+
+    command_text = tool_input.get("command")
+    if isinstance(command_text, str) and command_text:
+        misuse = get_misuse(command_text)
+        if misuse:
+            return misuse
 
     target = tool_input.get("file_path") or tool_input.get("path")
     if isinstance(target, str) and target:

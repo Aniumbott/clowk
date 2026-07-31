@@ -24,8 +24,11 @@ class CommandFileCase(unittest.TestCase):
         self.home = tempfile.mkdtemp(prefix="clowk-home-")
         self.addCleanup(shutil.rmtree, self.home, True)
         self.target = os.path.join(self.home, ".claude", "commands", "clowk.md")
+        self.skill_target = os.path.join(self.home, ".claude", "skills", "clowk", "SKILL.md")
         os.environ["CLOWK_COMMANDS"] = self.target
-        self.addCleanup(os.environ.pop, "CLOWK_COMMANDS", None)
+        os.environ["CLOWK_SKILL"] = self.skill_target
+        for key in ("CLOWK_COMMANDS", "CLOWK_SKILL"):
+            self.addCleanup(os.environ.pop, key, None)
 
     def read(self):
         with open(install.command_path(), encoding="utf-8") as f:
@@ -97,6 +100,50 @@ class TestRemoving(CommandFileCase):
 
     def test_uninstall_with_nothing_installed_is_false(self):
         self.assertFalse(install.uninstall_command())
+
+
+class TestSkill(CommandFileCase):
+    """The skill is what carries the never-read rule, so install has to actually place it."""
+
+    def test_it_is_copied_to_the_user_skills_directory(self):
+        path = install.install_skill(ROOT)
+        self.assertEqual(path, self.skill_target)
+        self.assertTrue(os.path.exists(path))
+
+    def test_it_states_the_hard_rule_and_the_safe_form(self):
+        install.install_skill(ROOT)
+        with open(self.skill_target, encoding="utf-8") as f:
+            body = f.read()
+        self.assertIn("never read", body.lower())
+        self.assertIn("$(clowk get", body)
+        self.assertTrue(body.startswith("---"), "frontmatter must be first for discovery")
+        self.assertIn("name: clowk", body)
+
+    def test_it_names_no_real_credential(self):
+        # The examples are placeholders; a skill shipped with a live value would be its own leak.
+        install.install_skill(ROOT)
+        from clowk.detect import scan
+        with open(self.skill_target, encoding="utf-8") as f:
+            findings = [f_.rule_id for f_ in scan(f.read())]
+        self.assertEqual(findings, [], "the skill text itself trips detection: %s" % findings)
+
+    def test_copying_twice_is_idempotent(self):
+        install.install_skill(ROOT)
+        first = open(self.skill_target, encoding="utf-8").read()
+        install.install_skill(ROOT)
+        self.assertEqual(open(self.skill_target, encoding="utf-8").read(), first)
+
+    def test_uninstall_removes_it(self):
+        install.install_skill(ROOT)
+        self.assertTrue(install.uninstall_skill())
+        self.assertFalse(os.path.exists(self.skill_target))
+
+    def test_uninstall_leaves_an_unrelated_file_alone(self):
+        os.makedirs(os.path.dirname(self.skill_target))
+        with open(self.skill_target, "w", encoding="utf-8") as f:
+            f.write("---\nname: something-else\n---\nnot clowk's\n")
+        self.assertFalse(install.uninstall_skill())
+        self.assertTrue(os.path.exists(self.skill_target))
 
 
 if __name__ == "__main__":

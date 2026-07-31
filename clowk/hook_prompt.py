@@ -24,6 +24,14 @@ from clowk.detect import scan
 
 BYPASS = "unclowk"
 
+# Appended to the rewritten prompt the user repastes, so it reaches the agent in the same message as
+# the $NAME it explains. Addressed to the agent, not the human.
+SKILL_POINTER = (
+    "[for the assistant: $NAME above is a credential clowk is holding. Its value is NOT in your "
+    "environment and you must never read or print it. To let a command use one, substitute it at "
+    "the point of use -- psql \"$(clowk get DATABASE_URL)\" -- and read the clowk skill before "
+    "doing anything else with it.]")
+
 # Most values one prompt will ever be filed under. A prompt with more hits than this is a pasted
 # log, not a credential paste: 1800 lines of `request_id=<32 hex>` trips the shape-only rules ~170
 # times, and vault.store reloads and rewrites the whole file per call, so filing them all costs
@@ -71,6 +79,16 @@ def build_message(rewritten, stored, tiers, copied, unfiled=(), skipped=0):
         lines.append("    " + rewritten)
     lines.append("")
     lines.append("To send the original text instead, start your message with:  %s" % BYPASS)
+    if stored or unfiled:
+        # Carried in the rewritten prompt on purpose. The agent needs to know what $NAME means and
+        # how to use it without reading it, and this is the one moment that knowledge is certainly
+        # relevant -- it arrives in the same message as the name. A SessionStart briefing was tried
+        # instead and is worse: it costs tokens in every session whether or not a credential is
+        # involved, it advertises the vault unconditionally, and it goes stale the moment a
+        # credential is cleared. The pointer is plain text, so hosts without a skill mechanism still
+        # get a usable hint.
+        lines.append("")
+        lines.append(SKILL_POINTER)
     return "\n".join(lines)
 
 

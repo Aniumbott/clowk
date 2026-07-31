@@ -21,7 +21,6 @@ TARGETS = {
         "prompt_event": "UserPromptSubmit",
         "tool_event": "PreToolUse",
         "tool_matcher": "Bash|Read",
-        "session_event": "SessionStart",
     },
     "codex": {
         "settings": os.path.join("~", ".codex", "hooks.json"),
@@ -50,8 +49,7 @@ def is_clowk_entry(entry):
         return False
     command = entry.get("command")
     return isinstance(command, str) and MARKER in command and (
-        "hook_prompt.py" in command or "hook_pretool.py" in command
-        or "hook_session.py" in command)
+        "hook_prompt.py" in command or "hook_pretool.py" in command)
 
 
 def _command(root, script, host):
@@ -128,6 +126,54 @@ def install_command(root):
         f.write(COMMAND_BODY % (COMMAND_MARKER, sys.executable or "python3", cli))
     os.replace(tmp, path)
     return path
+
+
+# The skill is a file, so it can be copied verbatim rather than generated -- unlike the command,
+# it resolves no ${CLAUDE_PLUGIN_ROOT}. A user-level copy means /clowk's skill works without the
+# plugin, the same reason the command file is written here.
+SKILL_SOURCE = os.path.join("skills", "clowk", "SKILL.md")
+
+
+def skill_path():
+    """Where the user-level clowk skill lives. CLOWK_SKILL overrides it, for tests."""
+    override = os.environ.get("CLOWK_SKILL")
+    if override:
+        return override
+    return os.path.expanduser(os.path.join("~", ".claude", "skills", "clowk", "SKILL.md"))
+
+
+def install_skill(root):
+    """Copy skills/clowk/SKILL.md to the user's skills directory. Returns the path, or None."""
+    source = os.path.join(root, SKILL_SOURCE)
+    if not os.path.isfile(source):
+        return None
+    path = skill_path()
+    parent = os.path.dirname(path)
+    if parent:
+        try:
+            os.makedirs(parent)
+        except OSError:
+            pass
+    try:
+        shutil.copyfile(source, path)
+    except (IOError, OSError):
+        return None
+    return path
+
+
+def uninstall_skill():
+    """Remove the copied skill. Returns True if it was there. Leaves an unrelated file alone."""
+    path = skill_path()
+    if not os.path.exists(path):
+        return False
+    try:
+        with open(path, encoding="utf-8") as f:
+            if "name: clowk" not in f.read():
+                return False          # not the skill clowk installed
+    except (IOError, OSError, UnicodeDecodeError):
+        return False
+    os.remove(path)
+    return True
 
 
 def uninstall_command():
@@ -271,11 +317,6 @@ def install(host, root, settings_path_override=None):
     added = _add(hooks, target["prompt_event"], None, _command(root, "hook_prompt.py", host), path)
     added += _add(hooks, target["tool_event"], target["tool_matcher"],
                   _command(root, "hook_pretool.py", host), path)
-    # Only where the host has a session event: without the briefing the agent treats $NAME as an
-    # ordinary shell variable, finds it empty, and asks the human to paste the value again.
-    if target.get("session_event"):
-        added += _add(hooks, target["session_event"], None,
-                      _command(root, "hook_session.py", host), path)
 
     _save(path, data)
     return {"settings": path, "backup": backup, "added": added}
@@ -293,10 +334,7 @@ def uninstall(host, settings_path_override=None):
         return {"settings": path, "removed": 0}
 
     removed = 0
-    events = [target["prompt_event"], target["tool_event"]]
-    if target.get("session_event"):
-        events.append(target["session_event"])
-    for event in events:
+    for event in (target["prompt_event"], target["tool_event"]):
         groups = hooks.get(event)
         if not isinstance(groups, list):
             continue
