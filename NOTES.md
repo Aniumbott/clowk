@@ -17,9 +17,13 @@ not execute here.
 
 - **It cannot rewrite the prompt.** Verified on Claude Code, Codex and Gemini CLI — none of the
   three can replace prompt text. It can only block or append context. Hence block-and-repaste.
-- **A blocked prompt is not written to the transcript.** Verified empirically on Claude Code: a
-  blocked prompt does not appear in `~/.claude/projects/*.jsonl` as a user message. Blocking keeps
-  the value from both the model and the disk. Not checked on Codex or Gemini CLI.
+- **A blocked prompt IS written to the transcript.** Blocking keeps the value from the model, not
+  from the disk. Verified empirically on Claude Code: the blocked prompt does not appear as a `user`
+  message -- which is what an earlier reading of this checked, and why this note used to claim the
+  opposite -- but the host writes its own `system` record to `~/.claude/projects/*.jsonl` holding
+  `UserPromptSubmit operation blocked by hook: <our reason>` followed by
+  `Original prompt: <the raw prompt, credential and all>`. Measured: 10 such records for one test
+  credential. Not checked on Codex or Gemini CLI; assume the same until it is.
 - **Every host fails open.** A hook that errors or times out does not stop the turn. This is the
   most important fact for a security tool built on hooks. Codex has an open request for fail-closed
   on this specific event: openai/codex#33630.

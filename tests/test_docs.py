@@ -53,26 +53,22 @@ class TestSlashCommandIsInstallable(unittest.TestCase):
         self.assertIn("/plugin install %s@%s" % (plugin, self.market["name"]), self.readme)
 
 
-class TestNothingClaimsAFilledUsedByLedger(unittest.TestCase):
-    """DESIGN.md: "Until that is wired, do not describe clowk as recording what depends on a
-    credential."
+class TestTheUsedByLedgerClaimMatchesTheCode(unittest.TestCase):
+    """`clowk uses` prints a used-by list. Whether the docs may promise one depends on the code.
 
-    vault.record_use has no shipped caller, so `used by` always reads "(nothing recorded yet)".
-    README says so and marketplace.json says "records where each one came from" -- but the honesty
-    pass missed plugin.json, whose description is the card a stranger reads, and the CLI's own usage
-    banner, which `clowk help` and `/clowk` print.
+    This started as the inverse test: vault.record_use had no shipped caller, so `used by` always
+    read "(nothing recorded yet)", and every surface had to avoid claiming otherwise -- the honesty
+    pass had missed plugin.json, the card a stranger reads, and the CLI's usage banner that
+    `clowk help` and `/clowk` print. `clowk get` now records each use, so the promise is honest and
+    the test flips: the docs must claim the ledger, and if the caller is ever removed they must stop.
     """
 
-    # Each of these describes the empty `uses` list, not the `sources` list clowk really fills.
-    # Kept narrow on purpose: "records what" alone catches README's honest "NOTES.md records what
-    # is verified per host".
-    FORBIDDEN = ("what depends on", "what has used it", "what uses it")
+    # Any phrasing that promises the `uses` list is filled. One of these must appear while a caller
+    # exists, and none may appear once the last one goes.
+    CLAIMS = ("what has drawn on it", "what has used it", "what uses it", "what depends on")
 
     def setUp(self):
-        callers = record_use_callers()
-        if callers:
-            self.skipTest("record_use is wired up now (%s) -- revisit this copy deliberately"
-                          % ", ".join(callers))
+        self.callers = record_use_callers()
 
     def surfaces(self):
         from clowk import cli
@@ -85,9 +81,21 @@ class TestNothingClaimsAFilledUsedByLedger(unittest.TestCase):
             "the CLI's usage banner": cli.__doc__,
         }
 
-    def test_no_user_facing_surface_says_clowk_records_what_uses_a_credential(self):
+    def test_the_docs_promise_a_filled_ledger_exactly_when_the_code_fills_one(self):
+        readme = read("README.md").lower()
+        claimed = [c for c in self.CLAIMS if c in readme]
+        if self.callers:
+            self.assertTrue(claimed,
+                            "record_use is wired (%s) but README still describes an empty ledger"
+                            % ", ".join(self.callers))
+        else:
+            self.assertFalse(claimed, "README promises a used-by ledger nothing fills")
+
+    def test_no_surface_claims_a_ledger_once_the_last_caller_goes(self):
+        if self.callers:
+            self.skipTest("record_use is wired (%s)" % ", ".join(self.callers))
         for label, text in self.surfaces().items():
-            for phrase in self.FORBIDDEN:
+            for phrase in self.CLAIMS:
                 self.assertNotIn(phrase, text.lower(),
                                  "%s claims a used-by ledger clowk never fills" % label)
 
