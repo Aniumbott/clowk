@@ -27,10 +27,8 @@ BYPASS = "unclowk"
 # Appended to the rewritten prompt the user repastes, so it reaches the agent in the same message as
 # the $NAME it explains. Addressed to the agent, not the human.
 SKILL_POINTER = (
-    "[for the assistant: $NAME above is a credential clowk is holding. Its value is NOT in your "
-    "environment and you must never read or print it. To let a command use one, substitute it at "
-    "the point of use -- psql \"$(clowk get DATABASE_URL)\" -- and read the clowk skill before "
-    "doing anything else with it.]")
+    "[assistant: $NAME above is a credential clowk holds. It is NOT in your environment and you must "
+    "never print it. Use it as psql \"$(clowk get NAME)\". Read the clowk skill first.]")
 
 # Most values one prompt will ever be filed under. A prompt with more hits than this is a pasted
 # log, not a credential paste: 1800 lines of `request_id=<32 hex>` trips the shape-only rules ~170
@@ -45,6 +43,51 @@ MAX_FILED = 20
 ECHO_LIMIT = 4000
 
 
+# Sessions that have already been shown the pointer. A session blocking five credentials does not
+# need the explanation five times -- the agent read it the first time and the skill stays loaded.
+def _seen_path():
+    return os.environ.get("CLOWK_SESSIONS",
+                          os.path.join(os.path.dirname(vault.path()), "sessions.json"))
+
+
+# Enough to cover any plausible run of concurrent sessions without the file growing without bound.
+MAX_SESSIONS = 64
+
+
+def pointer_needed(session_id):
+    """True the first time this session blocks something. Never raises.
+
+    With no session id -- a host whose payload does not carry one -- this returns True every time.
+    Repeating the pointer costs tokens; omitting it costs the agent the one thing that stops it
+    printing a credential, so the failure is deliberately biased towards repeating.
+    """
+    if not session_id:
+        return True
+    path = _seen_path()
+    try:
+        with open(path, encoding="utf-8") as f:
+            seen = json.load(f)
+        if not isinstance(seen, list):
+            seen = []
+    except Exception:  # noqa: BLE001 -- missing, corrupt, unreadable: treat as "not seen"
+        seen = []
+    if session_id in seen:
+        return False
+    seen.append(session_id)
+    del seen[:-MAX_SESSIONS]          # oldest first, so this keeps the most recent
+    try:
+        parent = os.path.dirname(path)
+        if parent and not os.path.isdir(parent):
+            os.makedirs(parent)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8", newline="") as f:
+            json.dump(seen, f)
+        os.replace(tmp, path)
+    except Exception:  # noqa: BLE001 -- cannot record it, so it will be sent again. Harmless.
+        pass
+    return True
+
+
 def _host_from(argv):
     for i, arg in enumerate(argv):
         if arg == "--host" and i + 1 < len(argv):
@@ -54,7 +97,7 @@ def _host_from(argv):
     return "claude-code"
 
 
-def build_message(rewritten, stored, tiers, copied, unfiled=(), skipped=0):
+def build_message(rewritten, stored, tiers, copied, unfiled=(), skipped=0, pointer=True):
     """The block reason. Plain text: hooks cannot set colour or markdown."""
     lines = ["clowk stopped a credential before it reached the model."]
     for name in stored:
@@ -79,7 +122,7 @@ def build_message(rewritten, stored, tiers, copied, unfiled=(), skipped=0):
         lines.append("    " + rewritten)
     lines.append("")
     lines.append("To send the original text instead, start your message with:  %s" % BYPASS)
-    if stored or unfiled:
+    if pointer and (stored or unfiled):
         # Carried in the rewritten prompt on purpose. The agent needs to know what $NAME means and
         # how to use it without reading it, and this is the one moment that knowledge is certainly
         # relevant -- it arrives in the same message as the name. A SessionStart briefing was tried
@@ -183,7 +226,8 @@ def capture(event, findings):
         tiers[name] = finding.confidence
 
     copied = clip.copy(rewritten)
-    return build_message(rewritten, stored, tiers, copied, unfiled, skipped)
+    return build_message(rewritten, stored, tiers, copied, unfiled, skipped,
+                         pointer=pointer_needed(event.get("session_id", "")))
 
 
 def _placeholder(env, taken):

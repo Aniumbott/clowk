@@ -406,5 +406,74 @@ class TestStdinIsDecodedAsUtf8(HookCase):
         self.assertIn("NOT scanning", err.getvalue())
 
 
+class TestPointerOncePerSession(HookCase):
+    """The skill pointer goes out on a session's first block, not on every one.
+
+    A session that blocks five credentials does not need the explanation five times: the agent read
+    it the first time and the skill stays loaded. The pointer is ~46 tokens, so repeating it is pure
+    waste once it has landed.
+    """
+
+    A = "ghp" "_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"
+    B = "xoxb" "-123456789012-123456789012-abcdefghijklmnopqrstuvwx"
+
+    def setUp(self):
+        HookCase.setUp(self)
+        os.environ["CLOWK_SESSIONS"] = os.path.join(self.dir, "sessions.json")
+        self.addCleanup(os.environ.pop, "CLOWK_SESSIONS", None)
+
+    def reason(self, secret, session):
+        code, out, err = self.run_hook(
+            {"prompt": "use " + secret, "cwd": "/p", "session_id": session})
+        return json.loads(out)["reason"]
+
+    def test_the_first_block_of_a_session_carries_it(self):
+        self.assertIn("[assistant:", self.reason(self.A, "s1"))
+
+    def test_a_later_block_in_the_same_session_does_not(self):
+        self.reason(self.A, "s1")
+        self.assertNotIn("[assistant:", self.reason(self.B, "s1"))
+
+    def test_a_different_session_gets_it_again(self):
+        self.reason(self.A, "s1")
+        self.assertIn("[assistant:", self.reason(self.B, "s2"))
+
+    def test_the_rest_of_the_message_is_unaffected(self):
+        # Only the pointer is dropped -- the rewrite and the bypass line still have to be there,
+        # because the human reads those every time.
+        self.reason(self.A, "s1")
+        second = self.reason(self.B, "s1")
+        self.assertIn("$SLACK_BOT_TOKEN", second)
+        self.assertIn("unclowk", second)
+
+    def test_a_payload_with_no_session_id_repeats_the_pointer(self):
+        # Omitting it costs the agent the one thing that stops it printing a credential, so an
+        # untrackable session errs towards repeating rather than towards silence.
+        for _ in range(2):
+            code, out, err = self.run_hook({"prompt": "use " + self.A, "cwd": "/p"})
+            self.assertIn("[assistant:", json.loads(out)["reason"])
+
+    def test_an_unwritable_state_file_still_blocks_and_still_points(self):
+        os.environ["CLOWK_SESSIONS"] = os.path.join(self.dir, "nope", "x", "sessions.json")
+        self.assertIn("[assistant:", self.reason(self.A, "s1"))
+
+    def test_a_corrupt_state_file_is_treated_as_unseen(self):
+        with open(os.environ["CLOWK_SESSIONS"], "w", encoding="utf-8") as f:
+            f.write("{not a list")
+        self.assertIn("[assistant:", self.reason(self.A, "s1"))
+
+    def test_the_state_file_does_not_grow_without_bound(self):
+        for n in range(self.hook.MAX_SESSIONS + 20):
+            self.hook.pointer_needed("session-%d" % n)
+        with open(os.environ["CLOWK_SESSIONS"], encoding="utf-8") as f:
+            self.assertEqual(len(json.load(f)), self.hook.MAX_SESSIONS)
+
+    def test_the_most_recent_sessions_are_the_ones_kept(self):
+        for n in range(self.hook.MAX_SESSIONS + 5):
+            self.hook.pointer_needed("session-%d" % n)
+        newest = "session-%d" % (self.hook.MAX_SESSIONS + 4)
+        self.assertFalse(self.hook.pointer_needed(newest), "the newest session was evicted")
+
+
 if __name__ == "__main__":
     unittest.main()

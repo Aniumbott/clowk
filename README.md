@@ -224,10 +224,11 @@ the hook rather than in `clowk get` because a process cannot tell whether it was
 command-substituted — measured, not assumed: the invoking shell's command line is not visible to it
 in an agent harness.
 
-`clowk install` also copies `skills/clowk/SKILL.md` to `~/.claude/skills/`, and every block message
-ends with a pointer to it. So the rule — *never read the plain value* — arrives in the same message
-as the `$NAME` it applies to, exactly when it becomes relevant, and the agent reads the full skill
-before doing anything else with the credential.
+`clowk install` also copies `skills/clowk/SKILL.md` to `~/.claude/skills/`, and a session's **first**
+block ends with a short pointer to it — so the rule arrives in the same message as the `$NAME` it
+applies to. Later blocks in the same session omit it: the agent has already read the skill, and the
+pointer is pure cost once it has landed. A host whose payload carries no session id gets it every
+time, because omitting it costs more than repeating it.
 
 Running a credential through `clowk get` is also what fills the `used by` list, so `clowk uses` tells
 you what a rotation would actually touch.
