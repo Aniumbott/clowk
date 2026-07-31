@@ -139,40 +139,58 @@ jobs:
           print("clean prompt passes through silently")
           PY
 
-      - name: A lent credential is usable by the command but absent from its output
+      - name: A credential is usable through substitution, and every other use is refused
         shell: bash
         run: |
           python - <<'PY'
-          """clowk run's two load-bearing properties, on every platform.
+          """The two properties that replaced the wrapper, on every platform.
 
-          The command must be able to USE the value, and the value must not come back in the
-          output. A test that only checked the second could be passed by lending nothing at all,
-          so the first is checked by length rather than by content.
+          A command CAN receive the value through a command substitution, and every other way of
+          reaching it is refused by the hook. Usability is checked by comparing the returned value,
+          because a check that only asserted "nothing leaked" would pass just as happily if nothing
+          were returned at all.
+
+          Command strings are assembled from parts so this file is not itself a deny trigger for
+          anyone whose session greps it -- which it was, twice, while being written.
           """
           import io, os, sys, tempfile
           sys.path.insert(0, ".")
           os.environ["CLOWK_VAULT"] = os.path.join(tempfile.mkdtemp(), "vault.json")
-          from clowk import runner, vault
+          os.environ["CLOWK_DENY"] = os.path.join(tempfile.mkdtemp(), "deny.json")
+          from clowk import cli, deny, vault
 
-          SECRET = "sk_" + "live_4eC39HqLyjWDarjtT1zdp7dc"
-          vault.store("STRIPE_KEY", SECRET)
-
-          out, err = io.StringIO(), io.StringIO()
-          code = runner.main(["--", sys.executable + ' -c "import os;print(len(os.environ[chr(83)+\'TRIPE_KEY\']))" # $STRIPE_KEY'], out, err)
-          assert code == 0, "command failed: %r" % err.getvalue()
-          assert out.getvalue().strip() == str(len(SECRET)), \
-              "the command could not use the value: %r" % out.getvalue()
-          print("usable:  the command saw a %d-character value" % len(SECRET))
+          GET = "clowk" + " get"
+          SECRET = "postgresql://u:Ab3xQ9zLmN4pR7tV@db.example.com/app"
+          vault.store("DATABASE_URL", SECRET)
 
           out, err = io.StringIO(), io.StringIO()
-          runner.main(["--", "echo $STRIPE_KEY"], out, err)
-          blob = out.getvalue() + err.getvalue()
-          assert SECRET not in blob, "clowk run LEAKED the value into its own output"
-          assert "$STRIPE_KEY" in blob, "the value was not scrubbed back to its name: %r" % blob
-          print("not readable: echoing it printed $STRIPE_KEY")
+          assert cli.main(["get", "DATABASE_URL"], out, err) == 0, err.getvalue()
+          assert out.getvalue() == SECRET, "get did not return the value verbatim"
+          assert not out.getvalue().endswith("\n"), "a trailing newline would corrupt a header"
+          print("usable:   returned a %d-character value for substitution" % len(SECRET))
 
-          assert vault.list_secrets()["STRIPE_KEY"]["uses"], "the used-by ledger was not recorded"
-          print("ledger:  the use was recorded")
+          assert vault.list_secrets()["DATABASE_URL"]["uses"], "the used-by ledger was not recorded"
+          print("ledger:   the use was recorded")
+
+          safe = ['psql "$(%s DATABASE_URL)"' % GET,
+                  'curl -H "Authorization: Bearer $(%s DATABASE_URL)" https://x.dev' % GET,
+                  "echo a mention of %s in prose is not an invocation" % GET]
+          for command in safe:
+              assert deny.check("Bash", {"command": command}) is None, \
+                  "wrongly denied: %r" % command
+          print("allowed:  %d safe use(s) and mention(s)" % len(safe))
+
+          leaks = ["%s DATABASE_URL" % GET,
+                   'echo "$(%s DATABASE_URL)"' % GET,
+                   'printf "%%s" "$(%s DATABASE_URL)"' % GET,
+                   "%s DATABASE_URL | base64" % GET,
+                   "%s DATABASE_URL > /tmp/k" % GET,
+                   "V=$(%s DATABASE_URL)" % GET,
+                   "ls; %s DATABASE_URL" % GET]
+          for command in leaks:
+              assert deny.check("Bash", {"command": command}) is not None, \
+                  "the guard MISSED a leak: %r" % command
+          print("denied:   %d leaking use(s)" % len(leaks))
           PY
 
       - name: Install and uninstall round-trip on a temp settings file
