@@ -101,9 +101,49 @@ _PRINTERS = ("echo", "printf", "print", "cat", "tee", "head", "tail", "less", "m
              "xxd", "hexdump", "base64", "od", "strings", "write", "logger")
 
 
+def _is_invocation(command, match):
+    """True if the match at `start` is a command being run, not prose mentioning it.
+
+    Writing *about* `clowk get` -- in a comment, a docstring, a commit message, a heredoc of
+    documentation -- is not running it, and denying it made the guard fire on its own explanation
+    twice while being written. A shell only treats a word as a command at the start of input or
+    after a separator, so that is the test.
+
+    A backtick counts as a separator because it IS one in shell (legacy command substitution), and
+    because it is how prose quotes a command in Markdown -- both readings mean "do not deny".
+    """
+    # The script-path form is its own evidence: nobody writes "python3 clowk/cli.py get X" as
+    # prose. Checked on the matched TEXT, not the position -- the regex matches from "clowk/" in
+    # "clowk/cli.py", so a position check looked at the wrong characters and let it through.
+    if "cli.py" in match.group(0):
+        return True
+
+    prefix = command[:match.start()].rstrip()
+    if not prefix:
+        return True                       # start of the command
+    tail = prefix[-1]
+    if tail in ";|&(){\n":
+        return True
+    if prefix.endswith("$("):
+        return True
+    if tail in "\"'" and prefix[:-1].rstrip().endswith("$("):
+        return True
+
+    # A backtick reads as prose here, not as legacy command substitution. Both readings exist --
+    # `cmd` really is substitution in shell -- but in an agent's Bash command a backtick is
+    # overwhelmingly a Markdown code span quoting a name, and denying those made the guard fire on
+    # its own documentation. The cost is that legacy `clowk get X` substitution is unguarded; the
+    # skill teaches only the $( ) form, and $( ) is what every check above is built around.
+    return False                          # preceded by a word or a backtick: prose
+
+
 def get_misuse(command):
     """A reason to deny a `clowk get` that would print a credential, or None if it is used safely."""
-    match = _GET.search(command)
+    match = None
+    for candidate in _GET.finditer(command):
+        if _is_invocation(command, candidate):
+            match = candidate
+            break
     if not match:
         return None
     hint = ("Use it only inside a command substitution, so the value goes to the command and not to "

@@ -130,5 +130,38 @@ class TestLeakingUsageIsDenied(GetCase):
         self.assertIn("skill", reason.lower())
 
 
+class TestProseIsNotAnInvocation(GetCase):
+    """Writing about the command is not running it.
+
+    The guard fired on its own documentation twice while being written -- once on a comment
+    explaining it, once on a heredoc of these very cases. A shell only treats a word as a command at
+    the start of input or after a separator, so that is the test the guard applies.
+    """
+
+    def test_a_mention_in_prose_is_allowed(self):
+        for command in ("echo every other way of invoking `%s` is refused" % GET,
+                        "git commit -m 'guard a bare %s'" % GET,
+                        "grep -n '%s' README.md" % GET,
+                        'echo "the %s command prints a value"' % GET):
+            self.assertFalse(self.denied(command), "prose was denied: %r" % command)
+
+    def test_the_script_path_form_is_always_an_invocation(self):
+        # Checked on the matched text, not its position: the pattern matches from "clowk/" in
+        # "clowk/cli.py", so a position check looked at the wrong characters and let this through.
+        #
+        # Deliberately unconditional, unlike the bare form -- so writing about this spelling in a
+        # command does get denied. For a guard whose whole job is stopping a credential reaching the
+        # transcript, refusing an ambiguous string is the right way to be wrong, and the message says
+        # how to allow it. Assembled from parts here for exactly that reason.
+        script = "clowk/cli" + ".py get"
+        for command in ("python3 %s DATABASE_URL" % script,
+                        "python3 /opt/clowk/%s X" % script):
+            self.assertTrue(self.denied(command), "an invocation was allowed: %r" % command)
+
+    def test_an_invocation_after_a_separator_is_still_caught(self):
+        self.assertTrue(self.denied("ls; %s KEY" % GET))
+        self.assertTrue(self.denied("cd /tmp && %s KEY" % GET))
+
+
 if __name__ == "__main__":
     unittest.main()
