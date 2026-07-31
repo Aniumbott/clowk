@@ -422,45 +422,65 @@ class TestPointerOncePerSession(HookCase):
         os.environ["CLOWK_SESSIONS"] = os.path.join(self.dir, "sessions.json")
         self.addCleanup(os.environ.pop, "CLOWK_SESSIONS", None)
 
+    def paste(self, secret, session):
+        """The text the user repastes -- i.e. the only thing a blocked turn sends to the model.
+
+        Asserted on the clipboard, not the block reason. A blocked turn transmits nothing, so the
+        reason is read by the human and never reaches the agent: the pointer sat there for a while
+        being decorative, and the agent received a bare $NAME with no idea what it meant.
+        """
+        captured = {}
+        original = self.hook.clip.copy
+        self.hook.clip.copy = lambda text: captured.setdefault("text", text) or True
+        try:
+            self.run_hook({"prompt": "use " + secret, "cwd": "/p", "session_id": session})
+        finally:
+            self.hook.clip.copy = original
+        return captured.get("text", "")
+
     def reason(self, secret, session):
         code, out, err = self.run_hook(
             {"prompt": "use " + secret, "cwd": "/p", "session_id": session})
         return json.loads(out)["reason"]
 
-    def test_the_first_block_of_a_session_carries_it(self):
-        self.assertIn("[assistant:", self.reason(self.A, "s1"))
+    def test_the_first_block_of_a_session_carries_it_in_the_repasted_text(self):
+        self.assertIn("[assistant:", self.paste(self.A, "s1"))
 
     def test_a_later_block_in_the_same_session_does_not(self):
-        self.reason(self.A, "s1")
-        self.assertNotIn("[assistant:", self.reason(self.B, "s1"))
+        self.paste(self.A, "s1")
+        self.assertNotIn("[assistant:", self.paste(self.B, "s1"))
 
     def test_a_different_session_gets_it_again(self):
-        self.reason(self.A, "s1")
-        self.assertIn("[assistant:", self.reason(self.B, "s2"))
+        self.paste(self.A, "s1")
+        self.assertIn("[assistant:", self.paste(self.B, "s2"))
 
     def test_the_rest_of_the_message_is_unaffected(self):
         # Only the pointer is dropped -- the rewrite and the bypass line still have to be there,
         # because the human reads those every time.
-        self.reason(self.A, "s1")
-        second = self.reason(self.B, "s1")
-        self.assertIn("$SLACK_BOT_TOKEN", second)
-        self.assertIn("unclowk", second)
+        # Two channels with different audiences. The repasted text is what the model receives, so it
+        # carries the rewrite and (once) the pointer, and nothing else. The block reason is what the
+        # human reads, so it always carries the bypass line -- putting that in the paste would make
+        # the user's own message tell the agent how to skip the guard.
+        self.paste(self.A, "s1")
+        second_paste = self.paste(self.B, "s1")
+        self.assertIn("$SLACK_BOT_TOKEN", second_paste)
+        self.assertNotIn("unclowk", second_paste)
+        self.assertIn("unclowk", self.reason(self.B, "s1"))
 
     def test_a_payload_with_no_session_id_repeats_the_pointer(self):
         # Omitting it costs the agent the one thing that stops it printing a credential, so an
         # untrackable session errs towards repeating rather than towards silence.
         for _ in range(2):
-            code, out, err = self.run_hook({"prompt": "use " + self.A, "cwd": "/p"})
-            self.assertIn("[assistant:", json.loads(out)["reason"])
+            self.assertIn("[assistant:", self.paste(self.A, ""))
 
     def test_an_unwritable_state_file_still_blocks_and_still_points(self):
         os.environ["CLOWK_SESSIONS"] = os.path.join(self.dir, "nope", "x", "sessions.json")
-        self.assertIn("[assistant:", self.reason(self.A, "s1"))
+        self.assertIn("[assistant:", self.paste(self.A, "s1"))
 
     def test_a_corrupt_state_file_is_treated_as_unseen(self):
         with open(os.environ["CLOWK_SESSIONS"], "w", encoding="utf-8") as f:
             f.write("{not a list")
-        self.assertIn("[assistant:", self.reason(self.A, "s1"))
+        self.assertIn("[assistant:", self.paste(self.A, "s1"))
 
     def test_the_state_file_does_not_grow_without_bound(self):
         for n in range(self.hook.MAX_SESSIONS + 20):

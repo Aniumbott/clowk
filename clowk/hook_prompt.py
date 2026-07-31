@@ -97,7 +97,7 @@ def _host_from(argv):
     return "claude-code"
 
 
-def build_message(rewritten, stored, tiers, copied, unfiled=(), skipped=0, pointer=True):
+def build_message(rewritten, stored, tiers, copied, unfiled=(), skipped=0):
     """The block reason. Plain text: hooks cannot set colour or markdown."""
     lines = ["clowk stopped a credential before it reached the model."]
     for name in stored:
@@ -122,16 +122,6 @@ def build_message(rewritten, stored, tiers, copied, unfiled=(), skipped=0, point
         lines.append("    " + rewritten)
     lines.append("")
     lines.append("To send the original text instead, start your message with:  %s" % BYPASS)
-    if pointer and (stored or unfiled):
-        # Carried in the rewritten prompt on purpose. The agent needs to know what $NAME means and
-        # how to use it without reading it, and this is the one moment that knowledge is certainly
-        # relevant -- it arrives in the same message as the name. A SessionStart briefing was tried
-        # instead and is worse: it costs tokens in every session whether or not a credential is
-        # involved, it advertises the vault unconditionally, and it goes stale the moment a
-        # credential is cleared. The pointer is plain text, so hosts without a skill mechanism still
-        # get a usable hint.
-        lines.append("")
-        lines.append(SKILL_POINTER)
     return "\n".join(lines)
 
 
@@ -225,9 +215,15 @@ def capture(event, findings):
         rewritten = rewritten.replace(finding.secret, "$" + name)
         tiers[name] = finding.confidence
 
+    # The pointer has to be INSIDE the text the user repastes, not merely in the block reason.
+    # A blocked turn transmits nothing, so the reason is read by the human and never reaches the
+    # model -- putting the pointer only there made it decorative: the agent received a bare $NAME
+    # with no idea what it meant, which is precisely what it was added to prevent. The repasted
+    # prompt is the only channel from a blocked turn to the model.
+    if (stored or unfiled) and pointer_needed(event.get("session_id", "")):
+        rewritten = rewritten + "\n\n" + SKILL_POINTER
     copied = clip.copy(rewritten)
-    return build_message(rewritten, stored, tiers, copied, unfiled, skipped,
-                         pointer=pointer_needed(event.get("session_id", "")))
+    return build_message(rewritten, stored, tiers, copied, unfiled, skipped)
 
 
 def _placeholder(env, taken):

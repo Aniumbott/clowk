@@ -178,7 +178,14 @@ class TestClipboardHandoff(IntegrationCase):
         self.addCleanup(setattr, clip, "copy", original)
 
         code, out, err = self.prompt_hook({"prompt": "use " + STRIPE + " now", "cwd": "/p"})
-        self.assertEqual(captured, ["use $STRIPE_SECRET_KEY now"])
+        self.assertEqual(len(captured), 1)
+        # The rewrite, then the skill pointer. The pointer belongs in the pasted text rather than
+        # only in the block reason: a blocked turn transmits nothing, so the reason never reaches
+        # the model and the pointer there explained $NAME to nobody. This payload carries no
+        # session_id, so the pointer is present every time -- see TestPointerOncePerSession.
+        self.assertTrue(captured[0].startswith("use $STRIPE_SECRET_KEY now"))
+        self.assertIn("[assistant:", captured[0])
+        self.assertNotIn(STRIPE, captured[0])
         self.assertIn("already on your clipboard", self.block_reason("claude-code", out, err))
 
     def test_a_missing_clipboard_tool_still_blocks_and_still_prints_the_rewrite(self):
