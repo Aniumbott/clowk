@@ -297,7 +297,11 @@ class TestPunctuationAroundPaths(DenyCase):
         self.assertFalse(self.denied("echo see %s%s. it is safe" % (self.DOT_ENV, ".example")))
 
     def test_surrounding_punctuation_does_not_hide_a_denied_path(self):
-        for wrapper in ("cat %s;", "read (%s)", "look at %s.", 'echo "%s",', "[%s]"):
+        # Every wrapper here has a real file reader at its head. The originals used `read` and
+        # `look at` as filler verbs, which stopped counting once a path only reads when a reader is
+        # running it -- `read` is a shell builtin that takes stdin, not a filename, so treating it
+        # as one would have been the wrong fix.
+        for wrapper in ("cat %s;", "head (%s)", "grep x %s.", 'base64 "%s",', "wc -l [%s]"):
             command = wrapper % self.DOT_ENV
             self.assertTrue(self.denied(command),
                             "punctuation hid a denied path: %r" % command)
