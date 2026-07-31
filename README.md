@@ -12,20 +12,19 @@ Works with Claude Code, Codex and Gemini CLI. Python 3.8+, standard library only
 ## How it works
 
 ```mermaid
-flowchart LR
+flowchart TD
     A["you paste<br/><b>sk_live_51H8xR…</b>"]:::secret
-    B{"clowk scans the prompt<br/>locally, before it is sent"}:::tool
+    B{"clowk scans it<br/>before it is sent"}:::tool
     X["🔒 turn blocked<br/>the model gets nothing"]:::blocked
     V[("🗄️ ~/.clowk/vault.json<br/>0600 · your only copy")]:::secret
     P["📋 your message, rewritten<br/><b>$STRIPE_SECRET_KEY</b><br/>on your clipboard"]:::ref
-    R["you repaste"]:::ref
     M["🤖 the model"]:::ref
 
     A --> B
     B -->|"nothing found"| M
     B -->|"credential found"| X
     X -->|"files the value"| V
-    X --> P --> R --> M
+    X --> P -->|"you repaste"| M
 
     classDef secret fill:#fdf1ea,stroke:#c2410c,stroke-width:1.5px,color:#17181c
     classDef ref fill:#eef7f5,stroke:#0f766e,stroke-width:1.5px,color:#17181c
@@ -130,15 +129,15 @@ curl -H "Authorization: Bearer $(clowk get STRIPE_SECRET_KEY)" https://api.strip
 ```
 
 ```mermaid
-flowchart LR
-    A["🤖 agent runs<br/>psql $(clowk get DATABASE_URL)"]:::ref
-    S["your shell substitutes<br/>the real value"]:::tool
+flowchart TD
+    A["🤖 the agent runs<br/><b>psql &quot;$(clowk get NAME)&quot;</b>"]:::ref
+    S["your shell expands it"]:::tool
     V[("🗄️ vault")]:::secret
-    D["🐘 the database"]:::secret
-    M["🤖 the model<br/>sees only the command<br/>it wrote"]:::ref
+    D["🐘 the database gets<br/>the real value"]:::secret
+    M["🤖 the model sees only<br/>the command it wrote"]:::ref
 
     A --> S
-    V --> S
+    V -->|"the value, never printed"| S
     S --> D
     A -.-> M
 
@@ -195,7 +194,7 @@ flowchart LR
     K["✅ runs untouched"]:::ref
 
     A --> B
-    B -->|".env · private key · the vault ·<br/>git credential fill"| D
+    B -->|".env · a private key<br/>the vault<br/>git credential fill"| D
     B -->|"anything else"| K
 
     classDef ref fill:#eef7f5,stroke:#0f766e,stroke-width:1.5px,color:#17181c
