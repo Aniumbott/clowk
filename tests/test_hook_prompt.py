@@ -214,7 +214,7 @@ class TestFilingFailureStillBlocks(HookCase):
         reason = json.loads(out)["reason"]
         self.assertNotIn(self.KEY, reason)
         self.assertIn("use $STRIPE_SECRET_KEY now", reason)
-        self.assertIn("NOT filed", reason)
+        self.assertIn("not saved", reason)
         self.assertIn("unclowk", reason)
 
     def test_a_read_only_vault_directory_still_blocks(self):
@@ -326,7 +326,7 @@ class TestLogPasteDoesNotAvalanche(HookCase):
 
     def test_the_reason_says_what_it_did_not_file_and_how_to_resend(self):
         reason = self.block_reason()
-        self.assertIn("NOT filed", reason)
+        self.assertIn("not saved", reason)
         self.assertIn("unclowk", reason)
 
     def test_the_reason_stays_small_when_the_rewrite_is_on_the_clipboard(self):

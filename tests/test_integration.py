@@ -290,7 +290,7 @@ class TestMultipleCredentialsInOnePrompt(IntegrationCase):
         self.assertEqual(vault.names(), ["GITHUB_TOKEN", "SLACK_BOT_TOKEN", "STRIPE_SECRET_KEY"])
         for name, value in self.PAIRS:
             self.assertEqual(vault.get(name), value)
-            self.assertIn("stored as $" + name, reason)
+            self.assertIn("$" + name, reason)
             self.assertNoTrace(value, out, err)
         self.assertIn(
             "stripe $STRIPE_SECRET_KEY github $GITHUB_TOKEN slack $SLACK_BOT_TOKEN", reason)
@@ -554,7 +554,7 @@ class TestRobustness(IntegrationCase):
         code, out, err = self.prompt_hook({"prompt": "use " + STRIPE, "cwd": "/p"})
         self.assertEqual(code, BLOCK_CODE["claude-code"])
         reason = self.block_reason("claude-code", out, err)
-        self.assertIn("NOT filed as $STRIPE_SECRET_KEY", reason)
+        self.assertIn("$STRIPE_SECRET_KEY not saved", reason)
         self.assertIn("use $STRIPE_SECRET_KEY", reason)
         self.assertNoTrace(STRIPE, out, err)
         self.assertEqual(read_text(vault.path()), "{not json")
@@ -565,7 +565,7 @@ class TestRobustness(IntegrationCase):
         original = read_text(vault.path())
         code, out, err = self.prompt_hook({"prompt": "use " + STRIPE, "cwd": "/p"})
         self.assertEqual(code, BLOCK_CODE["claude-code"])
-        self.assertIn("NOT filed as $STRIPE_SECRET_KEY",
+        self.assertIn("$STRIPE_SECRET_KEY not saved",
                       self.block_reason("claude-code", out, err))
         self.assertNoTrace(STRIPE, out, err)
         self.assertEqual(read_text(vault.path()), original)

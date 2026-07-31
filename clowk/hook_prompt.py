@@ -27,8 +27,8 @@ BYPASS = "unclowk"
 # Appended to the rewritten prompt the user repastes, so it reaches the agent in the same message as
 # the $NAME it explains. Addressed to the agent, not the human.
 SKILL_POINTER = (
-    "[assistant: $NAME above is a credential clowk holds. It is NOT in your environment and you must "
-    "never print it. Use it as psql \"$(clowk get NAME)\". Read the clowk skill first.]")
+    "[assistant: $NAME is a credential clowk holds. Never print it. "
+    "Use $(clowk get NAME) — see the clowk skill.]")
 
 # Most values one prompt will ever be filed under. A prompt with more hits than this is a pasted
 # log, not a credential paste: 1800 lines of `request_id=<32 hex>` trips the shape-only rules ~170
@@ -98,30 +98,33 @@ def _host_from(argv):
 
 
 def build_message(rewritten, stored, tiers, copied, unfiled=(), skipped=0):
-    """The block reason. Plain text: hooks cannot set colour or markdown."""
-    lines = ["clowk stopped a credential before it reached the model."]
+    """The block reason. Plain text -- hooks cannot set colour or markdown -- but emoji carry fine.
+
+    Kept short on purpose. This is read by a person who has just been interrupted mid-thought, so it
+    answers three questions in order and stops: what happened, what do I paste, how do I override.
+    The reasoning behind each rule belongs in the README, not here.
+    """
+    lines = ["🔒 clowk caught a credential before it reached the model.", ""]
     for name in stored:
-        tier = tiers.get(name, "")
-        note = "  (shape-only match -- if this is a false positive, run: clowk clear %s)" % name if tier == "low" else ""
-        lines.append("  stored as $%s%s" % (name, note))
+        hint = "   ·  shape-only guess, `clowk clear %s` if wrong" % name \
+            if tiers.get(name) == "low" else ""
+        lines.append("   💾  $%s%s" % (name, hint))
     for name in unfiled:
-        lines.append("  NOT filed as $%s -- clowk could not write %s, so keep this value "
-                     "yourself (check permissions and free space)" % (name, vault.path()))
+        lines.append("   ⚠️   $%s not saved — could not write %s, so keep this one yourself"
+                     % (name, vault.path()))
     if skipped:
-        lines.append("  and %d more redacted but NOT filed -- %d hits in one message reads as a "
-                     "pasted log rather than a credential paste, and filing them all would bury "
-                     "the vault in junk. If none of them are credentials, resend with %s."
-                     % (skipped, skipped + len(stored) + len(unfiled), BYPASS))
+        lines.append("   ⚠️   %d more hidden but not saved — %d hits in one message looks like a "
+                     "pasted log" % (skipped, skipped + len(stored) + len(unfiled)))
     lines.append("")
-    lines.append("Your prompt, rewritten%s:" % (" -- already on your clipboard" if copied else ""))
+    lines.append("📋 Paste this%s:" % (" — already on your clipboard" if copied else ""))
     lines.append("")
     if copied and len(rewritten) > ECHO_LIMIT:
-        lines.append("    [%d characters, not repeated here -- paste it from the clipboard]"
-                     % len(rewritten))
+        lines.append("   [%d characters — take it from the clipboard]" % len(rewritten))
     else:
-        lines.append("    " + rewritten)
+        for line in rewritten.split("\n"):
+            lines.append("   " + line if line else "")
     lines.append("")
-    lines.append("To send the original text instead, start your message with:  %s" % BYPASS)
+    lines.append("👀 Not a credential? Resend starting with  %s" % BYPASS)
     return "\n".join(lines)
 
 
