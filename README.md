@@ -33,7 +33,10 @@ model either. Placeholder passwords (`password`, `changeme`) and values that are
 (`$DB_PASS`) are left alone.
 
 A second hook denies the easy accidental credential reads: `.env`, private keys, the vault itself,
-and commands like `git credential fill` that print a live token in one line. Its deny is shaped per
+and the handful of commands that print a live token from the OS keychain in one line. It denies
+*running* those, not mentioning them — a path or a phrase in a commit message, an `echo`, or a grep
+pattern passes; a path only counts as a read when something that reads files is running it. The
+`Read` tool's own path check needs no such heuristic and stays strict. Its deny is shaped per
 host, like the block: a decision object on Claude Code, exit 2 with the reason on stderr on Codex
 and Gemini CLI. Only Claude Code's tool-deny shape is verified — see `NOTES.md`.
 

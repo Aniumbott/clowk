@@ -210,6 +210,73 @@ class TestHook(DenyCase):
         self.assertEqual(hook.main(["--host", "claude-code"], io.StringIO("{nope"), out, err), 0)
 
 
+class TestAPhraseCountsOnlyAtACommandHead(DenyCase):
+    """Mentioning a credential-printing command is not running it.
+
+    Matching the phrase anywhere in the text denied any command that merely contained it -- a README
+    edit describing the rule, a commit message, a grep. That blocked the commit introducing this
+    fix, which is the sixth time this hook stopped its own author mid-sentence.
+    """
+
+    FILL = "git credential" + " fill"
+
+    def denied(self, command):
+        return self.deny.check("Bash", {"command": command}) is not None
+
+    def test_running_it_is_denied_wherever_in_the_pipeline(self):
+        for command in (self.FILL, "%s -v" % self.FILL, "ls; %s" % self.FILL,
+                        "%s | grep password" % self.FILL):
+            self.assertTrue(self.denied(command), "an invocation was allowed: %r" % command)
+
+    def test_talking_about_it_is_allowed(self):
+        for command in ("git commit -m 'block %s'" % self.FILL,
+                        "echo the hook denies %s now" % self.FILL,
+                        "grep -n '%s' README.md" % self.FILL):
+            self.assertFalse(self.denied(command), "a mention was denied: %r" % command)
+
+
+class TestAPathIsOnlyAReadWhenSomethingReadsIt(DenyCase):
+    """Naming a path is not opening it.
+
+    Denying any command that mentions a protected path blocked five of this tool's own author's
+    commands, including the commit that introduced the fix -- a commit message, an echo of
+    documentation, a grep pattern. So a path in a Bash command counts as a read only when a reader
+    is the head of its pipeline segment.
+
+    The Read tool's structured file_path is unaffected and stays strict: that is the reliable half,
+    and it is the one an agent actually uses to read a file.
+    """
+
+    DOT_ENV = "." + "env"
+
+    def denied(self, command):
+        return self.deny.check("Bash", {"command": command}) is not None
+
+    def test_a_reader_opening_a_protected_path_is_denied(self):
+        vault_file = self.deny.vault.path()
+        for command in ("cat %s" % vault_file,
+                        "head -5 %s" % vault_file,
+                        "python3 %s" % vault_file,
+                        "grep secret %s" % vault_file,
+                        "base64 %s" % vault_file,
+                        "ls; cat %s" % vault_file,
+                        "cat %s" % self.DOT_ENV,
+                        "cat ~/.ssh/id_ed25519"):
+            self.assertTrue(self.denied(command), "a read was allowed: %r" % command)
+
+    def test_merely_naming_the_path_is_allowed(self):
+        vault_file = self.deny.vault.path()
+        for command in ("git commit -m 'state lives in %s now'" % vault_file,
+                        "echo the file is %s" % vault_file,
+                        "git add %s" % vault_file,
+                        "ls -l %s" % vault_file):
+            self.assertFalse(self.denied(command), "a mention was denied: %r" % command)
+
+    def test_the_read_tool_stays_strict(self):
+        self.assertIsNotNone(self.deny.check("Read", {"file_path": self.deny.vault.path()}))
+        self.assertIsNotNone(self.deny.check("Read", {"file_path": "/proj/" + self.DOT_ENV}))
+
+
 class TestPunctuationAroundPaths(DenyCase):
     """A path written in prose or shell punctuation still has to be recognised as that path.
 

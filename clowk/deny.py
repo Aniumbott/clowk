@@ -211,21 +211,37 @@ def check(tool_name, tool_input):
 
     command = tool_input.get("command")
     if isinstance(command, str) and command:
-        lowered = " ".join(command.lower().split())
-        for phrase in commands:
-            if phrase.lower() in lowered:
-                return "clowk denied `%s` -- it prints a live credential. %s" % (
-                    phrase, HINT % (phrase, config_path()))
+        # At the head of a pipeline segment, not anywhere in the text. Matching anywhere denied any
+        # command that merely mentioned the phrase -- a README edit, a commit message, a grep -- and
+        # that is what blocked the commit describing this very fix.
+        for segment in re.split(r"\|\||&&|[|;\n]", command):
+            head = " ".join(_strip_edges(w) for w in segment.split())
+            for phrase in commands:
+                if head.lower().startswith(phrase.lower()):
+                    return "clowk denied `%s` -- it prints a live credential. %s" % (
+                        phrase, HINT % (phrase, config_path()))
         # os.altsep as well as os.sep: on Windows os.sep is "\\" and "/" is os.altsep, and cmd,
         # PowerShell and Git Bash all take forward slashes -- so `type C:/repo/.env`, the ordinary
         # way a model writes that path, skipped the check entirely. None on POSIX, so no change.
+        # Only when the segment is actually running a reader. A path named in a commit message, a
+        # comment, an echo of documentation or a grep pattern is a mention, not a read -- and
+        # denying those made this hook block five of its own author's commands, including the commit
+        # that introduced this fix. The Read tool's structured file_path is checked above and is
+        # unaffected: that is the reliable half, and it stays strict.
         separators = tuple(s for s in (os.sep, os.altsep) if s)
-        for token in command.split():
-            stripped = _strip_edges(token)
-            if stripped.startswith(("/", "~", ".")) or any(s in stripped for s in separators):
-                reason = _path_reason(os.path.expanduser(stripped), paths, allow)
-                if reason:
-                    return reason
+        for segment in re.split(r"\|\||&&|[|;\n]", command):
+            words = [w for w in segment.split() if w]
+            if not words:
+                continue
+            head = os.path.basename(_strip_edges(words[0])).lower()
+            if head not in _READERS:
+                continue
+            for token in words[1:]:
+                stripped = _strip_edges(token)
+                if stripped.startswith(("/", "~", ".")) or any(s in stripped for s in separators):
+                    reason = _path_reason(os.path.expanduser(stripped), paths, allow)
+                    if reason:
+                        return reason
     return None
 
 
@@ -234,6 +250,17 @@ def check(tool_name, tool_input):
 # heredoc yielded the token ".env.example." , whose basename does not end in ".example", so the
 # allow-suffix check missed and the command was denied. Found when this hook blocked a command
 # whose only sin was writing about .env.example in a sentence.
+# Commands that read a file's contents. A path in a Bash command counts as a read only when one of
+# these is the head of its pipeline segment; anything else naming a path is talking about it, not
+# opening it. The Read tool's structured file_path is checked separately and stays strict.
+_READERS = frozenset((
+    "cat", "bat", "less", "more", "head", "tail", "nl", "od", "xxd", "hexdump", "strings",
+    "base64", "cp", "mv", "install", "rsync", "scp", "tee", "sed", "awk", "grep", "rg", "ag",
+    "python", "python2", "python3", "ruby", "perl", "node", "php", "source", ".", "open",
+    "dd", "gzip", "gunzip", "zip", "unzip", "tar", "shasum", "md5sum", "sha256sum", "wc",
+    "jq", "yq", "envsubst", "dotenv", "type", "vi", "vim", "nano", "emacs", "code",
+))
+
 _EDGES = "'\"`,;:!?()[]{}<>|&"
 
 
