@@ -92,6 +92,44 @@ class TestInstallThroughTheCli(CliInstallCase):
             self.assertIn("hook_prompt.py", blob)
             self.assertIn("hook_pretool.py", blob)
 
+    def test_the_launcher_lands_inside_the_sandbox_for_every_host(self):
+        """`clowk get` is how a credential is used on every host, so every host gets the launcher.
+
+        The containment half is not incidental. launcher_path() reaches the real ~/.local/bin
+        through expanduser, and this suite only redirects that by setting HOME and USERPROFILE --
+        exactly the arrangement that let an earlier round of tests write into a contributor's real
+        profile (3476171). If the path ever stops going through expanduser, this fails here rather
+        than by appearing in someone's home directory.
+        """
+        for host in ALL_HOSTS:
+            code, out, err = self.run_cli("install", host)
+            self.assertEqual((host, code, err), (host, 0, ""))
+            launcher = install.launcher_path()
+            self.assertTrue(launcher.startswith(self.home),
+                            "%s wrote a launcher outside the sandbox: %s" % (host, launcher))
+            self.assertTrue(os.path.exists(launcher), "%s: no launcher at %s" % (host, launcher))
+            self.assertIn("runs as a command", out)
+
+    def test_uninstall_removes_the_launcher_it_wrote(self):
+        self.run_cli("install")
+        launcher = install.launcher_path()
+        self.assertTrue(os.path.exists(launcher))
+        code, out, err = self.run_cli("uninstall")
+        self.assertEqual((code, err), (0, ""))
+        self.assertFalse(os.path.exists(launcher))
+        self.assertIn(launcher, out)
+
+    def test_install_says_so_when_the_launcher_cannot_be_found_on_path(self):
+        """An executable the user cannot reach is the same bug this fixed, in a new place."""
+        saved = os.environ.get("PATH", "")
+        os.environ["PATH"] = os.path.join(self.home, "nowhere")
+        try:
+            _code, out, _err = self.run_cli("install")
+        finally:
+            os.environ["PATH"] = saved
+        self.assertIn("NOT on your PATH", out)
+        self.assertIn("export PATH=", out)
+
     def test_install_with_no_host_touches_only_claude_codes_files(self):
         """Defaulting to claude-code must not write into ~/.codex or ~/.gemini.
 

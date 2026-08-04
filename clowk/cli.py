@@ -312,6 +312,18 @@ def cmd_install(host, out, err):
         out.write("clowk is already registered in %s; nothing to do.\n" % result["settings"])
     if result["backup"]:
         out.write("Backed up your previous settings to %s.\n" % result["backup"])
+    # Every host, not just Claude Code: `clowk get` is how a credential is used everywhere, and
+    # until this existed the word `clowk` was not a command on any of them.
+    launcher = install_mod.install_launcher(root)
+    if launcher:
+        out.write("Wrote %s, so `clowk` runs as a command.\n" % launcher)
+        if not install_mod.launcher_on_path(launcher):
+            folder = os.path.dirname(launcher)
+            out.write("  %s is NOT on your PATH, so that command cannot be found yet. Add it:\n"
+                      "    export PATH=\"%s:$PATH\"\n" % (folder, folder))
+    else:
+        out.write("Left %s alone -- it exists and clowk did not write it.\n"
+                  % install_mod.launcher_path())
     if host == "claude-code":
         # Only Claude Code has ~/.claude/commands; the other hosts use different mechanisms.
         command = install_mod.install_command(root)
@@ -345,6 +357,8 @@ def cmd_uninstall(host, out, err):
         out.write("Removed %s.\n" % install_mod.command_path())
     if install_mod.uninstall_skill():
         out.write("Removed %s.\n" % install_mod.skill_path())
+    if install_mod.uninstall_launcher():
+        out.write("Removed %s.\n" % install_mod.launcher_path())
     return 0
 
 
