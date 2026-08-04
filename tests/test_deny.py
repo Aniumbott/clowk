@@ -389,5 +389,44 @@ class TestPunctuationAroundPaths(DenyCase):
         self.assertTrue(self.denied("cat %s" % self.DOT_ENV))
 
 
+class TestAGetOnItsOwnLineIsStillAnInvocation(DenyCase):
+    """A newline is a command separator, and _is_invocation could never see one.
+
+    `prefix = command[:match.start()].rstrip()` strips the trailing newline before
+    `tail in ";|&(){\\n"` is tested, so the "\\n" in that set was unreachable. The semicolon and
+    and-and forms were covered here and in CI, which is why this survived -- but an agent writes
+    multi-line Bash far more often than it chains on one line, so the uncovered separator was the
+    common one.
+
+    check()'s other two branches already split on newlines via re.split. Only this one did not.
+    """
+
+    GET = "clowk" + " get"
+
+    def test_a_bare_get_on_the_second_line_is_denied(self):
+        command = "cd /srv/app\n%s DATABASE_URL" % self.GET
+        self.assertIsNotNone(self.deny.check("Bash", {"command": command}))
+
+    def test_a_trailing_newline_after_the_get_does_not_hide_it(self):
+        command = "cd /srv/app\n%s DATABASE_URL\n" % self.GET
+        self.assertIsNotNone(self.deny.check("Bash", {"command": command}))
+
+    def test_a_get_on_a_line_of_its_own_among_many_is_denied(self):
+        command = "set -e\ncd /srv/app\n%s DATABASE_URL\necho done" % self.GET
+        self.assertIsNotNone(self.deny.check("Bash", {"command": command}))
+
+    def test_the_separators_that_already_worked_still_do(self):
+        for command in ("ls; %s X" % self.GET, "ls && %s X" % self.GET, "%s X" % self.GET):
+            self.assertIsNotNone(self.deny.check("Bash", {"command": command}), command)
+
+    def test_a_substitution_on_its_own_line_is_still_allowed(self):
+        command = 'cd /srv/app\npsql "$(%s DATABASE_URL)"' % self.GET
+        self.assertIsNone(self.deny.check("Bash", {"command": command}))
+
+    def test_a_mention_after_a_newline_is_still_prose(self):
+        command = "git commit -m 'document\nthe %s guard'" % self.GET
+        self.assertIsNone(self.deny.check("Bash", {"command": command}))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -129,7 +129,12 @@ def _is_invocation(command, match):
     if "cli.py" in match.group(0):
         return True
 
-    prefix = command[:match.start()].rstrip()
+    # rstrip(" \t"), not rstrip(): a bare rstrip() removed the trailing newline before the test
+    # below could see it, which made the "\n" in that set unreachable and let every multi-line
+    # command through -- `cd /srv/app` on one line and a bare get on the next was ALLOWED. The
+    # semicolon and and-and forms worked, and those are what the tests and CI covered, so the one
+    # separator an agent actually writes was the one that never matched.
+    prefix = command[:match.start()].rstrip(" \t")
     if not prefix:
         return True                       # start of the command
     tail = prefix[-1]
