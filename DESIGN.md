@@ -16,6 +16,24 @@ No host can rewrite a submitted prompt — verified on Claude Code, Codex and Ge
 block or append context, nothing else. So a seamless in-place swap is impossible, and the flow is
 block → repaste. Putting the rewrite on the clipboard is what makes it cheap.
 
+## Why substitution, not a wrapper
+
+`clowk run CMD` shipped briefly: it lent the value to one child process and scrubbed it back out of
+that child's output. Wrong shape. It nested a shell around the agent's own command, so the host's
+permission rules matched `clowk run` rather than what actually ran — a user with `deny: Bash(rm:*)`
+would have had it silently bypassed for any credential-using command.
+
+`psql "$(clowk get DATABASE_URL)"` keeps the command intact. The shell hands the value to the
+command's arguments and it never reaches a transcript. Nothing wraps anything.
+
+So `clowk get` is the only command that prints a credential, and the guard against every other use
+of it lives in the tool hook rather than in `clowk get` itself: a process cannot tell whether it was
+command-substituted. Measured, not assumed — in an agent harness the parent command line is the
+harness's own shell preamble, identical for a bare call and a substituted one.
+
+The SessionStart briefing went with the wrapper. A pointer inside the repasted prompt replaces it:
+nothing is advertised when no credential is involved, and it cannot go stale.
+
 ## Why the vault is one plaintext file
 
 Values used to live in `~/.claude/settings.local.json`, which put every credential into every
@@ -57,9 +75,9 @@ already working here, so it is the part that shipped.
 "Catches what you paste, and tells you where it came from." Not a boundary — clowk runs as the same
 user as the agent. Never "first" or "only".
 
-## Known gap
+## Where the used-by ledger is recorded
 
-`vault.record_use(name, where)` exists and is tested, but no shipped code path calls it, so the
-`used by` list stays empty and `clowk uses` reports only where a credential was caught. The natural
-caller is the tool hook — it already sees the command string, so a `$NAME` sighting could record the
-cwd. Until that is wired, do not describe clowk as recording what depends on a credential.
+`vault.record_use` is called from `clowk get`, which is the moment of use and the most precise place
+to record one. The tool hook was the earlier candidate and is deliberately not the caller: it would
+put a vault read and a conditional write on every tool invocation, to catch a `$NAME` sighting that
+may never resolve to a use at all.

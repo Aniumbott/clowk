@@ -99,6 +99,20 @@ class TestTheUsedByLedgerClaimMatchesTheCode(unittest.TestCase):
                 self.assertNotIn(phrase, text.lower(),
                                  "%s claims a used-by ledger clowk never fills" % label)
 
+    # What DESIGN.md said for four commits after `clowk get` began calling record_use. The ledger
+    # tests only ever read README and the manifests, so the one file whose whole job is explaining
+    # why the design is this shape kept describing a gap the code had closed.
+    STALE_GAP = ("no shipped code path calls it", "until that is wired")
+
+    def test_design_does_not_describe_a_gap_the_code_has_closed(self):
+        if not self.callers:
+            self.skipTest("record_use has no caller, so describing the gap is accurate")
+        design = read("DESIGN.md").lower()
+        for phrase in self.STALE_GAP:
+            self.assertNotIn(phrase, design,
+                             "DESIGN.md calls record_use unwired, but %s calls it"
+                             % ", ".join(self.callers))
+
     def test_both_manifests_make_the_same_accurate_claim(self):
         for name in ("plugin.json", "marketplace.json"):
             blob = json.loads(read(".claude-plugin", name))
