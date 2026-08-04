@@ -6,6 +6,7 @@ true is a real defect. These are the cheapest place to notice one.
 import json
 import os
 import unittest
+import xml.dom.minidom
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -118,6 +119,53 @@ class TestTheUsedByLedgerClaimMatchesTheCode(unittest.TestCase):
             blob = json.loads(read(".claude-plugin", name))
             description = blob.get("description") or blob["plugins"][0]["description"]
             self.assertIn("records where each one came from", description, name)
+
+
+class TestTheShippedSvgsAreValidAndCurrent(unittest.TestCase):
+    """The diagram is a claim surface like any other, and a broken one fails invisibly.
+
+    XML forbids `--` inside a comment. An SVG with one is invalid, and every renderer that matters
+    shows a broken-image icon rather than an error -- which is how it shipped once, in a logo whose
+    comment explained the design in prose. Nothing in CI would have caught it.
+
+    The diagram also prints three facts that drift on their own: the rule count, the version, and
+    the launcher path `clowk install` writes. It went stale before by describing a `clowk run` that
+    had been deleted, so the fix is to make the numbers derive from the code that owns them.
+    """
+
+    SVGS = ("clowk-architecture.svg", "clowk-logo.svg", "clowk-logo-dark.svg")
+
+    def setUp(self):
+        self.diagram = read("clowk-architecture.svg")
+
+    def test_every_shipped_svg_parses(self):
+        for name in self.SVGS:
+            try:
+                xml.dom.minidom.parseString(read(name).encode("utf-8"))
+            except Exception as exc:                      # noqa: BLE001 -- any parse failure is the bug
+                self.fail("%s is not valid XML, so it renders as a broken image: %s" % (name, exc))
+
+    def test_the_diagram_counts_the_rules_the_ruleset_actually_has(self):
+        from clowk import detect
+
+        # The vendored gitleaks set plus clowk's own two: detect.uri_findings and
+        # detect.standalone_findings. README words it the same way.
+        total = len(detect.RULES) + 2
+        self.assertIn("%d rules" % total, self.diagram,
+                      "the diagram's rule count is not %d" % total)
+
+    def test_the_diagram_names_the_shipped_version(self):
+        version = json.loads(read(".claude-plugin", "plugin.json"))["version"]
+        self.assertIn(version, self.diagram,
+                      "the diagram does not name version %s" % version)
+
+    def test_the_diagram_names_the_launcher_install_really_writes(self):
+        from clowk import install
+
+        # The tail only: launcher_path() is absolute and CLOWK_BIN can override it, but the
+        # directory is the part a reader has to put on their PATH.
+        self.assertIn(".local/bin/clowk", self.diagram)
+        self.assertIn(os.path.join(".local", "bin"), install.launcher_path())
 
 
 if __name__ == "__main__":

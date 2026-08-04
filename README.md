@@ -232,7 +232,8 @@ pattern all pass. A path only counts as a read when something that reads files i
 ## The whole thing on one page
 
 The three diagrams above are each one path through clowk. This is all of it at once, including the
-parts with no flow to draw — the store, the ledger, and what the design does and does not cover.
+parts with no flow to draw — the store, the ledger, the launcher, and what the design does and does
+not cover.
 Click through for full size; GitHub scales it to the column.
 
 [![clowk architecture — capture, store, use, deny](clowk-architecture.svg)](clowk-architecture.svg)
