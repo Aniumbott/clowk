@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="clowk">
+<title>clowk</title>
+<!-- A cloak worn open, with a masked value inside it.
+
+     Two panels and the gap between them. The gap is the whole mark: an open front is what reads as
+     a worn garment, and nothing that is closed and smooth can do it. Earlier passes drew a single
+     rounded silhouette and every one of them read as a ghost, because a smooth dome with a wavy
+     hem IS the cartoon ghost. Angular folds, a shoulder line and two soft hem points instead.
+
+     The asterisk is the password mask glyph, so the mark states what clowk does rather than how it
+     looks. It is sized to fill the gap exactly at its widest point; growing it any further would
+     collide with the panels and close the shape back up.
+
+     No double hyphen anywhere in this comment: XML forbids it inside comments, and an invalid SVG
+     fails as a broken image icon rather than as an error anyone would notice. -->
+<path d="M29 6 L9 16 L3 57 L13 59 L24 56 L27 33 Z" fill="#17181c"/>
+<path d="M35 6 L55 16 L61 57 L51 59 L40 56 L37 33 Z" fill="#17181c"/>
+<g stroke="#c2410c" stroke-width="3.8" stroke-linecap="round" transform="translate(32,46)">
+  <line x1="0" y1="-6.6" x2="0" y2="6.6"/>
+  <line x1="-5.7" y1="-3.3" x2="5.7" y2="3.3"/>
+  <line x1="-5.7" y1="3.3" x2="5.7" y2="-3.3"/>
+</g>
+</svg>
