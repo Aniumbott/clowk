@@ -28,12 +28,12 @@ not execute here.
   most important fact for a security tool built on hooks. Codex has an open request for fail-closed
   on this specific event: openai/codex#33630.
 
-## Host matrix (verified 2026-07-29)
+## Host matrix (Claude Code and Gemini CLI 2026-07-29; Codex re-verified 2026-08-04)
 
 | Host | Prompt event | Tool event | Settings file | Prompt block | Tool deny |
 |---|---|---|---|---|---|
 | Claude Code | `UserPromptSubmit` | `PreToolUse` | `~/.claude/settings.json` | `{"decision":"block"}` | `hookSpecificOutput.permissionDecision` |
-| Codex | `UserPromptSubmit` | `PreToolUse` | `~/.codex/hooks.json` | exit 2 + stderr | exit 2 + stderr (assumed) |
+| Codex | `UserPromptSubmit` | `PreToolUse` | `~/.codex/hooks.json` | exit 2 + stderr | exit 2 + stderr |
 | Gemini CLI | `BeforeAgent` | `BeforeTool` | `~/.gemini/settings.json` | exit 2 + stderr | exit 2 + stderr (assumed) |
 
 The two block shapes are **not interchangeable**: Claude Code's `PreToolUse` reads
@@ -61,11 +61,15 @@ Antigravity are unverified and unsupported.
 
 - Whether hooks fire for subagent (`Task`) tool calls. Affects the deny hook's coverage only.
 - Gemini CLI's `BeforeAgent` payload field names.
-- **How to deny a tool call on Codex (`PreToolUse`) and Gemini CLI (`BeforeTool`).** Only the
-  prompt event's exit-2 block is verified there. clowk denies with exit 2 + the reason on stderr,
-  the usual command-hook convention; Codex's `PreToolUse` is documented to accept a richer JSON
-  protocol (`updatedInput.command`) that this project has not tested. If exit 2 turns out not to
-  deny on those hosts, the call proceeds — but the reason is still on stderr, so it is visible.
+- **How to deny a tool call on Gemini CLI (`BeforeTool`).** Only the prompt event's exit-2 block is
+  verified there. clowk denies with exit 2 + the reason on stderr, the usual command-hook
+  convention. If exit 2 turns out not to deny, the call proceeds — but the reason is still on
+  stderr, so it is visible.
+
+Codex used to sit in that last bullet and no longer does. On 2026-08-04 the whole loop was run
+against a real Codex session: a pasted credential blocked the turn, a tool call was denied, and a
+value was used through `$(clowk get NAME)`. So exit 2 does deny on Codex's `PreToolUse`. Its
+documented richer JSON protocol (`updatedInput.command`) is still untested — nothing needs it.
 
 ## Test fixtures and push protection
 

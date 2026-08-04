@@ -5,10 +5,11 @@ Prompt event, verified 2026-07-29:
   codex        UserPromptSubmit  ~/.codex/hooks.json          block: exit 2 + stderr reason
   gemini-cli   BeforeAgent       settings.json -> hooks       block: exit 2 + stderr reason
 
-Tool event: claude-code's PreToolUse deny shape is verified (hookSpecificOutput below). The deny
-protocol on codex's PreToolUse and gemini-cli's BeforeTool is NOT verified by this project; both
-get exit 2 + stderr, which is what their prompt event uses and the usual command-hook convention.
-Exit 2 also blocks on claude-code, so it is the safe fallback for an unrecognised host too.
+Tool event: claude-code's PreToolUse deny shape is verified (hookSpecificOutput below), and codex's
+exit-2 deny on PreToolUse was verified against a real session on 2026-08-04. gemini-cli's BeforeTool
+is still NOT verified by this project; it gets exit 2 + stderr, which is what its prompt event uses
+and the usual command-hook convention. Exit 2 also blocks on claude-code, so it stays the safe
+fallback for an unrecognised host too.
 
 None of the three can rewrite the prompt, which is why block-and-repaste is the universal UX.
 All three FAIL OPEN on hook error or timeout -- a crash here means the secret is transmitted.
