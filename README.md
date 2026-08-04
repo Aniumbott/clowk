@@ -1,11 +1,15 @@
+<div align="center">
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="clowk-logo-dark.svg">
-  <img src="clowk-logo.svg" alt="" width="64" height="64" align="left" hspace="12">
+  <img src="clowk-logo.svg" alt="" width="96" height="96">
 </picture>
 
 # clowk
 
 [![tests](https://github.com/Aniumbott/clowk/actions/workflows/ci.yml/badge.svg)](https://github.com/Aniumbott/clowk/actions/workflows/ci.yml)
+
+</div>
 
 ### You just pasted a live API key into a chat box.
 
