@@ -262,8 +262,9 @@ can read, `cat` can read. It stops accidents. It will not stop an agent that is 
   trade, not an oversight.
 - **128-bit hex secrets, ~18% of the time, even with a keyword.** Hex has 16 symbols, so 32 hex
   characters cap at 4.0 bits of entropy against gitleaks' 3.5 floor; over 2000 samples, 17.8% fall
-  under. The floor stays at gitleaks' value rather than being re-tuned for one key size. 256-bit and
-  larger are unaffected.
+  under. The floor stays at gitleaks' value rather than being re-tuned for one key size. 256-bit has
+  the same tail, far out: 0.02% of samples over 400,000, about one in 4,650. 512-bit did not fall
+  under once in 200,000.
 - **Partially matched credentials.** Only the span a rule matches gets replaced. If your credential
   is longer than the pattern that caught it, the tail stays in the rewrite while the block message
   still reports success. Overlapping rules are handled — longest match wins — but a format no rule

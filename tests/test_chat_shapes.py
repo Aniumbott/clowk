@@ -156,12 +156,26 @@ class TestLongKeys(unittest.TestCase):
             self.assertGreater(caught, 50, "%d-bit base64 keys caught only %d/60" % (bits, caught))
 
     def test_hex_secrets_of_256_bits_and_up_are_caught_with_a_keyword(self):
-        # Hex-only tokens are unclassifiable standing alone -- 64 hex chars is a sha256 digest and
-        # a 256-bit HMAC secret at the same time. With a keyword they are reachable.
+        """Reachable with a keyword, but not 40 out of 40: the entropy floor has a tail here too.
+
+        Hex-only tokens are unclassifiable standing alone -- 64 hex chars is a sha256 digest and a
+        256-bit HMAC secret at the same time. A keyword beside one makes it reachable.
+
+        This asserted 40/40 and passed for weeks before losing the coin flip on one Windows job.
+        Measured over 400,000 samples, 0.0215% of 256-bit hex strings land under gitleaks' 3.5
+        floor -- about 1 in 4,650, which is 0.9% odds per 40-sample loop and roughly 6% across a
+        seven-job matrix, so it was arriving eventually. 512-bit did not fall under once in
+        200,000. The floor therefore tolerates a single miss, and still fails loudly for a real
+        regression: if detection breaks, `caught` goes to nearly zero rather than to 39.
+
+        Same reasoning as the base64 sibling above, which already declined to assert 60/60.
+        """
         for nbytes in (32, 64):
             caught = sum(1 for _ in range(40)
                          if scan("webhook_secret = " + os.urandom(nbytes).hex()))
-            self.assertEqual(caught, 40, "%d-byte hex secret missed with a keyword" % nbytes)
+            self.assertGreaterEqual(
+                caught, 39,
+                "%d-byte hex caught only %d/40 with a keyword" % (nbytes, caught))
 
     def test_128_bit_hex_is_only_mostly_caught_and_that_is_measured(self):
         """A stated limit, not an aspiration.
