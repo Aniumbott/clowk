@@ -1,24 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="clowk">
 <title>clowk</title>
-<!-- A cloak worn open, with a masked value inside it.
+<!-- A cloak you can see through, and the masked value underneath it.
 
-     Two panels and the gap between them. The gap is the whole mark: an open front is what reads as
-     a worn garment, and nothing that is closed and smooth can do it. Earlier passes drew a single
-     rounded silhouette and every one of them read as a ghost, because a smooth dome with a wavy
-     hem IS the cartoon ghost. Angular folds, a shoulder line and two soft hem points instead.
+     The asterisk is drawn FIRST and the cloth passes over it at 14% opacity, so the mark is dimmed
+     where it is covered and full strength where the slit opens. That order is the whole effect. Swap
+     it and the cloth sits behind, which loses the sense of looking through fabric.
 
-     The asterisk is the password mask glyph, so the mark states what clowk does rather than how it
-     looks. It is sized to fill the gap exactly at its widest point; growing it any further would
-     collide with the panels and close the shape back up.
+     The slit is a wedge, near shut at the throat and open at the hem, and it is real transparent
+     space between two panels rather than a drawn line. The outer edges fall in an S and the hem
+     undulates, because a straight sweep and a flat hem read as a bell rather than as cloth.
+
+     Eight points at stroke 3.2. Thinner and the arms disappear under the veil; heavier and they
+     crowd each other at the hub and the star centre closes up.
 
      No double hyphen anywhere in this comment: XML forbids it inside comments, and an invalid SVG
      fails as a broken image icon rather than as an error anyone would notice. -->
-<path d="M29 6 L9 16 L3 57 L13 59 L24 56 L27 33 Z" fill="#17181c"/>
-<path d="M35 6 L55 16 L61 57 L51 59 L40 56 L37 33 Z" fill="#17181c"/>
-<g stroke="#c2410c" stroke-width="3.8" stroke-linecap="round" transform="translate(32,46)">
-  <line x1="0" y1="-6.6" x2="0" y2="6.6"/>
-  <line x1="-5.7" y1="-3.3" x2="5.7" y2="3.3"/>
-  <line x1="-5.7" y1="3.3" x2="5.7" y2="-3.3"/>
+<g stroke="#c2410c" stroke-width="3.2" stroke-linecap="round" fill="none" transform="translate(32,40)">
+  <line x1="0" y1="-14" x2="0" y2="14"/>
+  <line x1="-14" y1="0" x2="14" y2="0"/>
+  <line x1="-9.9" y1="-9.9" x2="9.9" y2="9.9"/>
+  <line x1="-9.9" y1="9.9" x2="9.9" y2="-9.9"/>
 </g>
+<path d="M31 7 C22 9 15 16 11 27 C8 38 5 49 3.5 59 C9 62.5 16 58.5 24 60.5 C26 46 28 25 31 7 Z"
+      fill="#17181c" fill-opacity="0.14"/>
+<path d="M33 7 C43 9 50 17 54 28 C58 39 61 50 62.5 59 C57 62.5 48 58.5 40 60.5 C38 46 36 25 33 7 Z"
+      fill="#17181c" fill-opacity="0.14"/>
 </svg>

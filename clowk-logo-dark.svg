@@ -1,14 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="clowk">
 <title>clowk</title>
-<!-- Same geometry as clowk-logo.svg, inverted for a dark background. Keep the two in step: the
-     path data is duplicated, so an edit to one that skips the other will drift silently.
-     The asterisk lifts from #c2410c to #e2703a, because the darker orange muddies on near black. -->
-<path d="M29 6 L9 16 L3 57 L13 59 L24 56 L27 33 Z" fill="#f4f1ec"/>
-<path d="M35 6 L55 16 L61 57 L51 59 L40 56 L37 33 Z" fill="#f4f1ec"/>
-<g stroke="#e2703a" stroke-width="3.8" stroke-linecap="round" transform="translate(32,46)">
-  <line x1="0" y1="-6.6" x2="0" y2="6.6"/>
-  <line x1="-5.7" y1="-3.3" x2="5.7" y2="3.3"/>
-  <line x1="-5.7" y1="3.3" x2="5.7" y2="-3.3"/>
+<!-- Same geometry as clowk-logo.svg, for a dark background. The path data and the asterisk
+     coordinates are duplicated between the two files, so an edit to one that skips the other will
+     drift silently. Change both, always.
+
+     Two colour swaps, and only two. The cloth goes from ink to bone at the same 14% opacity, which
+     lands as a soft grey on GitHub's dark canvas. The asterisk lifts from #c2410c to #e2703a: the
+     darker orange muddies against near black and loses the arms.
+
+     No double hyphen anywhere in this comment. XML forbids it inside comments. -->
+<g stroke="#e2703a" stroke-width="3.2" stroke-linecap="round" fill="none" transform="translate(32,40)">
+  <line x1="0" y1="-14" x2="0" y2="14"/>
+  <line x1="-14" y1="0" x2="14" y2="0"/>
+  <line x1="-9.9" y1="-9.9" x2="9.9" y2="9.9"/>
+  <line x1="-9.9" y1="9.9" x2="9.9" y2="-9.9"/>
 </g>
+<path d="M31 7 C22 9 15 16 11 27 C8 38 5 49 3.5 59 C9 62.5 16 58.5 24 60.5 C26 46 28 25 31 7 Z"
+      fill="#f4f1ec" fill-opacity="0.14"/>
+<path d="M33 7 C43 9 50 17 54 28 C58 39 61 50 62.5 59 C57 62.5 48 58.5 40 60.5 C38 46 36 25 33 7 Z"
+      fill="#f4f1ec" fill-opacity="0.14"/>
 </svg>
