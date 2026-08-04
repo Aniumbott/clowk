@@ -104,7 +104,7 @@ def build_message(rewritten, stored, tiers, copied, unfiled=(), skipped=0):
     answers three questions in order and stops: what happened, what do I paste, how do I override.
     The reasoning behind each rule belongs in the README, not here.
     """
-    lines = ["🔒 clowk caught a credential before it reached the model.", ""]
+    lines = ["👀 clowk caught a credential before it reached the model.", ""]
     for name in stored:
         hint = "   ·  shape-only guess, `clowk clear %s` if wrong" % name \
             if tiers.get(name) == "low" else ""
@@ -124,7 +124,7 @@ def build_message(rewritten, stored, tiers, copied, unfiled=(), skipped=0):
         for line in rewritten.split("\n"):
             lines.append("   " + line if line else "")
     lines.append("")
-    lines.append("👀 Not a credential? Resend starting with  %s" % BYPASS)
+    lines.append("🤔 Not a credential? Resend starting with  %s" % BYPASS)
     return "\n".join(lines)
 
 
