@@ -91,6 +91,19 @@
   "group": 1
  },
  {
+  "id": "airtable-personnal-access-token",
+  "env": "AIRTABLE_PERSONNAL_ACCESS_TOKEN",
+  "regex": "\\b(pat[A-Za-z0-9]{14}\\.[a-f0-9]{64})\\b",
+  "keywords": [
+   "airtable"
+  ],
+  "entropy": null,
+  "ignorecase": false,
+  "confidence": "low",
+  "secret_group": null,
+  "group": 1
+ },
+ {
   "id": "algolia-api-key",
   "env": "ALGOLIA_API_KEY",
   "regex": "(?:algolia)(?:[ \\t\\w.-]{0,20})[\\s'\"]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[\\x60'\"\\s=]{0,5}([a-z0-9]{32})(?:[\\x60'\"\\s;]|\\\\[nr]|$)",

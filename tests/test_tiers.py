@@ -2,7 +2,7 @@ import json
 import os
 import unittest
 
-from clowk.detect import classify, scan
+from clowk.detect import _OPERATOR, classify, scan
 
 RULES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "clowk", "rules.json")
 
@@ -71,6 +71,30 @@ class TestRulesFile(unittest.TestCase):
         readme = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "README.md")
         with open(readme, encoding="utf-8") as f:   # README has emoji; cp1252 cannot read it
             self.assertIn("%d of the %d rules" % (low, len(_load_rules())), f.read())
+
+    def test_the_counts_detect_quotes_about_its_own_ruleset_are_accurate(self):
+        """detect.py's comments quantify the ruleset, and one pair of numbers had gone stale.
+
+        The standalone rule's preamble said "96 pin a literal vendor prefix ... the other 124 need
+        keyword <operator> value". 96 came from a classify() that read a vendor prefix out of a
+        rule's KEYWORD half; fixing that moved five rules high -> low, README was updated to 129,
+        and this comment was not. README's number has been test-derived since. Now these are too,
+        because a comment is the place a reader goes to understand WHY the code is shaped this way,
+        and a wrong number there is more expensive than a wrong number in prose.
+        """
+        rules = _load_rules()
+        high = sum(1 for r in rules if r["confidence"] == "high")
+        # gitleaks' keyword=value template. Present verbatim in the rules that cannot fire on a
+        # bare paste, which is the whole reason clowk adds a standalone-token rule.
+        template = sum(1 for r in rules if _OPERATOR in r["regex"])
+        detect_py = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                 "clowk", "detect.py")
+        with open(detect_py, encoding="utf-8") as f:
+            source = f.read()
+        for count, what in ((high, "rules pinning a literal vendor prefix"),
+                            (template, "rules carrying the keyword=value template")):
+            self.assertIn("%d of the %d" % (count, len(rules)), source,
+                          "detect.py does not say %d of the %d (%s)" % (count, len(rules), what))
 
 
 class TestFinding(unittest.TestCase):

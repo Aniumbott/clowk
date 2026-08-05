@@ -156,7 +156,7 @@ CLEAN_PROMPTS = [
 
 class TestFalsePositives(unittest.TestCase):
     """The keyword gate and the entropy filter are the only two things holding false positives
-    down across 220 rules, 129 of which match on shape alone. Stubbing either one out used to
+    down across 221 rules, 130 of which match on shape alone. Stubbing either one out used to
     leave the whole suite green while ordinary prompts started getting blocked, so regressions
     that break DETECTION were caught and regressions that break SUPPRESSION were invisible.
     """
@@ -175,6 +175,50 @@ class TestFalsePositives(unittest.TestCase):
         self.assertEqual(scan('token = "%s"' % LOW_ENTROPY), [])
         # ...and it is the filter, not the pattern: the same shape with real entropy is kept
         self.assertIn(HIGH_ENTROPY, [f.secret for f in scan('token = "%s"' % HIGH_ENTROPY)])
+
+
+GITLEAKS_TOML = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                             "clowk", "gitleaks.toml")
+
+# Airtable personal access token: `pat` + 14 alphanumerics + `.` + 64 hex. Split so this file
+# cannot trip a secret scanner; the value the test sees is unchanged. See NOTES.md.
+AIRTABLE_PAT = ("pat" "Ab3xQ9zLmN4pR7."
+                "0f4a9c2e71bd8365af0e5c1d9b7263e4a8f5c0d13b6e8a24f7c9d0b1e5a38274")
+
+
+class TestNoVendoredRuleIsSilentlyDropped(unittest.TestCase):
+    """A rule Python cannot compile is skipped by build_rules.py, and skipping is silent enough.
+
+    That is not hypothetical. Go's regexp supports POSIX character classes and Python's re reads
+    `[[:alnum:]]` as a nested set, so airtable-personnal-access-token -- the newest rule gitleaks
+    has added -- was vendored in the toml and then absent from rules.json. The count in README went
+    down by one and nothing else said a word. build_rules.py now translates the class, and this
+    test is what makes the next such rule fail the suite instead of disappearing.
+    """
+
+    def test_every_toml_rule_with_a_regex_survives_into_the_ruleset(self):
+        with open(GITLEAKS_TOML, encoding="utf-8") as f:
+            blocks = f.read().split("[[rules]]")[1:]
+        declared = set()
+        for b in blocks:
+            mid = re.search(r'^\s*id\s*=\s*"([^"]+)"', b, re.M)
+            if mid and re.search(r"^\s*regex\s*=\s*'''", b, re.M):
+                declared.add(mid.group(1))
+        shipped = {r["id"] for r in _load_rules()}
+        self.assertEqual(sorted(declared - shipped), [],
+                         "%d vendored rule(s) never reached rules.json" % len(declared - shipped))
+        # A rule with no regex at all is a path-only rule (pkcs12-file matches *.p12 filenames),
+        # which clowk has nothing to do with: it scans prompt text, not directory listings.
+        self.assertEqual(len(declared), len(shipped))
+
+    def test_the_rule_that_was_being_dropped_now_detects_its_token(self):
+        found = [f.rule_id for f in scan("my airtable token is " + AIRTABLE_PAT)]
+        self.assertIn("airtable-personnal-access-token", found)
+
+    def test_it_needed_that_rule_because_nothing_else_reaches_the_shape(self):
+        # The keyword gate is gitleaks', so the token alone stays invisible -- and clowk's
+        # standalone rule cannot help: the dot in the middle ends its token.
+        self.assertEqual(scan(AIRTABLE_PAT), [])
 
 
 class TestGuardMetadata(unittest.TestCase):
@@ -282,7 +326,7 @@ class TestBrokenRuleset(unittest.TestCase):
         return mod
 
     def _assert_degrades(self, rules_json):
-        """A broken ruleset costs the 220 vendored rules but NOT the standalone-token rule.
+        """A broken ruleset costs the 221 vendored rules but NOT the standalone-token rule.
 
         This used to assert scan() returned nothing at all. That stopped being true once the
         standalone rule was added, and the new behaviour is strictly better: the standalone rule

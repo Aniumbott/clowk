@@ -53,7 +53,7 @@ _CHAR_CLASS = re.compile(r"\[[^\]]*\]")
 # regex metacharacters: a group body free of all of them can only match one fixed string.
 _META = frozenset("\\|.*+?[](){}^$")
 # the assignment operator in gitleaks' keyword=value template: everything before it is keyword
-# context, everything after it is the value. Present verbatim in 101 of the 220 vendored rules.
+# context, everything after it is the value. Present verbatim in 101 of the 221 vendored rules.
 _OPERATOR = r"(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)"
 
 
@@ -181,15 +181,20 @@ def _shannon(s):
 
 
 # --- standalone credential tokens -------------------------------------------------------------
-# The vendored gitleaks rules split into two kinds. 96 pin a literal vendor prefix and match the
-# value itself, so they work in any phrasing. The other 124 need `keyword <operator> value`, which
-# is a SOURCE CODE shape -- and clowk's whole job is catching what a human types into a chat, where
-# people write "here's the api key - VALUE", "my api key is VALUE", or just paste the value alone.
-# Measured on a labelled corpus, the shipped ruleset caught 11 of 20 realistic pastes: every miss
-# was a prefix-less credential in natural language.
+# The vendored gitleaks rules split into two kinds. 91 of the 221 pin a literal vendor prefix in the
+# value they capture -- ghp_, sk_live_, xoxb- -- so a bare paste can fire them with no keyword
+# anywhere near. 101 of the 221 instead need `keyword <operator> value` verbatim, which is a SOURCE
+# CODE shape -- and clowk's whole job is catching what a human types into a chat, where people write
+# "here's the api key - VALUE", "my api key is VALUE", or just paste the value alone. Measured on a
+# labelled corpus, the shipped ruleset caught 11 of 20 realistic pastes: every miss was a prefix-less
+# credential in natural language.
 #
-# This rule closes that, with no keyword requirement at all. It is the only rule here that clowk
-# adds to the vendored set, and it is tagged "low" because a bare token carries no vendor evidence.
+# (Those two counts were 96 and 124 when this was written, and 96 came from a classify() that read a
+# vendor prefix out of a rule's KEYWORD half; the fix moved five rules high -> low and nothing
+# updated the number here. test_tiers now derives both from the ruleset.)
+#
+# This rule closes that, with no keyword requirement at all. It is one of the three rules clowk adds
+# to the vendored set, and it is tagged "low" because a bare token carries no vendor evidence.
 #
 # The discriminator is that ordinary high-entropy text in a developer's prompt is overwhelmingly
 # single-case hex (git SHAs, md5, sha256, request ids) or carries a structural marker (sha256:,
@@ -457,7 +462,7 @@ def compile_rules(rules):
 
     The catch is deliberately wide: rules.json is plaintext that users do edit, and an entry that
     is a bare string or is missing "regex" raises TypeError/KeyError, not re.error. Losing one
-    hand-mangled rule is acceptable; losing all 220 is the fail-open this module exists to avoid.
+    hand-mangled rule is acceptable; losing all 221 is the fail-open this module exists to avoid.
     """
     out = []
     for r in rules:

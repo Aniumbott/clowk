@@ -43,6 +43,33 @@ def env_name(rule_id):
 _LEADING_CONTEXT = re.compile(r'^(\(\?i:)?\[\\w\.-\]\{0,\d+\}\?')
 
 
+# Go's regexp/syntax supports POSIX character classes inside a character class; Python's re does
+# not -- it reads `[[:alnum:]]` as a nested set, which is a FutureWarning, which this script treats
+# as a skip. So a rule using one was DROPPED, and the count in README quietly went down by one.
+# That is how airtable-personnal-access-token -- `pat[[:alnum:]]{14}\.[a-f0-9]{64}`, the newest rule
+# gitleaks has added -- was vendored and then never used: `pat<14>.<64 hex>` in prose was caught by
+# nothing at all, and clowk's standalone rule cannot reach it either, because the dot in the middle
+# ends its token.
+#
+# Translating is the same kind of dialect normalization as \z -> \Z above, and it is exactly what
+# the class means -- no rule is loosened or tightened. Only [:alnum:] appears in today's config; the
+# rest are here because the failure mode is a rule that vanishes rather than one that errors, and
+# the next gitleaks release is not going to announce which class it used.
+_POSIX_CLASSES = {
+    '[:alnum:]': 'A-Za-z0-9', '[:alpha:]': 'A-Za-z', '[:digit:]': '0-9',
+    '[:lower:]': 'a-z', '[:upper:]': 'A-Z', '[:xdigit:]': '0-9A-Fa-f',
+    '[:word:]': r'\w', '[:space:]': r'\s', '[:blank:]': r' \t',
+}
+
+
+def translate_posix_classes(rx):
+    """`[[:alnum:]]` -> `[A-Za-z0-9]`. Returns (regex, list of classes translated)."""
+    found = [name for name in _POSIX_CLASSES if name in rx]
+    for name in found:
+        rx = rx.replace(name, _POSIX_CLASSES[name])
+    return rx, found
+
+
 def strip_leading_context(rx):
     """Drop the redundant leading `[\\w.-]{0,N}?` context, including one inside a leading (?i:."""
     stripped = False
@@ -56,7 +83,7 @@ def strip_leading_context(rx):
 
 text = open(SRC).read()
 blocks = text.split('[[rules]]')[1:]
-rules, skipped, ignored_groups, trimmed = [], [], [], []
+rules, skipped, ignored_groups, trimmed, posix = [], [], [], [], []
 for b in blocks:
     mid = re.search(r'^\s*id\s*=\s*"([^"]+)"', b, re.M)
     mrx = re.search(r"^\s*regex\s*=\s*'''(.*?)'''", b, re.M)
@@ -65,6 +92,9 @@ for b in blocks:
     rid, rx = mid.group(1), mrx.group(1)
     # normalize Go-regex quirks -> Python re
     rx = rx.replace(r'\z', r'\Z')                    # Go end-of-text -> Python
+    rx, classes = translate_posix_classes(rx)        # [[:alnum:]] -> [A-Za-z0-9]
+    if classes:
+        posix.append((rid, sorted(classes)))
     ignorecase = '(?i)' in rx
     if ignorecase:
         rx = rx.replace('(?i)', '')                  # inline global flag mid-pattern errors on py3.11+
@@ -105,6 +135,9 @@ print(f"wrote {len(rules)} rules to {OUT}")
 declared = sum(1 for r in rules if r["secret_group"] is not None)
 print(f"honoured {declared} declared secretGroup(s); derived the rest")
 print(f"stripped redundant leading context from {len(trimmed)} regexes")
+print(f"translated POSIX character classes in {len(posix)} regexes")
+for rid, classes in posix:
+    print(f"  ~ {rid}: {' '.join(classes)}")
 print(f"skipped {len(skipped)} incompatible regexes")
 for rid, err in skipped[:8]:
     print(f"  - {rid}: {err}")

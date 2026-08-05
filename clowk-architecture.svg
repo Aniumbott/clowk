@@ -76,7 +76,7 @@
 <text x="290" y="222" class="f">claude-code, codex</text>
 <text x="290" y="244" class="h">BeforeAgent</text>
 <text x="290" y="260" class="f">gemini-cli, unverified</text>
-<text x="290" y="286" class="b">223 rules, keyword +</text>
+<text x="290" y="286" class="b">224 rules, keyword +</text>
 <text x="290" y="304" class="b">entropy gated, before</text>
 <text x="290" y="322" class="b">anything is sent</text>
 
@@ -166,7 +166,7 @@
 <text x="672" y="910" class="r">the blocked prompt on disk — the host writes that itself</text>
 <text x="672" y="928" class="r">gemini-cli: its payload shape is unverified, so it may scan nothing</text>
 <text x="672" y="946" class="b">a file you @-mention, or Grep showing contents to the model</text>
-<text x="672" y="964" class="b">a credential in a format the 223 rules do not recognise</text>
+<text x="672" y="964" class="b">a credential in a format the 224 rules do not recognise</text>
 <text x="672" y="986" class="f">a real boundary needs a separate OS user, a container, or a signed binary</text>
 
 </svg>

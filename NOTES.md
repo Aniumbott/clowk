@@ -71,6 +71,45 @@ against a real Codex session: a pasted credential blocked the turn, a tool call 
 value was used through `$(clowk get NAME)`. So exit 2 does deny on Codex's `PreToolUse`. Its
 documented richer JSON protocol (`updatedInput.command`) is still untested — nothing needs it.
 
+## The vendored gitleaks ruleset (verified 2026-08-05)
+
+Written down because "the ruleset must be stale by now" is a very easy afternoon to spend.
+
+- **`clowk/gitleaks.toml` is already upstream's newest.** It is byte-identical (md5
+  `f709acf92fc6409c179f4f4426066a9a`) both to `master:config/gitleaks.toml` and to the config at the
+  latest release tag, **v8.30.1** (published 2026-03-21). Verified by downloading each and comparing.
+  Re-running `build_rules.py` over a fresh download reproduces the shipped `rules.json` byte for
+  byte, twice.
+- **Upstream's config last changed 2025-11-20** — #1947 (Looker client id/secret) and #1952 (Airtable
+  personal access token), both already vendored here. Check those dates before assuming a refresh
+  will bring anything.
+- **222 `[[rules]]` blocks → 221 usable.** The one block that is not a rule is `pkcs12-file`: it
+  carries a `path` and no `regex`, matching `*.p12` filenames, and clowk scans prompt text rather
+  than directory listings. Nothing else is dropped, and a test now fails if that changes.
+- **Go's POSIX character classes silently cost a rule.** `[[:alnum:]]` is legal in Go's regexp and
+  is a nested-set FutureWarning in Python's `re`, which `build_rules.py` treated as "skip this
+  rule". That is how the newest rule upstream has added, airtable-personnal-access-token
+  (`pat` + 14 alphanumerics + `.` + 64 hex), was vendored and then never used. `build_rules.py` now
+  translates the class.
+- **No Supabase rule exists upstream at all**, verified by grepping the config and by a code search
+  of the repository — the only hits are a Supabase demo JWT quoted inside `jwt.go`'s allowlist. So a
+  missed `sbp_` token is an upstream gap, not a stale vendored copy. Measured, for `sbp_` + 40
+  lowercase hex:
+
+  | how it was pasted | caught |
+  |---|---|
+  | the token alone | no |
+  | `here is my supabase token <token>` | no |
+  | `SUPABASE_ACCESS_TOKEN=<token>` | yes, generic-api-key |
+  | `supabase_key = <token>` | yes, generic-api-key |
+
+  In prose it is missed because no rule knows the `sbp_` prefix and the standalone rule requires
+  mixed case, which a lowercase-hex body does not have. The newer `sb_secret_` / `sb_publishable_`
+  keys do mix case, so the standalone rule catches those even standing alone. Deliberately not
+  fixed by hand: a clowk-authored rule inside a file whose header reads "auto-generated, do not edit
+  manually" is a merge conflict with the next refresh, and it would put clowk's own guesswork behind
+  a vendor's name.
+
 ## Test fixtures and push protection
 
 Three fixture credentials are written as two adjacent string literals -- `"sk_" "live_..."`,
