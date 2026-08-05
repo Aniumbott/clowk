@@ -70,11 +70,14 @@ Why block instead of quietly swapping the value? Because no host can rewrite a p
 submitted — checked on all three. A hook gets to say "no", and that is the entire toolkit. So the
 flow is block-and-repaste, and the clipboard is what stops that being annoying.
 
-Detection is 220 [gitleaks](https://github.com/gitleaks/gitleaks) rules plus two of clowk's own: one
-for credential-shaped tokens standing alone, one for connection strings. Paste
+Detection is 220 [gitleaks](https://github.com/gitleaks/gitleaks) rules plus three of clowk's own:
+one for credential-shaped tokens standing alone, and one for each connection-string dialect. Paste
 `postgresql://user:pw@host/db` and the **whole URI** is filed as `$DATABASE_URL`, so your hostname
-and database name do not travel either. Placeholder passwords (`changeme`) and things that are
-already references (`$DB_PASS`) are left alone.
+and database name do not travel either. The same goes for the `key=value;` dialect every Microsoft
+SDK and ODBC driver uses: an Azure storage string is filed whole as
+`$AZURE_STORAGE_CONNECTION_STRING`, rather than having its `AccountKey` swapped while
+`AccountName=prodstore` rides along. Placeholder passwords (`changeme`, `<your-account-key>`) and
+things that are already references (`$DB_PASS`) are left alone.
 
 At most 20 names per message. More hits than that is a pasted log, not a paste of credentials — the
 rest are still redacted and the turn is still blocked, they just are not filed.
@@ -255,7 +258,7 @@ can read, `cat` can read. It stops accidents. It will not stop an agent that is 
 - **Files you `@`-mention.** The host reads those, not clowk.
 - **Grep**, which shows file contents to the model. The deny hook is registered on `Bash` and `Read`
   only, so anything else that reads a file goes around it.
-- **Unrecognised formats.** A shape none of the 222 rules knows goes straight through.
+- **Unrecognised formats.** A shape none of the 223 rules knows goes straight through.
 - **Hex-only secrets standing alone.** A 64-character hex string is a sha256 digest and a 256-bit
   HMAC secret at once, and nothing about the token separates them — reporting those would block
   `git show <sha>`. Put a keyword nearby (`webhook_secret = <hex>`) and they are caught, every time,
@@ -311,7 +314,7 @@ the junk is easy to spot and `clowk clear NAME` away.
 No dependencies, so no setup step:
 
 ```bash
-python3 -m unittest discover -s tests        # 373 tests, ~3s
+python3 -m unittest discover -s tests        # 383 tests, ~3s
 ```
 
 CI runs the same suite on Python 3.8 through 3.13 across Linux, macOS and Windows, plus three checks

@@ -279,13 +279,123 @@ def uri_findings(text):
     out = []
     for m in _URI.finditer(text):
         uri, password = m.group(1), m.group(2)
-        if password.lower() in _URI_PLACEHOLDERS:
+        if _is_placeholder(password):
             continue
-        if password.startswith("$") or password.startswith("%"):
-            continue                       # already a reference: $DB_PASS, %ENV%
         scheme = uri.split("://", 1)[0].lower()
         env = _URI_ENV.get(scheme, "CONNECTION_URL")
         out.append(Finding(URI_ID, env, uri, m.start(1), m.end(1), "high"))
+    return out
+
+
+# --- credentials embedded in a key=value; connection string --------------------------------------
+# The other half of the same idea, and it was missing. An Azure storage string had its AccountKey
+# replaced and kept `AccountName=prodstore;EndpointSuffix=core.windows.net`, which names the account
+# to the model as plainly as the key would have -- exactly the leak the whole-URI capture above
+# exists to prevent, in the dialect the URI rule cannot parse. `key=value;` is what every Microsoft
+# SDK, every ODBC driver and every ADO.NET provider uses, and no vendored gitleaks rule covers it.
+#
+# Same treatment, therefore: capture the WHOLE string, high confidence, one env name a human would
+# actually put in their shell. Not covered: the comma-delimited StackExchange.Redis dialect
+# (`host:6380,password=...,ssl=True`), because a comma is far weaker evidence of a pair boundary
+# than a semicolon and the value there is reachable through the keyword rules anyway.
+KV_ID = "clowk-connection-string"
+
+# The keys whose value is a credential, each with the product whose format uses it. Deliberately
+# NOT bare `Key` or `Secret`: those are the map-key sense as often as the credential sense, and the
+# key has to match a whole segment, so `PartitionKey=` and `SharedAccessKeyName=` are not these.
+_KV_CREDENTIAL_KEYS = (
+    "accountkey",            # Azure Storage, Cosmos DB
+    "sharedaccesskey",       # Service Bus, Event Hubs, IoT Hub, Relay -- the SAS key
+    "accesskey",             # Azure SignalR, Web PubSub
+    "secretkey",             # MinIO / Ceph / S3-compatible `AccessKey=...;SecretKey=...`
+    "primarykey", "secondarykey",   # Notification Hubs and assorted Azure key listings
+    "password", "pwd",       # ADO.NET, ODBC, JDBC: SQL Server, MySQL, Db2, Oracle, Snowflake
+    "clientsecret",          # Azure AD service-principal strings
+    "apikey", "api key",     # Azure Search and assorted SDK strings
+    "application key",       # Azure Data Explorer (Kusto)
+)
+
+# A pair is `key=value`. The value stops at a semicolon, whitespace or a quote, so a string
+# embedded in JSON or in a shell argument does not drag the closing quote into the vault.
+_KV_VALUE = r"[^;\s\"'\x60]*"
+# The FIRST key may not contain a space; later keys may. That asymmetry is the whole guard against
+# swallowing prose: SQL Server really does write `Initial Catalog=` and `User ID=`, so spaces have
+# to be legal somewhere -- but allowing them in the leading key made `look at Server=db;Pwd=x`
+# match from `look`, filing the reader's own sentence as part of the credential.
+_KV = re.compile(
+    r"(?<![\w=&?/\-])("                                    # not glued into a word or a query string
+    r"[A-Za-z][A-Za-z0-9_.\-]{0,38}=" + _KV_VALUE +        # first pair, space-free key
+    r"(?:[ \t]*;[ \t]*[A-Za-z][A-Za-z0-9_.\- ]{0,38}=" + _KV_VALUE + r")+"   # 1+ further pairs
+    r")")
+# Which of those pairs carries the credential, read back out of the (short) matched string.
+_KV_CREDENTIAL = re.compile(
+    r"(?:^|;)[ \t]*(?:%s)[ \t]*=[ \t]*(%s)"
+    % ("|".join(k.replace(" ", r"\s") for k in _KV_CREDENTIAL_KEYS), _KV_VALUE), re.I)
+
+# Ordered, because several apply at once: an Azure storage string carries both AccountKey and
+# DefaultEndpointsProtocol, and a Cosmos string carries AccountKey too. First match wins.
+_KV_ENV = (
+    ("accountendpoint=", "COSMOS_CONNECTION_STRING"),
+    ("azure-devices.net", "IOT_HUB_CONNECTION_STRING"),
+    ("signalr.net", "SIGNALR_CONNECTION_STRING"),
+    ("webpubsub.azure.com", "WEB_PUBSUB_CONNECTION_STRING"),
+    ("servicebus.windows.net", "SERVICE_BUS_CONNECTION_STRING"),
+    ("endpoint=sb://", "SERVICE_BUS_CONNECTION_STRING"),
+    ("defaultendpointsprotocol=", "AZURE_STORAGE_CONNECTION_STRING"),
+    ("blob.core.windows.net", "AZURE_STORAGE_CONNECTION_STRING"),
+    ("accountname=", "AZURE_STORAGE_CONNECTION_STRING"),
+    ("sharedaccesskey=", "SERVICE_BUS_CONNECTION_STRING"),
+    ("accountkey=", "AZURE_STORAGE_CONNECTION_STRING"),
+    ("data source=", "DATABASE_CONNECTION_STRING"),
+    ("server=", "DATABASE_CONNECTION_STRING"),
+    ("database=", "DATABASE_CONNECTION_STRING"),
+    ("initial catalog=", "DATABASE_CONNECTION_STRING"),
+    ("driver=", "ODBC_CONNECTION_STRING"),
+    ("dsn=", "ODBC_CONNECTION_STRING"),
+)
+
+# Anything a value can be wrapped in when it is a template rather than a credential.
+_TEMPLATE_WRAPPERS = "<>{}[]()*\"' \t"
+# Only prefixes of four characters or more. "my" would read 0.1% of real base64 keys as a
+# placeholder -- a worse miss rate than the entropy tail this project has spent commits on.
+_PLACEHOLDER_PREFIXES = (
+    "your", "insert", "replace", "example", "sample", "dummy", "todo", "fixme", "changeme",
+    "mypassword", "mysecret", "myaccount", "mykey", "some-", "some_",
+)
+
+
+def _is_placeholder(value):
+    """True if this is documentation's idea of a credential rather than one.
+
+    Shared by both connection-string rules: the same `<your-key>`, `{{password}}`, `$DB_PASS`,
+    `***REDACTED***` and `xxxxxxxx` turn up in a URI's userinfo and in a `key=value;` pair alike.
+    """
+    v = value.strip(_TEMPLATE_WRAPPERS)
+    if not v:
+        return True                                   # `Password=;` -- nothing was filled in
+    if v[0] in "$%":
+        return True                                   # already a reference: $DB_PASS, %DB_PASS%
+    low = v.lower()
+    if low in _URI_PLACEHOLDERS or low.startswith(_PLACEHOLDER_PREFIXES):
+        return True
+    return set(low) <= set("x*.-_")                   # xxxxxxxx, ********, --------
+
+
+def kv_findings(text):
+    """Findings for `key=value;key=value;` connection strings, capturing the whole string."""
+    out = []
+    for m in _KV.finditer(text):
+        conn = m.group(1)
+        values = [c.group(1) for c in _KV_CREDENTIAL.finditer(conn)]
+        if not values or all(_is_placeholder(v) for v in values):
+            continue          # a config dump, a CSS declaration, or a template with nothing in it
+        env = "CONNECTION_STRING"
+        low = conn.lower()
+        for marker, name in _KV_ENV:
+            if marker in low:
+                env = name
+                break
+        out.append(Finding(KV_ID, env, conn, m.start(1), m.end(1), "high"))
     return out
 
 
@@ -455,9 +565,13 @@ def scan(text):
                 continue
             conf = r.get("confidence") or classify(r["regex"])
             out.setdefault(secret, Finding(r["id"], r["env"], secret, start, end, conf))
-    # Connection URIs first among clowk's own rules: the whole URI is the useful unit, and claiming
-    # it before the standalone rule stops the password inside it being filed separately as well.
+    # Connection strings first among clowk's own rules: the whole string is the useful unit, and
+    # claiming it before the standalone rule stops the password inside it being filed separately as
+    # well. capture() then replaces the longest finding first, so the vendored rule that matched the
+    # bare value inside one of these never gets to file it either.
     for finding in uri_findings(text):
+        out.setdefault(finding.secret, finding)
+    for finding in kv_findings(text):
         out.setdefault(finding.secret, finding)
     # Last, and only for values no vendored rule claimed: a rule that named the vendor is always
     # the better label, and setdefault keeps whichever landed first.

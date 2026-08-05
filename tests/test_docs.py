@@ -145,12 +145,18 @@ class TestTheShippedSvgsAreValidAndCurrent(unittest.TestCase):
             except Exception as exc:                      # noqa: BLE001 -- any parse failure is the bug
                 self.fail("%s is not valid XML, so it renders as a broken image: %s" % (name, exc))
 
+    # clowk's own rules, which live in code rather than in rules.json and so cannot be counted
+    # from it. Named individually because the count went stale the moment a third one landed.
+    OWN_RULES = ("uri_findings", "kv_findings", "standalone_findings")
+
     def test_the_diagram_counts_the_rules_the_ruleset_actually_has(self):
         from clowk import detect
 
-        # The vendored gitleaks set plus clowk's own two: detect.uri_findings and
-        # detect.standalone_findings. README words it the same way.
-        total = len(detect.RULES) + 2
+        # The vendored gitleaks set plus clowk's own three. README words it the same way.
+        for name in self.OWN_RULES:
+            self.assertTrue(callable(getattr(detect, name, None)),
+                            "detect.%s is gone, so the diagram's rule count is wrong" % name)
+        total = len(detect.RULES) + len(self.OWN_RULES)
         self.assertIn("%d rules" % total, self.diagram,
                       "the diagram's rule count is not %d" % total)
 
