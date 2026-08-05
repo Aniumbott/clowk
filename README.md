@@ -258,13 +258,15 @@ can read, `cat` can read. It stops accidents. It will not stop an agent that is 
 - **Unrecognised formats.** A shape none of the 222 rules knows goes straight through.
 - **Hex-only secrets standing alone.** A 64-character hex string is a sha256 digest and a 256-bit
   HMAC secret at once, and nothing about the token separates them — reporting those would block
-  `git show <sha>`. Put a keyword nearby (`webhook_secret = <hex>`) and they are caught. A measured
-  trade, not an oversight.
-- **128-bit hex secrets, ~18% of the time, even with a keyword.** Hex has 16 symbols, so 32 hex
-  characters cap at 4.0 bits of entropy against gitleaks' 3.5 floor; over 2000 samples, 17.8% fall
-  under. The floor stays at gitleaks' value rather than being re-tuned for one key size. 256-bit has
-  the same tail, far out: 0.02% of samples over 400,000, about one in 4,650. 512-bit did not fall
-  under once in 200,000.
+  `git show <sha>`. Put a keyword nearby (`webhook_secret = <hex>`) and they are caught, every time,
+  at every key size from 128 bits up. A measured trade, not an oversight.
+- **Hex secrets under 128 bits, most of the time, even with a keyword.** A 16-character hex value
+  clears gitleaks' 3.5 entropy floor 9% of the time and nothing rescues the rest, because the
+  symbol-count rule below applies only from 32 hex characters up. Dropping that length condition
+  took 64-bit recall to 99.4% — and took a pasted 1800-line log from 168 hits to 1782, since a
+  16-hex `auth_token_hint=` sits one keyword away from every log line anyone pastes. Redaction
+  costs one pass per hit, so a 2 MB paste went from 3.2s to 46.0s against a 60s hook timeout, and
+  past that timeout every host fails open. 64-bit keys are not worth that.
 - **Partially matched credentials.** Only the span a rule matches gets replaced. If your credential
   is longer than the pattern that caught it, the tail stays in the rewrite while the block message
   still reports success. Overlapping rules are handled — longest match wins — but a format no rule
@@ -294,6 +296,13 @@ rule matches on shape alone, so a perfectly innocent prompt can get blocked. (Th
 deliberately conservative: a pinned format with no trailing separator like `AKIA…` counts as
 shape-only too, and only the value half of a rule counts.)
 
+Hex of 32 characters or more may also block on how many of the 16 digits appear — 8 of them — and
+not only on entropy, because an absolute entropy floor is calibrated for base64's 6.0-bit ceiling
+and hex tops out at 4.0, which threw away 19% of genuine 128-bit keys. So a placeholder that walks
+the whole alphabet (`1234567890abcdef` twice) blocks, while one that repeats a few digits
+(`deadbeef` four times) does not. The walk already cleared the old floor at the maximum 4.0 bits,
+so that is inherited, not new.
+
 When it happens, resend starting with `unclowk`. Shape-only matches are flagged in `clowk list`, so
 the junk is easy to spot and `clowk clear NAME` away.
 
@@ -302,7 +311,7 @@ the junk is easy to spot and `clowk clear NAME` away.
 No dependencies, so no setup step:
 
 ```bash
-python3 -m unittest discover -s tests        # 367 tests, ~2s
+python3 -m unittest discover -s tests        # 373 tests, ~3s
 ```
 
 CI runs the same suite on Python 3.8 through 3.13 across Linux, macOS and Windows, plus three checks

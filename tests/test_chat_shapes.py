@@ -80,6 +80,19 @@ NEGATIVES = [
     ("prose key 5", "add an api key field to the account settings form component"),
     ("prose key 6", "this api key expired months ago and nobody noticed anything"),
     ("prose key 7", "auth middleware should short circuit before database queries"),
+    # Hex in its ordinary roles. These matter more since the hex gate stopped being an entropy
+    # floor: an absolute floor rejected 19% of ALL 32-char hex, digest or secret, so some of this
+    # corpus used to be suppressed by luck rather than by the keyword gate. Verified by running
+    # scan(), not by eye.
+    ("git show", "run git show 9f2c1b7ae4d5c60813fa27bd9e0a4c3f5d6e7a8b and explain the diff"),
+    ("short sha 12", "the fix landed in 3a45ba6c1f2d, backport it to 2.3"),
+    ("etag", 'the response had ETag: "a1b2c3d4e5f60718" -- why does it change every request?'),
+    ("nix hash", 'sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";'),
+    ("checksums line", "SHA256 (dist/clowk.tar.gz) = 5d41402abc4b2a76b9719d911017c5925d41402a"),
+    ("cargo rev", 'the Cargo.lock has rev = "9f2c1b7ae4d5c60813fa27bd9e0a4c3f5d6e7a8b" for it'),
+    ("packfile", "objects/pack/pack-9f2c1b7ae4d5c60813fa27bd9e0a4c3f5d6e7a8b.idx is corrupt"),
+    ("colour hex", "change the button colour to #1a2b3c and the border to #ff00aa"),
+    ("ipv6", "the pod address is fe80::1ff:fe23:4567:890a, can you curl it?"),
 ]
 
 # Agent-harness ids. Mixed case, high entropy, and not credentials. Before these were excluded,
@@ -155,44 +168,48 @@ class TestLongKeys(unittest.TestCase):
             # is where it is for precision. 128-bit is the worst case at ~96%.
             self.assertGreater(caught, 50, "%d-bit base64 keys caught only %d/60" % (bits, caught))
 
-    def test_hex_secrets_of_256_bits_and_up_are_caught_with_a_keyword(self):
-        """Reachable with a keyword, but not 40 out of 40: the entropy floor has a tail here too.
+    def test_hex_secrets_of_128_bits_and_up_are_caught_every_time_with_a_keyword(self):
+        """Every sample at every shipped key size, because hex no longer faces a base64 floor.
 
-        Hex-only tokens are unclassifiable standing alone -- 64 hex chars is a sha256 digest and a
-        256-bit HMAC secret at the same time. A keyword beside one makes it reachable.
+        These asserted 39/40 and ~82% while the gate was gitleaks' absolute entropy number. Hex
+        has 16 symbols, so it caps at 4.0 bits against floors calibrated for alphabets reaching
+        6.0 -- measured cost, behind a keyword: 18.95% of random 128-bit keys (1621/2000 caught),
+        5.2% of 160-bit, and 1 in 4,650 of 256-bit. detect now also accepts 8 distinct hex digits,
+        so the tail is gone and this can assert all of it rather than tolerating a coin flip.
 
-        This asserted 40/40 and passed for weeks before losing the coin flip on one Windows job.
-        Measured over 400,000 samples, 0.0215% of 256-bit hex strings land under gitleaks' 3.5
-        floor -- about 1 in 4,650, which is 0.9% odds per 40-sample loop and roughly 6% across a
-        seven-job matrix, so it was arriving eventually. 512-bit did not fall under once in
-        200,000. The floor therefore tolerates a single miss, and still fails loudly for a real
-        regression: if detection breaks, `caught` goes to nearly zero rather than to 39.
-
-        Same reasoning as the base64 sibling above, which already declined to assert 60/60.
+        Hex-only tokens remain unclassifiable STANDING ALONE -- 64 hex chars is a sha256 digest
+        and a 256-bit HMAC secret at once -- so a keyword is still what makes them reachable.
         """
-        for nbytes in (32, 64):
+        for nbytes in (16, 20, 32, 64, 128):
             caught = sum(1 for _ in range(40)
                          if scan("webhook_secret = " + os.urandom(nbytes).hex()))
-            self.assertGreaterEqual(
-                caught, 39,
-                "%d-byte hex caught only %d/40 with a keyword" % (nbytes, caught))
+            self.assertEqual(caught, 40,
+                             "%d-bit hex caught only %d/40 with a keyword" % (nbytes * 8, caught))
 
-    def test_128_bit_hex_is_only_mostly_caught_and_that_is_measured(self):
-        """A stated limit, not an aspiration.
+    def test_128_bit_hex_is_caught_every_time_now(self):
+        """The case the entropy floor lost, at the sample size that made the loss visible.
 
-        Hex has 16 symbols, so a 32-char hex string cannot exceed 4.0 bits of entropy and its
-        median is 3.63 -- against the 3.5 floor gitleaks sets for its own generic rule. Measured
-        over 2000 samples, 17.8% land below it and are missed even with a keyword beside them.
-
-        The floor is deliberately left alone: it is gitleaks' value, and re-tuning a vendored
-        threshold to suit one key size would diverge the ruleset from its upstream provenance for
-        a case that is already the weakest link by construction. Asserting the real proportion
-        keeps the limit visible instead of pretending either direction.
+        Over 100,000 random 128-bit hex strings the smallest distinct-symbol count was 9, against
+        a gate of 8 -- so full recall here is a property of the gate, not luck with 300 draws.
         """
         caught = sum(1 for _ in range(300)
                      if scan("webhook_secret = " + os.urandom(16).hex()))
-        self.assertGreater(caught, 210, "128-bit hex recall fell below the measured ~82%%")
-        self.assertLess(caught, 300, "128-bit hex is now always caught -- update this and the README")
+        self.assertEqual(caught, 300, "128-bit hex recall regressed to %d/300" % caught)
+
+    def test_hex_under_128_bits_still_faces_the_vendored_floor(self):
+        """The limit that stayed, deliberately, and the fixture is exact rather than sampled.
+
+        Both values are 16 hex characters. The first clears gitleaks' 3.5 floor on its own; the
+        second does not, and the symbol count does not rescue it because 64 bits is under the
+        length the count applies to. Dropping that condition took 64-bit hex from 9% caught to
+        99.4% -- and took the repo's own 1800-line log fixture from 168 findings to 1782, because
+        a 16-hex `auth_token_hint=` sits one keyword away from every log line anyone pastes. That
+        feeds hook_prompt.capture(), whose redaction is O(findings x prompt length): a 2 MB paste
+        went from 3.2s to 46.0s against a 60s host hook timeout, past which every host fails open.
+        128 bits is the smallest key size anyone ships, so this costs recall only in theory.
+        """
+        self.assertTrue(scan("webhook_secret = 0123456789abcdef"))      # entropy 4.00, 16 digits
+        self.assertEqual(scan("webhook_secret = a1b2a1b2a1b2a1b2"), [])  # entropy 2.00, 4 digits
 
     def test_bare_hashes_are_still_not_credentials(self):
         # The other side of that trade, and the reason hex stays excluded when it stands alone.
@@ -205,6 +222,65 @@ class TestLongKeys(unittest.TestCase):
         # alphanumeric first character made those unmatchable rather than merely trimmed.
         for tok in ("+" + "aB3xQ9zLmN4pR7tV2wY8kJ3hG6fD1sA0", "/" + "aB3xQ9zLmN4pR7tV2wY8kJ3hG6fD1sA0"):
             self.assertTrue(scan(tok), "a key starting with %r was missed" % tok[0])
+
+
+class TestHexSymbolFloor(unittest.TestCase):
+    """What replaced the entropy floor for hex, and what it still throws away.
+
+    Swapping an entropy floor for a distinct-symbol count buys full recall on random hex. The
+    thing it must not buy is placeholders: every one of these reaches or exceeds the floor's
+    length while repeating a handful of symbols, so a gate that only counted characters -- or one
+    that scaled the floor by the observed alphabet, which was tried -- would file them all.
+    """
+
+    # (value, distinct symbols) -- what a human types when they mean "put the real one here".
+    REPETITIVE = [
+        ("a" * 32, 1), ("0" * 32, 1), ("f" * 40, 1), ("0" * 64, 1),
+        ("ab" * 16, 2), ("abc" * 11, 3), ("deadbeef" * 4, 5), ("cafebabe" * 8, 5),
+        ("aaaaaaaabbbbbbbbccccccccdddddddd", 4), ("0" * 63 + "1", 2),
+    ]
+
+    def test_repetitive_hex_placeholders_are_still_rejected_beside_a_keyword(self):
+        for value, distinct in self.REPETITIVE:
+            self.assertEqual(scan('webhook_secret = "%s"' % value), [],
+                             "%r (%d distinct symbols) was filed as a credential"
+                             % (value[:16] + "...", distinct))
+
+    def test_a_sequential_hex_run_is_accepted_and_always_was(self):
+        """The concession the symbol count makes -- and it costs nothing, which is why it stands.
+
+        "1234567890abcdef" doubled uses all 16 symbols equally, so its Shannon entropy is the
+        maximum 4.0 and gitleaks' 3.5 floor already passed it. The symbol count does not widen
+        this case; it inherits it. Nothing weaker than a per-symbol frequency model separates a
+        keyboard walk from a key, and that is a far bigger change than the miss it would prevent.
+        """
+        self.assertTrue(scan('webhook_secret = "%s"' % ("1234567890abcdef" * 2)))
+        self.assertTrue(scan('webhook_secret = "%s"' % ("0123456789abcdef" * 4)))
+
+    def test_mixed_case_hex_is_counted_case_insensitively(self):
+        # "AbAbAb..." has 4 case-sensitive symbols and 2 hex digits. Counting the hex digits is
+        # the stricter reading, and the one that matches what the value actually encodes.
+        self.assertEqual(scan('webhook_secret = "%s"' % ("AbAb" * 8)), [])
+
+    def test_the_symbol_count_is_added_to_the_vendored_floor_not_substituted_for_it(self):
+        """The rules that need a permissive floor are exactly the ones hex-only by construction.
+
+        adobe-client-id matches `[a-f0-9]{32}` and gitleaks gives it a floor of 2.0, which this
+        value clears at exactly 2.00 with four distinct digits. cloudflare-api-key (37 hex),
+        discord-client-secret and linear-client-secret (32) are the same story. Replacing their
+        floor with a symbol count instead of adding one would drop them -- a real Cloudflare key
+        with 7 distinct digits is unlikely, but the vendor set that floor deliberately and clowk
+        has no measurement saying otherwise. Additive cannot regress recall; a swap can.
+        """
+        self.assertTrue(scan('adobe_client_id = "%s"' % ("abcd" * 8)),
+                        "the hex gate stopped being additive, so a low-floor hex rule lost a match")
+
+    def test_the_symbol_count_applies_only_to_hex_not_to_every_alphabet(self):
+        # A base64-ish value keeps gitleaks' own floor: 8 distinct symbols is trivial there, so
+        # letting hex's gate stand in for it would drop the vendored threshold across the board.
+        low_entropy_base64ish = "Ab1_Ab1_Ab1_Ab1_Ab1_Ab1_Ab1_Ab1_"     # 6 distinct, entropy 2.5
+        self.assertEqual(scan('api_key = "%s"' % low_entropy_base64ish), [])
+
 
 if __name__ == "__main__":
     unittest.main()

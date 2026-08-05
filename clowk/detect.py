@@ -378,6 +378,66 @@ if RULESET_ERROR:
         pass
 
 
+# A hex secret cannot clear an entropy floor that was calibrated for base64. gitleaks' floors --
+# 1.0 to 4.5 across the 130 vendored rules that carry one, every one of them also keyword-gated --
+# are absolute numbers tuned against alphabets whose Shannon ceiling is log2(64) = 6.0. Hex has 16
+# symbols, so it caps at 4.0, and the SAME number therefore means something far stricter there.
+# Measured over 2000 random keys behind `webhook_secret = `: 128-bit hex cleared the 3.5 floor only
+# 81.05% of the time, 160-bit 94.8%, 256-bit 99.8% (1 in 4,650 over 400,000). Those misses are
+# unrecoverable -- the credential reaches the model -- while a false positive costs the user one
+# `unclowk` resend, so the asymmetry says fix the gate rather than document the tail.
+#
+# So a hex value of at least 128 bits may clear the floor OR show 8 distinct hex digits, which is
+# what the floor was reaching for anyway: on a fixed alphabet, entropy is mostly a proxy for how
+# much of that alphabet appears. Both halves are load-bearing:
+#
+#   * 8 distinct digits sits one symbol under the smallest count seen in 100,000 random 128-bit
+#     hex strings (9), so full recall is a property of the gate rather than of the sample size --
+#     256-bit never fell below 12. It still rejects everything placeholders are made of: "a"*32,
+#     "0"*32, "f"*40, "ab"*16, "deadbeef"*4, "aaaaaaaabbbbbbbbccccccccdddddddd".
+#   * OR, not INSTEAD OF, because four vendored rules are hex-only BY CONSTRUCTION and set a
+#     deliberately permissive floor of 2.0 for it -- cloudflare-api-key (37 hex), adobe-client-id
+#     and discord-client-secret (32), linear-client-secret (64). Replacing their floor outright
+#     would have dropped a real Cloudflare key with only 7 distinct digits. Additive cannot
+#     regress recall anywhere; a replacement can, on exactly the rules that need it least.
+#   * 128 bits, i.e. 32 hex characters, because below that the absolute floor doubles as a LENGTH
+#     guard -- 10 hex characters cannot reach 3.5 bits at all, since log2(10) = 3.32 -- and
+#     dropping that guard is not free. With no length condition, 64-bit hex behind a keyword went
+#     from 9% caught to 99.4%, and the repo's 1800-line log fixture went from 168 findings to
+#     1782, because a 16-hex `auth_token_hint=` is one keyword away from every log line anyone
+#     pastes. hook_prompt.capture() redacts with one str.replace per finding, so its cost is
+#     O(findings x prompt length): on a 2 MB paste that took the whole hook from 3.2s to 46.0s,
+#     against Claude Code's 60s hook timeout -- and past the timeout every host fails open and
+#     transmits the credential. A precision question quietly became a fail-open one. 128 bits is
+#     also the smallest key size anyone actually ships, so the recall given up is theoretical.
+#
+# It does accept a keyboard walk -- "1234567890abcdef" doubled -- but so does the floor it extends,
+# at the maximum 4.0 bits, so that concession is inherited rather than new. Separating a walk from
+# a key needs a per-symbol frequency model, which is a far larger change than the one miss it buys.
+#
+# REJECTED: scaling each floor by the observed alphabet, floor * log2(distinct)/6.0. It reaches
+# 100% recall too and is unshippable -- "a"*32 has one symbol, so its floor scales to 0.0 and its
+# entropy of 0.0 clears it. Every placeholder on earth passes.
+# ALSO REJECTED: rescaling by the alphabet's CEILING instead, floor * 4.0/6.0 for hex. That one is
+# sound and reaches 100% from 64 bits up, but it opens the same short-hex floodgate as dropping
+# the length condition (1800 findings on the log fixture) for key sizes nobody ships.
+#
+# standalone_findings() is untouched and still excludes hex-only tokens outright: with no keyword
+# beside it, a 64-char hex string is a sha256 digest and a 256-bit HMAC secret at once, and
+# reporting those would block `git show <sha>`. This gate only ever runs behind a keyword gate.
+_MIN_HEX_KEY = 32        # hex characters, i.e. 128 bits
+_MIN_HEX_SYMBOLS = 8     # distinct hex digits out of the 16 there are
+
+
+def _passes_entropy(secret, floor):
+    """gitleaks' entropy gate, plus a symbol count for hex the floor is miscalibrated against."""
+    if _shannon(secret) >= floor:
+        return True
+    if len(secret) < _MIN_HEX_KEY or not _HEX_ONLY.match(secret):
+        return False
+    return len(set(secret.lower())) >= _MIN_HEX_SYMBOLS   # lower(): AbAb is 2 hex digits, not 4
+
+
 def scan(text):
     """Return de-duplicated Findings for secrets in text."""
     low = text.lower()
@@ -391,7 +451,7 @@ def scan(text):
                 secret, start, end = m.group(group), m.start(group), m.end(group)
             else:
                 secret, start, end = m.group(0), m.start(0), m.end(0)
-            if r.get("entropy") and _shannon(secret) < r["entropy"]:
+            if r.get("entropy") and not _passes_entropy(secret, r["entropy"]):
                 continue
             conf = r.get("confidence") or classify(r["regex"])
             out.setdefault(secret, Finding(r["id"], r["env"], secret, start, end, conf))
