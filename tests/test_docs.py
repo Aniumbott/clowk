@@ -121,6 +121,33 @@ class TestTheUsedByLedgerClaimMatchesTheCode(unittest.TestCase):
             self.assertIn("records where each one came from", description, name)
 
 
+class TestTheReadmeCountsTheTestsThatExist(unittest.TestCase):
+    """README's "N tests" has now gone stale three times and been corrected by hand three times.
+
+    It is the only remaining number in the repo that was written down rather than derived, and the
+    fix is the same one applied to the confidence-tier counts: derive it, so the suite fails instead
+    of the sentence quietly becoming untrue. Counted by the loader rather than by parsing files, so
+    it stays right however the tests are organised.
+    """
+
+    def suite_size(self):
+        loader = unittest.defaultTestLoader
+        suite = loader.discover(os.path.join(ROOT, "tests"), top_level_dir=ROOT)
+        self.assertEqual(loader.errors, [], "a test module failed to import")
+
+        def count(node):
+            if isinstance(node, unittest.TestSuite):
+                return sum(count(child) for child in node)
+            return 1
+
+        return count(suite)
+
+    def test_the_readme_test_count_is_the_real_one(self):
+        total = self.suite_size()
+        self.assertIn("# %d tests" % total, read("README.md"),
+                      "README does not say '# %d tests'" % total)
+
+
 class TestTheShippedSvgsAreValidAndCurrent(unittest.TestCase):
     """The diagram is a claim surface like any other, and a broken one fails invisibly.
 
