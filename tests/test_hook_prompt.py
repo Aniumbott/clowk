@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -338,6 +339,239 @@ class TestLogPasteDoesNotAvalanche(HookCase):
         reason = self.block_reason()
         self.assertIn("$GENERIC_API_KEY status=200", reason)
         self.assertGreater(len(reason), len(self.log) - len("".join(self.secrets)))
+
+
+class TestRedactionIsOnePass(HookCase):
+    """capture() redacted with one str.replace over the whole prompt per finding.
+
+    That is O(findings x prompt length), and on credential-dense text findings grow WITH length,
+    so the real curve is quadratic. Measured on lines of the form
+    `2026-08-05 INFO api_key=<32 hex> request served`:
+
+        1000 lines /  70 KB / 1000 findings -> 0.13s   (scan 0.03s)
+        2000 lines / 141 KB / 2000 findings -> 0.45s   (scan 0.05s)
+        4000 lines / 281 KB / 4000 findings -> 1.62s   (scan 0.11s)
+        8000 lines / 563 KB / 8000 findings -> 6.32s   (scan 0.21s)
+
+    3.6x per doubling with scan() flat at 2.0x, so the whole quadratic term was the redaction
+    loop. Extrapolating t = k*n^2 puts ~1.7 MB of credential-dense text past Claude Code's 60s
+    hook timeout -- and past the timeout every host fails open, so the entire paste is transmitted
+    with the credentials in it. That is the worst outcome this tool has, so the cost of redaction
+    is pinned here rather than described.
+    """
+
+    LINES = 8000
+    BUDGET = 2.0          # 40x the one-pass measurement, 30x under the host timeout
+
+    @classmethod
+    def setUpClass(cls):
+        rnd = random.Random(11)
+        hexes = lambda n: "".join(rnd.choice("0123456789abcdef") for _ in range(n))
+        cls.log = "\n".join("2026-08-05 INFO api_key=%s request served" % hexes(32)
+                            for _ in range(cls.LINES))
+        from clowk.detect import scan
+
+        cls.findings = scan(cls.log)
+
+    def setUp(self):
+        HookCase.setUp(self)
+        self.addCleanup(setattr, self.hook.clip, "copy", self.hook.clip.copy)
+        self.hook.clip.copy = lambda text: True   # measure redaction, not a clipboard spawn
+        self.assertGreater(len(self.findings), self.LINES - 1, "fixture stopped being dense")
+
+    def test_a_credential_dense_paste_is_redacted_far_inside_the_host_hook_timeout(self):
+        start = time.time()
+        self.hook.capture({"prompt": self.log, "cwd": "/p", "session_id": "s"}, self.findings)
+        elapsed = time.time() - start
+        self.assertLess(elapsed, self.BUDGET, "%.2fs to redact %d findings out of %d KB"
+                        % (elapsed, len(self.findings), len(self.log) // 1000))
+
+
+class TestTheOnePassPatternHoldsUnderDegenerateInput(HookCase):
+    """The trie is a regex, and `re` parses nested groups recursively.
+
+    Compressing non-branching runs means one long value costs one level, but values that are
+    successive prefixes of each other each cost one -- and re.compile raises RecursionError
+    somewhere past 400 of those. A RecursionError here does not fail open (main's except still
+    blocks) but it does cost the user the rewrite and the vault entry, so the trie stops nesting
+    at MAX_DEPTH and flattens the rest.
+    """
+
+    # Each of these branches from the previous one character later, so an uncapped trie nests once
+    # per value. 600 is past what re.compile survives, so the cap is load-bearing here rather than
+    # decorative. The boundary is the default 1000-frame recursion limit rather than anything
+    # version-specific: 400 compiles and 500 does not, identically on 3.9, 3.11 and 3.14.
+    CHAIN = ["A" * (20 + i) + "b1" for i in range(600)]
+
+    def test_a_long_branch_chain_still_compiles_and_still_prefers_the_longest(self):
+        pattern = self.hook._one_pass(self.CHAIN)
+        longest = max(self.CHAIN, key=len)
+        self.assertEqual(pattern.search("x " + longest + " y").group(0), longest)
+        for value in (self.CHAIN[0], self.CHAIN[299], longest):
+            self.assertEqual(pattern.search("v=" + value + "!").group(0), value)
+
+    def test_without_the_cap_that_same_chain_does_not_compile_at_all(self):
+        self.addCleanup(setattr, self.hook, "MAX_DEPTH", self.hook.MAX_DEPTH)
+        self.hook.MAX_DEPTH = 10 ** 9
+        self.assertRaises(RecursionError, self.hook._one_pass, self.CHAIN)
+
+    def test_one_very_long_value_costs_no_nesting_at_all(self):
+        # A connection string has no fixed length, and an uncompressed trie would nest once per
+        # character -- so this is the case compression exists for, not a micro-optimisation.
+        value = "postgresql://svc:" + "Q" * 900 + "@db.internal:5432/orders"
+        pattern = self.hook._one_pass([value])
+        self.assertEqual(pattern.search("psql " + value).group(0), value)
+
+    def test_regex_metacharacters_in_a_value_are_matched_literally(self):
+        value = "a.b*c[d]e+f?g|h(i)j{k}l\\m^n$o"
+        pattern = self.hook._one_pass([value])
+        self.assertEqual(pattern.search("x " + value + " y").group(0), value)
+        self.assertIsNone(pattern.search("aXbXcXdXeXfXgXhXiXjXkXlXmXnXo"))
+
+    def test_no_value_and_an_empty_value_both_produce_no_pattern(self):
+        # An empty alternative matches at every position, so it would replace the whole prompt
+        # with $NAMEs. Nothing produces one today; this is the guard that keeps that true.
+        self.assertIsNone(self.hook._one_pass([]))
+        self.assertIsNone(self.hook._one_pass([""]))
+
+
+class TestEveryOccurrenceIsReplaced(HookCase):
+    """scan() dedupes by value, so one finding can stand for several occurrences in the prompt.
+
+    `str.replace` replaced all of them. Any span-based rewrite using finding.start/finding.end
+    replaces only the occurrence scan() happened to report and leaves the second copy in the
+    rewrite -- which is what goes on the clipboard and gets repasted. A new leak, from the fix.
+    """
+
+    KEY = "sk_" "live_4eC39HqLyjWDarjtT1zdp7dc"
+
+    def paste_and_reason(self, prompt):
+        captured = {}
+        self.addCleanup(setattr, self.hook.clip, "copy", self.hook.clip.copy)
+        self.hook.clip.copy = lambda text: captured.setdefault("text", text) or True
+        code, out, err = self.run_hook({"prompt": prompt, "cwd": "/p", "session_id": "s"})
+        self.assertEqual(code, 0)
+        return captured.get("text", ""), json.loads(out)["reason"]
+
+    def test_the_same_credential_pasted_twice_leaves_no_copy_behind(self):
+        paste, reason = self.paste_and_reason(
+            "old value " + self.KEY + " and again later " + self.KEY + " done")
+        for where, text in (("clipboard", paste), ("reason", reason)):
+            self.assertNotIn(self.KEY, text, "the second copy survived in the %s" % where)
+        # Counted on the paste alone: the reason additionally lists the name it filed.
+        self.assertEqual(paste.count("$STRIPE_SECRET_KEY"), 2,
+                         "both occurrences should become the same $NAME")
+        self.assertEqual(self.vault.names(), ["STRIPE_SECRET_KEY"])  # one value, one name
+
+    def test_a_credential_repeated_on_many_lines_is_replaced_on_every_line(self):
+        paste, _ = self.paste_and_reason("\n".join("line %d: %s" % (i, self.KEY) for i in range(50)))
+        self.assertNotIn(self.KEY, paste)
+        self.assertEqual(paste.count("$STRIPE_SECRET_KEY"), 50)
+
+
+class TestOverlappingFindingsStillCollapseToOneName(HookCase):
+    """Longest-first is load-bearing, and a connection string is the case that proves it.
+
+    An Azure storage string yields overlapping findings: clowk's own rule claims the whole string,
+    while a vendored rule claims the base64 key inside it. Replacing the shorter one first files
+    two names and leaves `AccountName=prodstore;EndpointSuffix=core.windows.net` in the prompt --
+    the account name and the endpoint host, named to the model as plainly as the key would have
+    been.
+    """
+
+    KEY = ("Zk9tQjNyTHc4dVhhSDJwVjZuRDRzWTdjRWc1aktmUW1UeUJ4"
+           "TjFvUmw0dldoQzhkR3oyU3BLNGVBaVU5bXJYdA==")
+    CONN = ("DefaultEndpointsProtocol=https;AccountName=prodstore;"
+            + "Account" "Key=" + KEY + ";EndpointSuffix=core.windows.net")
+
+    def test_one_name_is_filed_and_neither_the_account_nor_the_host_survives(self):
+        code, out, err = self.run_hook({"prompt": "connect with " + self.CONN, "cwd": "/p"})
+        reason = json.loads(out)["reason"]
+        self.assertEqual(self.vault.names(), ["AZURE_STORAGE_CONNECTION_STRING"])
+        self.assertNotIn(self.KEY, reason)
+        self.assertNotIn("prodstore", reason)
+        self.assertNotIn("core.windows.net", reason)
+        self.assertIn("connect with $AZURE_STORAGE_CONNECTION_STRING", reason)
+
+
+class TestStraddlingFindingsLeaveNoWholeValue(HookCase):
+    """Two findings can overlap with NEITHER containing the other, and one scan must pick one.
+
+    A leftmost scan commits to whichever starts first and never revisits the other's start, so
+    bytes of the loser can survive -- which the `str.replace` loop also did, from the other end,
+    because replacing the longer one first destroys the shorter one's start just as thoroughly.
+    Measured over the 126 straddling texts the shipped ruleset produces: a whole value survived 0
+    of 126 under both, and the longest surviving fragment was worse under one pass on 12, better
+    on 9, identical on 105.
+
+    What must hold unconditionally is the part that is a guarantee rather than a coin flip: no
+    COMPLETE detected value is ever left in the rewrite. An unmatched value's every occurrence
+    begins inside a committed match -- otherwise the scan would have matched it there -- so its
+    first byte is always replaced.
+    """
+
+    # clowk's URI rule matches from `postgresql://` to the end; its key=value rule matches from
+    # `DATABASE_URL=` to the last pair. They overlap and neither contains the other.
+    PASSWORD = "Ab3xQ9zLmN4pR7tV"
+    SQL_PASSWORD = "Tr0ub4dor&3xKq7Zm"
+    PROMPT = ("DATABASE_URL=postgresql://svc:" + PASSWORD + "@db.internal/orders;"
+              + "Pass" "word=" + SQL_PASSWORD + ";")
+
+    def test_the_fixture_really_does_straddle(self):
+        # The premise, not the assertion: if the ruleset stops straddling here the test below
+        # silently stops testing anything.
+        from clowk.detect import scan
+
+        spans = sorted((self.PROMPT.find(f.secret),
+                        self.PROMPT.find(f.secret) + len(f.secret)) for f in scan(self.PROMPT))
+        self.assertGreater(len(spans), 1, "only one finding, so nothing can straddle")
+        (a_lo, a_hi), (b_lo, b_hi) = spans[0], spans[-1]
+        self.assertLess(b_lo, a_hi, "the findings do not overlap")
+        self.assertGreater(b_hi, a_hi, "one finding still contains the other")
+
+    def test_no_whole_value_survives_the_rewrite(self):
+        from clowk.detect import scan
+
+        code, out, err = self.run_hook({"prompt": self.PROMPT, "cwd": "/p"})
+        reason = json.loads(out)["reason"]
+        for finding in scan(self.PROMPT):
+            self.assertNotIn(finding.secret, reason,
+                             "a whole detected value survived: %r" % finding.rule_id)
+        for password in (self.PASSWORD, self.SQL_PASSWORD):
+            self.assertNotIn(password, reason)
+
+
+class TestFilingStillGoesLongestFirst(HookCase):
+    """MAX_FILED decides which 20 of a noisy paste's hits reach the vault, so the order matters.
+
+    Substitution no longer needs one -- a single pass handles every value at once -- so the sort
+    survives only for filing, and it has to: in text order a longer credential pasted BELOW enough
+    log lines falls outside the cap and is never written to the vault at all, leaving `clowk get`
+    nothing to find once the terminal has scrolled. Redaction is unaffected either way; every
+    value leaves the prompt whether or not it was filed.
+
+    Length is a weak proxy for "a real key rather than log noise" and is only being preserved
+    here, not defended: a 32-character `sk_live_...` ties with a 32-hex log id and loses on
+    stability. Confidence tier would discriminate properly, but changing what the cap prefers is
+    not this fix.
+    """
+
+    # 57 characters against the noise's 32, and last in the text, so only the sort can save it.
+    TOKEN = "xoxb" "-123456789012-123456789012-abcdefghijklmnopqrstuvwx"
+
+    def test_a_longer_credential_below_the_cap_worth_of_log_noise_is_still_filed(self):
+        rnd = random.Random(5)
+        noise = "\n".join(
+            "2026-08-05 INFO api_key=%s served"
+            % "".join(rnd.choice("0123456789abcdef") for _ in range(32))
+            for _ in range(self.hook.MAX_FILED + 10))
+        code, out, err = self.run_hook({"prompt": noise + "\nslack bot token " + self.TOKEN,
+                                        "cwd": "/p"})
+        self.assertNotIn(self.TOKEN, json.loads(out)["reason"])
+        self.assertIn("SLACK_BOT_TOKEN", self.vault.names(),
+                      "the longest value was crowded out of the vault by shorter log noise")
+        self.assertEqual(self.vault.get("SLACK_BOT_TOKEN"), self.TOKEN)
+        self.assertLessEqual(len(self.vault.names()), self.hook.MAX_FILED)
 
 
 class TestStdinIsDecodedAsUtf8(HookCase):

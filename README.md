@@ -317,7 +317,7 @@ the junk is easy to spot and `clowk clear NAME` away.
 No dependencies, so no setup step:
 
 ```bash
-python3 -m unittest discover -s tests        # 387 tests, ~4s
+python3 -m unittest discover -s tests        # 399 tests, ~4s
 ```
 
 CI runs the same suite on Python 3.8 through 3.13 across Linux, macOS and Windows, plus three checks

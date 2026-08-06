@@ -15,6 +15,7 @@ Bypass: start the message with `unclowk` to send it raw.
 """
 import json
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -189,17 +190,24 @@ def capture(event, findings):
     Redaction is unconditional; filing is not -- it stops at MAX_FILED and tolerates a vault
     that cannot be written. Raising here only costs the reason text, never the block.
     """
-    rewritten, stored, unfiled, tiers = event["prompt"], [], [], {}
-    taken, skipped = set(), 0
-    # Longest secret first, and skip anything a longer match already swallowed. Rules do nest:
-    # flutterwave-encryption-key's pattern is a prefix of flutterwave-secret-key's, so one
-    # pasted key yields two findings. Replacing the short one first would leave the tail of the
-    # real value in the rewrite -- which is what goes on the clipboard and gets repasted.
-    for finding in sorted(findings, key=lambda f: len(f.secret), reverse=True):
-        if finding.secret not in rewritten:
-            continue
+    prompt = event["prompt"]
+    stored, unfiled, tiers = [], [], {}
+    taken, names, skipped, resume = set(), {}, 0, {}
+    pattern = _one_pass(f.secret for f in findings)
+    by_secret = dict((f.secret, f) for f in findings)
+    # Only the values that survived the match -- see _matched. What a longer overlapping finding
+    # swallowed never reaches this loop, so it is never filed either, which is what the old
+    # "is it still in the partially rewritten prompt?" test was reaching for.
+    #
+    # Still longest first, even though substitution no longer needs an order. It decides WHICH 20
+    # values MAX_FILED files, and length is a rough proxy for "a real key rather than log noise":
+    # in text order, a genuine 48-character `sk_live_...` pasted below thirty 32-hex log lines
+    # falls outside the cap and is never written to the vault at all, so `clowk get` cannot reach
+    # it once the terminal has scrolled. Redaction is unaffected either way.
+    for secret in sorted(_matched(pattern, prompt), key=len, reverse=True):
+        finding = by_secret[secret]
         if len(stored) >= MAX_FILED:
-            name = _placeholder(finding.env, taken)  # redacted, deliberately not filed
+            name = _placeholder(finding.env, taken, resume)  # redacted, not filed
             skipped += 1
         else:
             try:
@@ -208,15 +216,16 @@ def capture(event, findings):
                     rule=finding.rule_id, confidence=finding.confidence, source=event["cwd"],
                 )
             except Exception:  # noqa: BLE001 -- unwritable/full/hand-edited vault; note, not raise
-                name = _placeholder(finding.env, taken)
+                name = _placeholder(finding.env, taken, resume)
                 unfiled.append(name)
             else:
                 stored.append(name)
         taken.add(name)
         # Outside the try on purpose: a value clowk did not file must still leave the prompt,
         # or the raw secret would land in the reason and on the clipboard.
-        rewritten = rewritten.replace(finding.secret, "$" + name)
+        names[secret] = name
         tiers[name] = finding.confidence
+    rewritten = pattern.sub(lambda m: "$" + names[m.group(0)], prompt) if names else prompt
 
     # The pointer has to be INSIDE the text the user repastes, not merely in the block reason.
     # A blocked turn transmits nothing, so the reason is read by the human and never reaches the
@@ -229,16 +238,139 @@ def capture(event, findings):
     return build_message(rewritten, stored, tiers, copied, unfiled, skipped)
 
 
-def _placeholder(env, taken):
+# --- one-pass redaction -------------------------------------------------------------------------
+# Every found value has to leave the prompt, all of its occurrences, with the longest overlapping
+# finding winning. That used to be one `str.replace` over the whole prompt per finding, i.e.
+# O(findings x prompt length) -- and on credential-dense text findings grow WITH length, so the
+# real curve was quadratic. Measured on `2026-08-05 INFO api_key=<32 hex> request served` lines:
+# 70 KB/1000 findings 0.13s, 141 KB 0.45s, 281 KB 1.62s, 563 KB 6.32s, while scan() stayed flat
+# at 2.0x per doubling. Extrapolated, ~1.7 MB of that text passes Claude Code's 60s hook timeout,
+# and a timed-out hook transmits the whole paste. So this is a fail-open bug, not a slow path.
+#
+# One compiled alternation of the found values, longest first, was the obvious fix and is NOT one:
+# `re` walks a BRANCH alternative by alternative at every start position, so it is quadratic in
+# exactly the same way. Measured, same fixture: 563 KB/8000 alternatives 6.77s and 1.3 MB/18000
+# 34.92s -- worse than the str.replace loop it replaced.
+#
+# So the alternation is built as a TRIE, which is a shared-prefix regex: 16 first-character
+# branches to reject instead of 18000 whole alternatives. Same fixture, build + compile + sub:
+# 563 KB 0.22s, 1.3 MB 0.50s, 2.9 MB/40000 findings 1.18s. Linear, and 30x under the timeout at a
+# size the old code could not finish.
+#
+# What one leftmost scan gives up against a global longest-first loop is STRADDLING overlap: two
+# findings that overlap where neither contains the other. There the scan commits to whichever
+# starts first and never revisits the other's start, so bytes of the loser can survive. It is
+# reachable -- `DATABASE_URL=postgresql://svc:PASS@db/o;Password=PASS;` makes clowk's URI rule and
+# its key=value rule straddle -- so it was measured rather than assumed, over 126 straddling texts
+# the shipped ruleset produces: a WHOLE value survived 0 of 126 under both algorithms, and the
+# longest surviving fragment was worse than the old loop's on 12, better on 9 and identical on
+# 105. So this is a property of replacing non-overlapping spans, which both do, not a cost of the
+# rewrite. Never leaving a whole value IS guaranteed, and by construction rather than by luck: an
+# unmatched value's every occurrence must begin inside a committed match, or the scan would have
+# matched it there, so its first byte is always replaced. A test pins that.
+_END = ""   # marks "a secret ends at this node". Not a character, so it cannot collide with one.
+
+# `re` parses nested groups recursively, so the trie stops nesting and flattens what is left.
+# Measured, uncapped: 400 levels compile and 500 raise RecursionError, identically on 3.9, 3.11
+# and 3.14 -- the boundary is the default 1000-frame limit, not anything version-specific.
+# Realistic input is nowhere near: 8000 random 32-hex values branch 6 deep. 600 values that each
+# branch off the previous one character later do blow it, and a RecursionError there costs the
+# user the rewrite and the vault entry -- the block survives it, but nothing else does.
+MAX_DEPTH = 40
+
+
+def _one_pass(secrets):
+    """One compiled pattern matching every secret, preferring the longest at each position."""
+    root = {}
+    for secret in secrets:
+        if not secret:
+            continue          # an empty alternative matches everywhere; nothing may produce one
+        node = root
+        for ch in secret:
+            node = node.setdefault(ch, {})
+        node[_END] = True
+    return re.compile(_trie_pattern(root)) if root else None
+
+
+def _trie_pattern(node, depth=0):
+    """Regex source for one trie node, longest match first.
+
+    A run of single-child nodes collapses into one literal, so a 400-character connection string
+    costs one level of nesting rather than 400. Where a secret both ends at a node and continues
+    past it -- flutterwave-encryption-key's value is a prefix of flutterwave-secret-key's -- the
+    continuation is a GREEDY optional group, so the longer value is tried first and the shorter
+    one still matches wherever the longer cannot complete.
+    """
+    run = []
+    while len(node) == 1 and _END not in node:
+        (ch, node), = node.items()
+        run.append(ch)
+    prefix = re.escape("".join(run))
+    branches = sorted(ch for ch in node if ch != _END)
+    if not branches:
+        return prefix
+    if depth >= MAX_DEPTH:
+        return prefix + _flat(node)
+    alts = [re.escape(ch) + _trie_pattern(node[ch], depth + 1) for ch in branches]
+    if _END in node:
+        return prefix + "(?:%s)?" % "|".join(alts)
+    if len(alts) == 1:
+        return prefix + alts[0]
+    return prefix + "(?:%s)" % "|".join(alts)
+
+
+def _flat(node):
+    """The depth cap's fallback: everything below `node` as one flat alternation, longest first.
+
+    Quadratic for this subtree alone, which is the trade -- only a pathological chain of nested
+    prefixes gets here, and correctness is identical because longest-first is the ordering the
+    `str.replace` loop used for every finding.
+    """
+    tails, stack = [], [("", node)]
+    while stack:
+        so_far, node = stack.pop()
+        for ch, child in node.items():
+            if ch == _END:
+                tails.append(so_far)
+            else:
+                stack.append((so_far + ch, child))
+    alts = [re.escape(t) for t in sorted((t for t in tails if t), key=len, reverse=True)]
+    return "(?:%s)%s" % ("|".join(alts), "?" if "" in tails else "")
+
+
+def _matched(pattern, text):
+    """Distinct secrets `pattern` actually matches, in the order they first appear.
+
+    Deliberately a separate pass from the substitution: a name can only be chosen once the match
+    is known, and a value swallowed whole by a longer overlapping match must not be named at all.
+    """
+    out, seen = [], set()
+    if pattern is None:
+        return out
+    for m in pattern.finditer(text):
+        secret = m.group(0)
+        if secret not in seen:
+            seen.add(secret)
+            out.append(secret)
+    return out
+
+
+def _placeholder(env, taken, resume):
     """The $NAME to substitute for a value clowk did not file. `taken` is a set of used names.
 
     Suffixed the way vault.store suffixes a clash, so two different values never collapse into
     one placeholder -- that would assert two secrets are the same secret.
+
+    `resume` carries where each env got to, and is the other half of the one-pass fix above.
+    Restarting the search at 2 every time made this O(placeholders^2), and the cap means a pasted
+    log produces thousands of them: 7980 placeholders spent 4.4 of 5.3 seconds here, inside the
+    same hook whose timeout transmits the prompt. Nothing else in the loop is worse than O(1).
     """
-    name, n = env, 2
+    name, n = env, resume.get(env, 2)
     while name in taken:
         name = "%s_%d" % (env, n)
         n += 1
+    resume[env] = n
     return name
 
 
