@@ -96,6 +96,47 @@ NEGATIVES = [
     ("ipv6", "the pod address is fe80::1ff:fe23:4567:890a, can you curl it?"),
 ]
 
+# Colourised terminal output, which is what a developer pastes when they paste a build log. Added
+# with the fix that made an ANSI escape sequence a token boundary: because that fix lets a match
+# START right after an escape, precision here is the thing it could have cost. Measured -- it
+# GAINED: two of these were blocked before it, both for the same reason the credential case was
+# corrupted. `ESC[1;34m/Users/me/...` matched as `34m/Users/me/...`, because the escape's own tail
+# supplied the alphanumeric first character the path guard relies on not being there; and
+# `ESC[2msha512-oGMA...` matched because the escape pushed the `sha512-` marker off both the token's
+# start and the 12-character context window, so neither half of the digest check could see it.
+E = "\x1b"
+ANSI_NEGATIVES = [
+    ("test summary", E + "[32mPASS" + E + "[0m 482 tests in 3.251s"),
+    ("colour path", E + "[1;34m/Users/me/projects/some-long-directory-name-here" + E + "[0m"),
+    ("git log sha", E + "[33m9f2c1b7ae4d5c8f0a3b6d9e2c5f8a1b4d7e0c3f6" + E + "[0m commit"),
+    ("warning flag", E + "[38;5;214mWARNING" + E + "[0m deprecated flag --no-verify-ssl-cert"),
+    ("npm integrity", E + "[2msha512-oGMAgGoQdBXbZqNG0Ze56CHjDZ1IDYOwGYxYjO5KLSlz5HiNQ9udIXsP"
+                          + E + "[0m"),
+    ("uuid", E + "[36m7c9e6679-7425-40de-944b-e07fc1f90ae7" + E + "[0m request id"),
+    ("branch name", E + "[32m* " + E + "[0mfeature/add-rate-limiting-to-the-api-v2"),
+    ("css classes", E + '[35mclassName' + E + '[0m="flex items-center justify-between gap-4"'),
+    ("kubectl header", E + "[1mNAME                     READY   STATUS    RESTARTS   AGE" + E + "[0m"),
+    ("docker digest", E + "[90mimage@sha256:a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8091a2b3c4d5e6f7"
+                          + E + "[0m"),
+    ("prose bold", E + "[1mrotate" + E + "[0m the api key rotation runbook is in Notion somewhere"),
+    ("cursor move", E + "[2J" + E + "[H" + E + "[1mrebuilding the typescript project refs" + E + "[0m"),
+    ("private mode", E + "[?25l" + E + "[1mspinner" + E + "[0m installing dependencies please wait"),
+    ("log line", E + "[90m2026-07-30T09:14:22Z" + E + "[0m INFO request_id=a3f9c2e81b7d4056 ok"),
+]
+
+# The same credential, wrapped the way a terminal wraps text. Every one of these used to file a
+# value with the escape's parameter tail glued to the front -- fully redacted, so no leak, but
+# `clowk get` handed back something that was not the credential.
+ANSI_POSITIVES = [
+    ("bold, no separator", E + "[1m" + GENERIC),
+    ("reset, no separator", E + "[0m" + GENERIC),
+    ("256-colour", E + "[38;5;214m" + GENERIC),
+    ("no parameters", E + "[m" + GENERIC),
+    ("bold on both sides", E + "[1m" + GENERIC + E + "[0m"),
+    ("bold then a space", E + "[1m " + GENERIC),
+    ("glued to a word", "value:" + E + "[1m" + GENERIC),
+]
+
 # Agent-harness ids. Mixed case, high entropy, and not credentials. Before these were excluded,
 # 79 of 704 real prompts matched -- every one a tool-use id echoed back inside a notification the
 # user never typed. Blocking those would have wedged the session.
@@ -114,11 +155,32 @@ class TestCredentialsAreCaught(unittest.TestCase):
         self.assertEqual(missed, [], "these credential pastes went through undetected: %s" % missed)
 
 
+class TestAnEscapedCredentialIsCaughtWholeAndNothingElse(unittest.TestCase):
+    """An ANSI escape sequence is a token boundary, so the value comes back exactly.
+
+    Every case here was DETECTED before the fix -- nothing leaked -- and every case filed the wrong
+    string, with the escape's parameter tail on the front. A stored value that is not the credential
+    is the rotation bug's failure mode: clowk answers `clowk get` confidently with something that
+    will not authenticate.
+    """
+
+    def test_the_value_is_exact_however_the_terminal_wrapped_it(self):
+        wrong = [(label, [f.secret for f in scan(text)])
+                 for label, text in ANSI_POSITIVES
+                 if [f.secret for f in scan(text)] != [GENERIC]]
+        self.assertEqual(wrong, [], "these filed something other than the credential: %s" % wrong)
+
+
 class TestOrdinaryPromptsPassThrough(unittest.TestCase):
     def test_no_legitimate_prompt_is_blocked(self):
         blocked = [(label, [f.rule_id for f in scan(text)])
                    for label, text in NEGATIVES if scan(text)]
         self.assertEqual(blocked, [], "these ordinary prompts would be blocked: %s" % blocked)
+
+    def test_colourised_terminal_output_is_not_a_credential(self):
+        blocked = [(label, [f.secret for f in scan(text)])
+                   for label, text in ANSI_NEGATIVES if scan(text)]
+        self.assertEqual(blocked, [], "colourised output would be blocked: %s" % blocked)
 
     def test_harness_ids_are_not_credentials(self):
         for token in INFRASTRUCTURE_IDS:

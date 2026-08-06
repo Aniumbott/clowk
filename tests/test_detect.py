@@ -328,6 +328,60 @@ class TestTheDerivedNameIsAlwaysUsable(unittest.TestCase):
         self.assertEqual(label_env("authorization: ", "F"), "AUTHORIZATION")
 
 
+class TestAnAnsiEscapeIsATokenBoundary(unittest.TestCase):
+    """`ESC[1m` glued to a value made the standalone rule swallow the escape's own tail.
+
+    `[` is not in the token rule's negative lookbehind, so with no separator the match started at
+    the `1` and the filed value was `1m<key>`. Nothing leaked -- the whole span is redacted -- but
+    `clowk get` handed back a credential with two junk characters on the front, which is the same
+    class of failure as the rotation bug: clowk silently returns a value that will not work.
+
+    Terminal output is where this comes from. A user pasting a build log, a `kubectl` dump or
+    anything colourised brings the escapes with it.
+    """
+
+    KEY = "DL" "fdfnU8pAERrHbccVspNtcq37DhhIyh"
+
+    def secrets(self, text):
+        return [f.secret for f in scan(text)]
+
+    def test_every_sgr_shape_leaves_the_value_intact(self):
+        for prefix in ("\x1b[1m", "\x1b[0m", "\x1b[38;5;214m", "\x1b[m", "\x1b[4;31m"):
+            self.assertEqual(self.secrets(prefix + self.KEY), [self.KEY],
+                             "%r glued to the value" % prefix)
+
+    def test_escapes_on_both_sides_leave_the_value_intact(self):
+        self.assertEqual(self.secrets("\x1b[1m" + self.KEY + "\x1b[0m"), [self.KEY])
+
+    def test_a_trailing_escape_was_already_fine_and_stays_fine(self):
+        self.assertEqual(self.secrets(self.KEY + "\x1b[0m"), [self.KEY])
+
+    def test_the_escape_is_a_boundary_even_glued_to_a_word(self):
+        # `foo<ESC>[1m<key>` -- the escape sequence is itself the boundary, so it must not matter
+        # what precedes it. A lookbehind cannot express this: an escape sequence is variable width.
+        self.assertEqual(self.secrets("x\x1b[1m" + self.KEY), [self.KEY])
+
+    def test_a_separator_after_the_escape_was_already_fine(self):
+        self.assertEqual(self.secrets("\x1b[1m " + self.KEY), [self.KEY])
+
+    def test_the_same_characters_without_an_escape_are_still_part_of_the_token(self):
+        """The precision half: only a REAL escape sequence is a boundary.
+
+        `1m` typed literally in front of a value is part of the value -- a base64 key can begin
+        with anything -- so trimming a leading `<digits>m` unconditionally would corrupt one key
+        shape to fix another. The context decides, not the token.
+        """
+        self.assertEqual(self.secrets("1m" + self.KEY), ["1m" + self.KEY])
+        self.assertEqual(self.secrets("[1m" + self.KEY), ["1m" + self.KEY])
+
+    def test_the_escape_tail_cannot_pad_a_token_over_the_length_floor(self):
+        # 19 characters is under the 20-character floor. With `1m` glued on it used to be 21 and
+        # got reported; the value was never a credential clowk could hand back.
+        short = "aB3xQ9zLmN4pR7tV2wY"
+        self.assertEqual(len(short), 19)
+        self.assertEqual(self.secrets("\x1b[1m" + short), [])
+
+
 class TestGuardMetadata(unittest.TestCase):
     """rules.json is generated, and detect reads both guards with `r.get(...)` short-circuits, so
     a build-script regression that dropped these keys would silently disable both at once."""

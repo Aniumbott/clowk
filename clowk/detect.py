@@ -464,12 +464,45 @@ MIN_ENTROPY = 3.5
 # including a Rails secret_key_base (128 hex) and any base64-encoded 512-bit secret (86 chars).
 MAX_TOKEN = 512
 
+# A complete ANSI CSI sequence -- ESC [ parameters final-byte, per ECMA-48, whose final byte is any
+# of \x40-\x7e. This is a TOKEN BOUNDARY, and it has to be a consuming alternative rather than part
+# of the lookbehind below, for two reasons that pull in opposite directions:
+#
+#   * `[` cannot simply join the lookbehind's exclusion set. With `ESC[1m` glued to a value the
+#     match used to start at the `1` and swallow `1m`, so the filed value was `1m<key>` -- no leak,
+#     the whole span is redacted, but `clowk get` handed back a credential that would not work,
+#     which is the rotation bug's failure mode wearing a different hat. Excluding `[` does not fix
+#     that: it blocks the start at `1`, and then `m` is preceded by `1` and `<key>` by `m`, both
+#     word characters, so every later start is blocked too and the credential is not detected AT
+#     ALL. The same trap the first-character note above records.
+#   * a lookbehind cannot express it either, because `re` needs a fixed width and an escape
+#     sequence has none -- `ESC[m` is 3 characters, `ESC[38;5;214m` is 12.
+#
+# So the sequence is consumed by an alternative that carries no lookbehind of its own, which is
+# also correct: an escape sequence IS a boundary, so what precedes it cannot matter. Group 1 is
+# still the token, so every span and every downstream use is unchanged.
+_CSI = r"\x1b\[[0-9;?]*[\x40-\x7e]"
+# The other half, and it is not redundant. The alternative above only helps when the CLEAN token
+# clears the 20-character floor; when it does not, the whole alternative fails, the scan falls back
+# to a later start position inside the sequence, and `ESC[1m` + a 19-character run matches as a
+# 21-character `1m<run>` again. Nor can the alternative help at all for a long parameter list:
+# `ESC[38;5;214m` + a short run starts at the `2` of `214`, whose preceding character is `;`.
+#
+# So a match whose START lands inside a CSI sequence -- everything back to the introducer being
+# parameter bytes -- is dropped. The pair is what makes the rule exact: the alternative FINDS the
+# real token, this drops the escape's own tail, and neither alone is enough. Dropping alone would
+# be a leak (the long case would go undetected); finding alone leaves the short case corrupt.
+_CSI_OPEN = re.compile(r"\x1b\[[0-9;?]*$")
+# Enough for the introducer plus 30 parameter bytes. A CSI sequence longer than that is not
+# something a terminal writes around text, and if one existed the fallback is today's behaviour.
+_CSI_LOOKBACK = 32
 # 20-512 chars, not glued to a path, URL, version string or assignment. +/= are allowed because
 # base64 secrets contain them, which is also why the decodes-to-text check below has to exist.
 # The FIRST character accepts + and / too: those are in the base64 alphabet, so ~3% of keys
 # start with one, and requiring an alphanumeric there made them unmatchable -- the lookbehind
 # then blocks every later start position, so the token was skipped entirely rather than trimmed.
-_TOKEN = re.compile(r"(?<![\w./:=+-])([A-Za-z0-9+/][A-Za-z0-9_+/=-]{19,%d})(?![\w./=+-])" % (MAX_TOKEN - 1))
+_TOKEN = re.compile(r"(?:%s|(?<![\w./:=+-]))([A-Za-z0-9+/][A-Za-z0-9_+/=-]{19,%d})(?![\w./=+-])"
+                    % (_CSI, MAX_TOKEN - 1))
 _UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
 _HEX_ONLY = re.compile(r"^[0-9a-f]+$", re.I)
 _LOWER = re.compile(r"[a-z]")
@@ -694,6 +727,8 @@ def standalone_findings(text):
         before = text[max(0, m.start(1) - 12):m.start(1)].lower()
         if any(marker in before or lowered.startswith(marker) for marker in _STRUCTURAL):
             continue
+        if _CSI_OPEN.search(text[max(0, m.start(1) - _CSI_LOOKBACK):m.start(1)]):
+            continue          # this run is an ANSI escape's parameter tail, not a credential
         if any(tok.startswith(ns) for ns in _NAMESPACES):
             continue
         if _UUID.match(tok) or _HEX_ONLY.match(tok):

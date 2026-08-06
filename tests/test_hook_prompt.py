@@ -1002,20 +1002,26 @@ class TestTheClipboardPayloadIsNeverStyled(HookCase):
         self.assertNotIn(self.KEY, payload)
         self.assertEqual(payload.count("\x1b"), 2)
 
-    def test_an_escape_glued_to_the_credential_still_redacts_it(self):
-        """A KNOWN limitation of detection, pinned here for its one guarantee: no leak.
+    def test_an_escape_glued_to_the_credential_files_a_value_that_works(self):
+        """This used to be a recorded limitation with one guarantee -- no leak -- and now is not.
 
-        With no separator, `ESC[1m` + the value reads as one token to the standalone rule -- `[`
-        is not in its lookbehind, so the match starts at the `1` and swallows the `1m`. The value
-        is still fully redacted, which is the property that matters, but it is filed under $SECRET
-        rather than $STRIPE_SECRET_KEY and the stored value carries the `1m`, so it would not work
-        as a credential. Fixing that means changing the token rule's boundaries, which is a
-        detection change needing the labelled-corpus run this repo does for those, and is not part
-        of the redaction work. Recorded rather than quietly tolerated.
+        With no separator, `ESC[1m` + the value read as one token to the standalone rule: `[` is
+        not in its lookbehind, so the match started at the `1` and swallowed the `1m`. Nothing
+        leaked, but the stored value carried two junk characters, so `clowk get` handed back a
+        credential that would not work -- the same class of failure as the rotation bug. An ANSI
+        escape sequence is a token boundary now; the no-leak assertion stays because it is the
+        property that must never regress.
+
+        The NAME is still $SECRET rather than $STRIPE_SECRET_KEY, and that part is unchanged: the
+        stripe rule opens with `\\b`, and between the escape's `m` and the key's `s` there is no
+        word boundary, so it never gets to claim the value. A vendored rule's own anchors are not
+        clowk's to rewrite.
         """
         payload = self.paste("\x1b[1m" + self.KEY + "\x1b[0m now")
         self.assertNotIn(self.KEY, payload, "the credential leaked, which is not tolerable")
         self.assertIn("$SECRET", payload)
+        self.assertEqual(self.vault.get("SECRET"), self.KEY,
+                         "clowk filed a value it could not hand back")
 
 
 class TestStdinIsDecodedAsUtf8(HookCase):
