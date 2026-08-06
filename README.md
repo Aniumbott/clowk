@@ -79,6 +79,13 @@ SDK and ODBC driver uses: an Azure storage string is filed whole as
 `AccountName=prodstore` rides along. Placeholder passwords (`changeme`, `<your-account-key>`) and
 things that are already references (`$DB_PASS`) are left alone.
 
+The `$NAME` comes from whatever identified the credential. A vendor rule supplies its own —
+`$STRIPE_SECRET_KEY`. When the *only* reason a value was caught is a label you typed beside it,
+that label is the name: `secret access key = …` files as `$SECRET_ACCESS_KEY`, not
+`$GENERIC_API_KEY`. Every character of it is text you wrote, so nothing depends on spelling the
+rest of the sentence right. A value pasted with no label anywhere near it is `$SECRET`, because
+there is nothing to name it after.
+
 At most 20 names per message. More hits than that is a pasted log, not a paste of credentials — the
 rest are still redacted and the turn is still blocked, they just are not filed.
 

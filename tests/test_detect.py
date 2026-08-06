@@ -222,6 +222,112 @@ class TestNoVendoredRuleIsSilentlyDropped(unittest.TestCase):
         self.assertEqual(scan(AIRTABLE_PAT), [])
 
 
+# AWS's own documented example secret access key: 40 characters, no pinnable shape. Split so this
+# file cannot trip a secret scanner; the value the test sees is unchanged. See NOTES.md.
+AWS_SECRET = "wJalrXUtnFEMI" "/K7MDENG/bPxRfiCYEXAMPLEKEY"
+
+
+class TestAGenericMatchIsNamedFromTheLabelItMatchedOn(unittest.TestCase):
+    """generic-api-key matched BECAUSE of a keyword, then threw the keyword away.
+
+    Reported from real use: `secrate access key = <40-char AWS secret>` was filed as
+    $GENERIC_API_KEY. There is no AWS secret-key rule anywhere in the vendored set and a 40-char
+    base64 blob has no pinnable shape, so falling through to the generic rule is correct -- but the
+    name is then the rule's name rather than the credential's, and the one thing that could have
+    named it was in the text the rule had already matched.
+    """
+
+    def env_for(self, prompt):
+        return [f.env for f in scan(prompt) if f.rule_id == "generic-api-key"]
+
+    def test_the_reported_paste_is_named_from_the_users_own_words(self):
+        self.assertEqual(self.env_for("secrate access key = " + AWS_SECRET), ["ACCESS_KEY"])
+
+    def test_spelling_the_label_correctly_gives_the_full_name(self):
+        # Nothing here depends on correct spelling: the name is built only out of text the regex
+        # matched, and the regex matched because SOME keyword was spelled right. "secrate" is not
+        # a keyword, so the match -- and the name -- begins at "access".
+        self.assertEqual(self.env_for("secret access key = " + AWS_SECRET), ["SECRET_ACCESS_KEY"])
+        self.assertEqual(self.env_for("aws_secret_access_key = " + AWS_SECRET),
+                         ["SECRET_ACCESS_KEY"])
+
+    def test_the_ordinary_shapes_get_the_names_a_human_would_have_typed(self):
+        for prompt, name in (
+                ("api_key = " + AWS_SECRET, "API_KEY"),
+                ('password = "%s"' % AWS_SECRET, "PASSWORD"),
+                ('{"api_key": "%s"}' % AWS_SECRET, "API_KEY"),
+                ('curl -H "X-Api-Key: %s"' % AWS_SECRET, "API_KEY"),
+                ("MY_API_KEY=" + AWS_SECRET, "API_KEY"),
+                ("credentials.password = " + AWS_SECRET, "CREDENTIALS_PASSWORD"),
+                ("auth_token: " + AWS_SECRET, "AUTH_TOKEN")):
+            self.assertEqual(self.env_for(prompt), [name], prompt)
+
+    def test_prose_between_the_label_and_the_value_is_not_part_of_the_name(self):
+        """gitleaks' template allows 20 characters of `[ \\t\\w.-]` between keyword and operator.
+
+        That is a hole a whole clause fits through, and the first version of this fix walked
+        straight into it: README's own headline example, `rotate this key for me: <key>`, filed as
+        $KEY_FOR_ME, and `the token for staging: <key>` as $TOKEN_FOR_STAGING. Measured, not
+        imagined -- it showed up rendering the block message by hand.
+        """
+        for prompt, name in (
+                ("rotate this key for me: " + AWS_SECRET, "KEY"),
+                ("please rotate the token for staging: " + AWS_SECRET, "TOKEN"),
+                ("here is the API key:\n" + AWS_SECRET, "API_KEY"),
+                ("auth_token_hint=" + AWS_SECRET, "AUTH_TOKEN"),
+                ("key 2fa = " + AWS_SECRET, "KEY")):
+            self.assertEqual(self.env_for(prompt), [name], prompt)
+
+    def test_the_same_paste_always_produces_the_same_name(self):
+        prompt = "secret access key = " + AWS_SECRET
+        self.assertEqual(self.env_for(prompt), self.env_for(prompt))
+
+    def test_a_rule_that_names_its_vendor_keeps_that_name(self):
+        # Only the generic rule is renamed, and where a vendor rule claims the value first the
+        # label is never consulted: `access key = AKIA...` is AWS's, not the user's word for it.
+        findings = {f.rule_id: f.env for f in scan("access key = AKIA" "IOSFODNN7EXAMPLE")}
+        self.assertEqual(findings, {"aws-access-token": "AWS_ACCESS_KEY_ID"})
+        findings = {f.rule_id: f.env for f in scan("the stripe key is sk_" "live_4eC39HqLyjWDarjtT1zdp7dc")}
+        self.assertEqual(findings, {"stripe-access-token": "STRIPE_SECRET_KEY"})
+
+    def test_a_bare_token_with_no_label_keeps_the_standalone_name(self):
+        # The standalone rule requires no keyword and its match carries none, so there is nothing
+        # that "actually matched" to derive from. Left as SECRET deliberately -- see detect.py.
+        findings = [f.env for f in scan("DL" "fdfnU8pAERrHbccVspNtcq37DhhIyh")]
+        self.assertEqual(findings, ["SECRET"])
+
+
+class TestTheDerivedNameIsAlwaysUsable(unittest.TestCase):
+    """A $NAME goes into a shell as `$(clowk get NAME)`, so junk in is not an option."""
+
+    def test_a_name_is_always_a_shell_safe_identifier(self):
+        prompts = ["api_key = " + AWS_SECRET, "access key = " + AWS_SECRET,
+                   "key 2fa = " + AWS_SECRET, "secret.access-key: " + AWS_SECRET,
+                   'creds["password"] = "%s"' % AWS_SECRET, "token\t=\t" + AWS_SECRET]
+        for prompt in prompts:
+            for f in scan(prompt):
+                self.assertTrue(re.match(r"^[A-Z][A-Z0-9_]{2,}$", f.env),
+                                "%r produced the name %r" % (prompt, f.env))
+
+    def test_an_unusable_label_falls_back_to_the_rules_own_name(self):
+        from clowk.detect import GENERIC_ID, label_env
+
+        for context in ("", "= '", "2fa = ", "k = ", "hostname = ", "a" * 60 + " = ",
+                        "accesskeyidentifier_credentials_authorization = "):
+            self.assertEqual(label_env(context, "GENERIC_API_KEY"), "GENERIC_API_KEY", context)
+        self.assertEqual(GENERIC_ID, "generic-api-key")
+
+    def test_only_words_the_ruleset_treats_as_credential_words_reach_a_name(self):
+        from clowk.detect import label_env
+
+        # The run has to be UNBROKEN and end at the last credential word, or a clause between two
+        # of them gets in: `key for the token` would be KEY_FOR_THE_TOKEN.
+        self.assertEqual(label_env("key for the token = ", "F"), "TOKEN")
+        self.assertEqual(label_env("secret access key = ", "F"), "SECRET_ACCESS_KEY")
+        self.assertEqual(label_env("my access key for prod = ", "F"), "ACCESS_KEY")
+        self.assertEqual(label_env("authorization: ", "F"), "AUTHORIZATION")
+
+
 class TestGuardMetadata(unittest.TestCase):
     """rules.json is generated, and detect reads both guards with `r.get(...)` short-circuits, so
     a build-script regression that dropped these keys would silently disable both at once."""
@@ -254,6 +360,22 @@ class TestKnownFalsePositives(unittest.TestCase):
         findings = scan('api_key: "REPLACE_ME_WITH_YOUR_TOKEN_HERE_00000000"')
         self.assertTrue(findings)
         self.assertEqual([f.confidence for f in findings], ["low"])
+
+    def test_the_generic_rule_out_ranks_a_vendor_rule_when_both_match(self):
+        """A vendor-prefixed key written as `keyword = value` is labelled by whichever rule comes
+        first in rules.json, and generic-api-key sits at index 77 of 221.
+
+        So `github_token = ghp_...` is reported as generic-api-key, not github-pat: the vendor's
+        name and its "high" tier are both lost, even though the value carries `ghp_`. Pre-existing
+        and independent of how the generic rule names things -- before the label fix the same paste
+        read $GENERIC_API_KEY. Recorded rather than fixed here because the fix is a rule-priority
+        change (defer the generic rule to last, as clowk's own standalone rule already is), which
+        alters which rule_id and which confidence tier a value is reported under and so needs its
+        own measurement. This test fails when that happens, which is the point.
+        """
+        findings = [(f.rule_id, f.env, f.confidence)
+                    for f in scan("github_token = ghp" "_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8")]
+        self.assertEqual(findings, [("generic-api-key", "TOKEN", "low")])
 
 
 class TestScanLatency(unittest.TestCase):

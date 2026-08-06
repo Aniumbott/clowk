@@ -194,6 +194,40 @@ class TestARealVendorKeyIsNotOfferedForDeletion(HookCase):
         self.assertIn("shape-only guess", plain(json.loads(out)["reason"]))
 
 
+class TestAGenericCatchIsFiledUnderTheUsersOwnLabel(HookCase):
+    """The second half of the same report: the AWS secret key was filed as $GENERIC_API_KEY.
+
+    The name is what the user has to remember and what `$(clowk get NAME)` is typed against, so a
+    name that identifies the RULE rather than the credential is the defect. The label was right
+    there in the text the rule matched.
+    """
+
+    AWS_SECRET = "wJalrXUtnFEMI" "/K7MDENG/bPxRfiCYEXAMPLEKEY"
+
+    def test_the_vault_entry_is_named_from_the_label_beside_the_value(self):
+        code, out, err = self.run_hook(
+            {"prompt": "secrate access key = " + self.AWS_SECRET, "cwd": "/p"})
+        self.assertEqual(self.vault.names(), ["ACCESS_KEY"])
+        self.assertEqual(self.vault.get("ACCESS_KEY"), self.AWS_SECRET)
+        self.assertIn("$ACCESS_KEY", plain(json.loads(out)["reason"]))
+
+    def test_two_differently_labelled_values_get_the_two_names(self):
+        other = "Zm9vYmFy" "QmF6UXV1eENvcmdlR3JhdWx0MTIz"
+        code, out, err = self.run_hook(
+            {"prompt": "api_key = %s\nsecret access key = %s"
+                       % (other, self.AWS_SECRET), "cwd": "/p"})
+        self.assertEqual(sorted(self.vault.names()), ["API_KEY", "SECRET_ACCESS_KEY"])
+        self.assertEqual(self.vault.get("API_KEY"), other)
+
+    def test_two_identically_labelled_values_are_suffixed_not_merged(self):
+        second = "Zm9vYmFy" "QmF6UXV1eENvcmdlR3JhdWx0MTIz"
+        self.run_hook({"prompt": "api_key = " + self.AWS_SECRET, "cwd": "/p"})
+        self.run_hook({"prompt": "api_key = " + second, "cwd": "/p"})
+        self.assertEqual(sorted(self.vault.names()), ["API_KEY", "API_KEY_2"])
+        self.assertEqual(self.vault.get("API_KEY"), self.AWS_SECRET)
+        self.assertEqual(self.vault.get("API_KEY_2"), second)
+
+
 class TestBypassIsAnchoredToTheStart(HookCase):
     """`unclowk` is the one deliberate fail-open switch, so where it counts has to be pinned.
 
@@ -371,7 +405,10 @@ class TestLogPasteDoesNotAvalanche(HookCase):
         # The echo is the user's only copy when no clipboard tool exists (every headless box),
         # so it must never be truncated there -- the alternative is retyping or `unclowk`.
         reason = self.block_reason()
-        self.assertIn("$GENERIC_API_KEY status=200", reason)
+        # $AUTH_TOKEN, not $GENERIC_API_KEY: the generic rule matched this log line because of the
+        # words `auth_token_hint=`, and it is named after the credential words in them -- `hint`
+        # is not one, so it is not in the name.
+        self.assertIn("$AUTH_TOKEN status=200", reason)
         self.assertGreater(len(reason), len(self.log) - len("".join(self.secrets)))
 
 

@@ -331,6 +331,89 @@ def classify(regex, group=None):
     return "high" if _leading_literal(body) >= MIN_LITERAL_RUN else "low"
 
 
+# --- naming a generic match ---------------------------------------------------------------------
+# generic-api-key is the one vendored rule whose env name describes the RULE rather than the
+# credential -- every other one of the 221 names a vendor or a format (STRIPE_SECRET_KEY, JWT,
+# PRIVATE_KEY, CURL_AUTH_HEADER). It is also the only one that matched BECAUSE OF A LABEL THE USER
+# TYPED: its pattern is `<keyword><operator><value>`, so a match proves a credential word sits
+# right beside the value. That was thrown away and replaced with the constant.
+#
+# Reported from real use: an AWS secret access key pasted as `secrate access key = <value>` was
+# filed as $GENERIC_API_KEY. There is no AWS secret-key rule in the vendored set and a 40-char
+# base64 blob has no pinnable shape, so falling through to the generic rule is right -- naming it
+# after the rule is not. The words `access key` were in the matched text all along.
+#
+# The name is built ONLY out of characters the regex matched, which is what makes it independent of
+# spelling: the reported paste also misspelled "secrate", the match therefore begins at "access",
+# and the name is ACCESS_KEY. Spelled correctly it is SECRET_ACCESS_KEY. Nothing here needs a
+# dictionary, a stem list or a fuzzy compare -- the keyword alternation gitleaks already ships is
+# the vocabulary, and a match through it is the evidence.
+GENERIC_ID = "generic-api-key"
+# Words, not characters: the matched context is `secret_access_key = ` or `api_key": "` or
+# `Api-Key: `, and splitting on non-alphanumerics turns all three into the name a human would have
+# typed. Digits are kept inside a word (KEY2) but a name may not START with one -- see label_env.
+_LABEL_WORD = re.compile(r"[A-Za-z0-9]+")
+# The credential words, and NOT a vocabulary of clowk's own invention: these are the stems of
+# generic-api-key's own keyword alternation --
+#   (?:access|auth|(?-i:[Aa]pi|API)|credential|creds|key|passw(?:or)?d|secret|token)
+# -- shortened only where one stem covers a family the rule already accepts, so `cred` covers creds
+# and credentials, `pass` covers passwd and password, `auth` covers authorization. A rule's own
+# gate is the only defensible answer to "which words mean credential here".
+_LABEL_STEMS = ("access", "api", "auth", "cred", "key", "pass", "secret", "token")
+# The matched context is bounded by the rule itself -- a keyword, then at most 20 characters of
+# `[ \t\w.-]`, then the operator -- so 40 is a backstop rather than a working limit. Over it,
+# falling back beats truncating: a truncated name is unpredictable and can collide with a different
+# credential's, and vault.store's suffixing can only tell values apart, not intentions.
+MAX_LABEL = 40
+# Three, so a stray one- or two-letter token cannot become a $NAME. The shortest real label is
+# `key`, which is exactly three.
+MIN_LABEL = 3
+
+
+def label_env(context, fallback):
+    """The $NAME a credential's own adjacent label suggests, or `fallback` if there is none usable.
+
+    The name is the longest UNBROKEN run of credential words ending at the last one. Both halves of
+    that are paid for by a measurement:
+
+      * credential words only, because gitleaks' template allows 20 characters of `[ \\t\\w.-]`
+        between the keyword and the operator, and a whole clause fits through that hole. Taking
+        every word filed README's own headline example -- `rotate this key for me: <key>` -- as
+        $KEY_FOR_ME, and `the token for staging: <key>` as $TOKEN_FOR_STAGING. Found by rendering
+        the block message and reading it, which is the only way that kind of thing is ever found.
+      * unbroken and ending at the last one, because a run merely spanning first to last drags the
+        clause back in whenever a credential word sits on both sides of it: `key for the token`
+        would be KEY_FOR_THE_TOKEN. Ending at the LAST one is also what English does -- the noun
+        is at the end, so `my access key for prod` is an ACCESS_KEY and `auth_token_hint` is an
+        AUTH_TOKEN.
+
+    Deliberately total and deliberately dull otherwise: it reads a short, already-matched string and
+    either returns an UPPER_SNAKE_CASE identifier or gives up. Every rejection matters --
+
+      * no credential word at all (`= '`, `hostname = `) -- nothing here names a credential;
+      * a leading digit -- not a legal shell identifier, and `$(clowk get 2FA)` would fail looking
+        like a bad credential rather than a bad name;
+      * under MIN_LABEL or over MAX_LABEL -- too short to mean anything, or long enough to be prose.
+
+    -- because the alternative to a good name is not a bad name, it is the rule's own name, which is
+    at least honest. It never invents: every character of the result was typed by the user.
+    """
+    words = _LABEL_WORD.findall(context)
+    last = -1
+    for i, word in enumerate(words):
+        if word.lower().startswith(_LABEL_STEMS):
+            last = i
+    if last < 0:
+        return fallback
+    first = last
+    while first and words[first - 1].lower().startswith(_LABEL_STEMS):
+        first -= 1
+    name = "_".join(w.upper() for w in words[first:last + 1])
+    if not name[0].isalpha() or not MIN_LABEL <= len(name) <= MAX_LABEL:
+        return fallback
+    return name
+
+
 def _shannon(s):
     if not s:
         return 0.0
@@ -360,6 +443,15 @@ def _shannon(s):
 # base64,), while real credentials mix case and digits. Validated against 704 prompts the author
 # had actually typed to agents: 3 hits, all 3 genuine secrets, no false positives.
 STANDALONE_ID = "clowk-standalone-token"
+# Not derived from a nearby label, unlike generic-api-key's -- and that is a decision, not an
+# omission. This rule requires no keyword, so its match carries none: there is nothing that
+# "actually matched" to read a name out of. Deriving one would mean scanning a window of prompt
+# text the rule never looked at, which is a different mechanism with a worse failure mode -- it
+# would name a credential after whatever word happened to precede it, and it would give the SAME
+# value different names in different pastes ($SECRET here, $API_KEY there), which is exactly the
+# instability the generic-rule fix is careful to avoid. Measured on the labelled corpus: 8 of the
+# 10 prose positives do land here with a credential word visible earlier in the prompt, so this
+# gives something up. It is recorded as a limitation rather than guessed at.
 STANDALONE_ENV = "SECRET"
 # 3.5 is the floor gitleaks uses for its own generic rule, so this matches the vendored set
 # rather than being tuned. Shannon entropy is capped at log2(len), which is only 4.58 for a
@@ -727,11 +819,19 @@ def scan(text):
                 secret, start, end = m.group(0), m.start(0), m.end(0)
             if r.get("entropy") and not _passes_entropy(secret, r["entropy"]):
                 continue
+            if secret in out:
+                continue     # first match of a value wins; skip before doing any work for it
             # `group` is the resolved one -- gitleaks' declared secretGroup where there is one --
             # so a hand-edited rules.json with no precomputed confidence classifies the same
             # group the value is actually taken from.
             conf = r.get("confidence") or classify(r["regex"], group)
-            out.setdefault(secret, Finding(r["id"], r["env"], secret, start, end, conf))
+            env = r["env"]
+            if r["id"] == GENERIC_ID:
+                # The keyword half of this match: everything the rule consumed before the value.
+                # Bounded by the pattern, so this is a handful of characters, and it only runs for
+                # a value not already claimed -- a pasted log trips this rule hundreds of times.
+                env = label_env(text[m.start(0):start], env)
+            out[secret] = Finding(r["id"], env, secret, start, end, conf)
     # Connection strings first among clowk's own rules: the whole string is the useful unit, and
     # claiming it before the standalone rule stops the password inside it being filed separately as
     # well. capture() then replaces the longest finding first, so the vendored rule that matched the
