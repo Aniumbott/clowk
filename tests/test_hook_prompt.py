@@ -10,6 +10,8 @@ import tempfile
 import time
 import unittest
 
+from tests import plain
+
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -370,8 +372,8 @@ class TestARotationIsNamedWhenItHappens(HookCase):
 
     def test_the_suffixed_name_and_the_stale_one_are_both_named(self):
         reason = self.rotate()
-        self.assertIn("$STRIPE_SECRET_KEY_2", reason)
-        self.assertIn("$STRIPE_SECRET_KEY ", reason + " ")
+        self.assertIn("$STRIPE_SECRET_KEY_2", plain(reason))
+        self.assertIn("$STRIPE_SECRET_KEY already holds", plain(reason))
 
     def test_the_remedy_is_spelled_out_as_a_command_that_exists(self):
         self.assertIn("clowk set STRIPE_SECRET_KEY", self.rotate())
@@ -717,6 +719,140 @@ class TestTheEchoedRewriteIsElided(HookCase):
     def test_an_elision_always_hides_enough_to_be_worth_a_marker(self):
         self.assertGreater(self.hook.ECHO_LIMIT, self.hook.ECHO_HEAD + self.hook.ECHO_TAIL,
                            "at this limit an elision can claim to hide almost nothing")
+
+
+class TestEmphasisIsGatedOnSomethingTrueAtRuntime(HookCase):
+    """The block message was one undifferentiated block: nothing marked the $NAME you need.
+
+    Whether a host renders an escape was UNVERIFIED before this, and getting it wrong makes the
+    message worse than monotone -- a literal `[1m` in front of every name. Measured on the real
+    Claude Code 2.1.223 interactive TUI on 2026-08-06 (see NOTES.md): escapes survive and are
+    honoured, markdown is not rendered. codex and gemini-cli take the reason on stderr instead and
+    are still unverified, so they get no escapes at all.
+
+    The gate must not be isatty. The hook's streams are pipes to the host -- measured, all three
+    report False -- so an isatty gate answers "no colour" always and the feature is dead code that
+    tests still pass. What is actually true at runtime is that the host forwards the terminal's own
+    TERM and COLORTERM into the hook's environment.
+    """
+
+    KEY = "ghp" "_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"
+    ESC = "\x1b"
+
+    def env(self, **over):
+        base = {"TERM": "xterm-256color"}
+        base.update(over)
+        return base
+
+    def test_the_verified_host_gets_emphasis(self):
+        self.assertTrue(self.hook.emphasis_ok("claude-code", self.env()))
+
+    def test_the_gate_is_not_isatty_which_is_always_false_here(self):
+        # The trap, asserted rather than described: emphasis is on while nothing is a terminal.
+        out = io.StringIO()
+        self.assertFalse(out.isatty())
+        self.assertFalse(sys.stdout.isatty() and False)
+        self.assertTrue(self.hook.emphasis_ok("claude-code", self.env()),
+                        "the gate went looking for a tty it can never have")
+
+    def test_an_unverified_host_gets_none(self):
+        for host in ("codex", "gemini-cli", "some-future-host"):
+            self.assertFalse(self.hook.emphasis_ok(host, self.env()),
+                             "%s would be sent escapes nobody has checked it renders" % host)
+
+    def test_no_color_is_honoured(self):
+        self.assertFalse(self.hook.emphasis_ok("claude-code", self.env(NO_COLOR="1")))
+        self.assertTrue(self.hook.emphasis_ok("claude-code", self.env(NO_COLOR="")))
+
+    def test_an_absent_or_dumb_term_gets_none(self):
+        # This is what protects Windows, where a stock console sets no TERM at all and needs
+        # virtual-terminal processing enabled before an escape is anything but garbage.
+        self.assertFalse(self.hook.emphasis_ok("claude-code", {}))
+        self.assertFalse(self.hook.emphasis_ok("claude-code", self.env(TERM="")))
+        self.assertFalse(self.hook.emphasis_ok("claude-code", self.env(TERM="dumb")))
+
+    def reason(self, host="claude-code", emphasis=True):
+        self.addCleanup(setattr, self.hook, "emphasis_ok", self.hook.emphasis_ok)
+        self.hook.emphasis_ok = lambda h, env=None: emphasis and h == "claude-code"
+        code, out, err = self.run_hook({"prompt": "deploy with " + self.KEY, "cwd": "/p"},
+                                       host=host)
+        return json.loads(out)["reason"] if host == "claude-code" else err
+
+    def test_the_name_is_emphasised_where_it_is_announced(self):
+        reason = self.reason()
+        self.assertIn("\x1b[1m$GITHUB_TOKEN\x1b[22m", reason)
+
+    def test_bold_is_closed_with_22_not_with_a_full_reset(self):
+        # Measured: the host wraps the whole reason in its own amber, and 0m would clear that too,
+        # dropping the rest of the line to the terminal default. 22m ends bold and nothing else.
+        reason = self.reason()
+        self.assertNotIn("\x1b[0m", reason)
+
+    def test_the_echoed_paste_carries_no_escapes_even_when_the_rest_does(self):
+        # The echo is a preview of the clipboard payload, so it has to look like the payload.
+        reason = self.reason()
+        body = reason.split("📋")[1]
+        self.assertNotIn(self.ESC, body, "the preview of the paste was styled")
+
+    def test_an_unverified_host_gets_a_message_with_no_escapes_at_all(self):
+        err = self.reason(host="codex")
+        self.assertNotIn(self.ESC, err)
+        self.assertIn("$GITHUB_TOKEN", err)      # still says the thing, just plainly
+        self.assertIn("unclowk", err)
+
+    def test_with_emphasis_off_the_message_is_byte_identical_to_the_old_plain_one(self):
+        styled = self.reason(emphasis=True)
+        self.setUp()                              # a fresh vault, so the name does not suffix
+        plain = self.reason(emphasis=False)
+        self.assertNotIn(self.ESC, plain)
+        self.assertEqual(styled.replace("\x1b[1m", "").replace("\x1b[22m", ""), plain,
+                         "emphasis changed more than the escapes")
+
+
+class TestTheClipboardPayloadIsNeverStyled(HookCase):
+    """The clipboard payload is the text the user repastes INTO the chat.
+
+    An escape in it corrupts their prompt, can break the $NAME reference the whole flow depends on,
+    and would be transmitted to the model. The display string and the clipboard string are built
+    separately for exactly this reason, and this is the test that keeps them separate.
+    """
+
+    KEY = "sk_" "live_4eC39HqLyjWDarjtT1zdp7dc"
+    SECOND = "ghp" "_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"
+
+    def paste(self, prompt, host="claude-code"):
+        captured = {}
+        self.addCleanup(setattr, self.hook.clip, "copy", self.hook.clip.copy)
+        self.hook.clip.copy = lambda text: captured.setdefault("text", text) or True
+        self.addCleanup(setattr, self.hook, "emphasis_ok", self.hook.emphasis_ok)
+        self.hook.emphasis_ok = lambda h, env=None: True   # forced on, on every host
+        self.run_hook({"prompt": prompt, "cwd": "/p", "session_id": "s"}, host=host)
+        return captured.get("text", "")
+
+    def test_no_escape_character_reaches_the_clipboard(self):
+        for host in ("claude-code", "codex", "gemini-cli"):
+            payload = self.paste("deploy with " + self.KEY, host=host)
+            self.assertNotEqual(payload, "")
+            for ch in ("\x1b", "\x9b", "\x0f", "\x07"):
+                self.assertNotIn(ch, payload, "a control character reached the clipboard on %s"
+                                 % host)
+
+    def test_the_name_in_the_payload_is_a_bare_reference(self):
+        # Not merely escape-free: the $NAME has to be exactly what the shell and the agent will
+        # read, with nothing wrapped around it.
+        payload = self.paste("rotate this: " + self.KEY)
+        self.assertIn("rotate this: $STRIPE_SECRET_KEY", payload)
+
+    def test_a_multi_name_payload_is_plain_throughout(self):
+        payload = self.paste("both " + self.KEY + " and " + self.SECOND)
+        self.assertNotIn("\x1b", payload)
+        self.assertIn("$STRIPE_SECRET_KEY", payload)
+        self.assertIn("$GITHUB_TOKEN", payload)
+
+    def test_the_payload_is_all_printable_plus_newlines(self):
+        payload = self.paste("deploy with " + self.KEY + "\nthen restart")
+        bad = [c for c in payload if ord(c) < 32 and c != "\n"]
+        self.assertEqual(bad, [], "non-newline control characters in the payload: %r" % bad)
 
 
 class TestStdinIsDecodedAsUtf8(HookCase):

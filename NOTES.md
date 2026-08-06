@@ -49,6 +49,58 @@ extended. Codex additionally requires hash-based hook trust, so every clowk upda
 opencode uses a JS plugin API rather than command hooks and would need a shim. Grok CLI and
 Antigravity are unverified and unsupported.
 
+## How a block reason is RENDERED (Claude Code verified 2026-08-06; the other two are not)
+
+The block message is the only thing a person reads at the moment of a catch, so whether it can carry
+emphasis matters — and guessing wrong makes it *worse* than monotone, because a literal `[1m` in
+front of every `$NAME` is harder to read than no emphasis at all. Measured with a real credential
+paste through a real host, not from documentation.
+
+**Claude Code 2.1.223 — VERIFIED, both paths.** Driven under a pty for the interactive TUI and again
+as `claude -p`, with a hook whose reason carried an ANSI bold, an ANSI colour and a `**markdown**`
+marker, then read back byte for byte:
+
+| | result |
+|---|---|
+| ANSI SGR escapes | **rendered.** Survive into the terminal and are honoured |
+| Markdown | **not rendered.** `**MDBOLD**` printed its asterisks verbatim |
+| The host's own styling | the whole reason is wrapped in amber, SGR `38;2;255;193;7` |
+| `\x1b[1m` (bold) | *composes* with that amber — Ink re-emitted `amber, 1m, 22m, 39m` |
+| `\x1b[36m` (colour) | *replaces* the amber for that span, then reverts to the terminal default |
+
+So clowk emphasises with **bold and nothing else**, closed with `22m` rather than `0m`: `0m` would
+clear the host's amber too and drop the rest of the line to the default colour. Confirmed afterwards
+against the shipped code — the real hook's real output in the real TUI shows
+`amber … 💾  ESC[1m$STRIPE_SECRET_KEY ESC[22m   ·  shape-only guess …`, with no literal `[1m`
+anywhere and the amber still running after the name.
+
+**Codex and Gemini CLI — NOT VERIFIED, and deliberately get no escapes.** Both take the reason on
+stderr with exit 2, which is a different rendering path that the Claude Code result says nothing
+about. A probe was attempted on Codex 0.146.0 with a throwaway `CODEX_HOME` and could not be
+completed: hook trust is hash-based, so a hook in a fresh config directory is never run, and
+granting trust inside a live config to measure a cosmetic feature is not a trade worth making.
+Gemini CLI was not attempted. `emphasis_ok()` is therefore `claude-code`-only, and the message is
+built to read on structure alone — indentation, one idea per short line, the existing emoji.
+
+**`isatty` is useless here, measured.** The hook's stdin, stdout and stderr are all pipes to the
+host: a real invocation reported `isatty() == False` on all three. Any `isatty()` gate answers "no
+colour" every time, so the feature would be dead code that the tests still pass.
+
+**What IS true at runtime is the environment the host forwards.** A real hook invocation received
+`TERM=xterm-256color`, `COLORTERM=truecolor`, `CLAUDECODE=1`, `CLAUDE_CODE_ENTRYPOINT=cli`,
+`CLAUDE_PROJECT_DIR`, `CLAUDE_CODE_SESSION_ID` and `CLAUDE_PID`. `TERM` is the gate, and it is also
+what covers **Windows without a platform special case**: a stock Windows console sets no `TERM` at
+all, and needs virtual-terminal processing enabled before an escape is anything but garbage — which
+a child process can neither check nor enable for its parent. No `TERM`, no escapes. Windows itself is
+**not verified**; it is protected by that gate rather than by a measurement. `NO_COLOR` is honoured
+for any non-empty value.
+
+**The host prints the raw prompt back on screen after a block.** Verified in both the TUI and `-p`:
+the reason is followed by `Original prompt: <the text, credential and all>`. The transcript note
+below already said the value reaches the disk; it also reaches the screen, so a shoulder-surfer and
+a scrollback buffer both get it. Nothing clowk can do about either — it is one more reason a blocked
+paste is still a key you have to rotate.
+
 ## Things that do not work here
 
 - **`PostToolUse` `updatedToolOutput` is ignored in Claude Code 2.1.202.** The hook fires and emits

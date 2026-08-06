@@ -22,6 +22,7 @@ import tempfile
 import unittest
 
 from clowk import cli, clip, deny, hook_pretool, hook_prompt, install, vault
+from tests import plain
 
 # Fake credentials, in the shapes the vendored rules recognise. None of these is live.
 #
@@ -104,12 +105,18 @@ class IntegrationCase(unittest.TestCase):
     # -- assertions ------------------------------------------------------------
 
     def block_reason(self, host, out, err):
-        """The block text, from wherever this host carries it."""
+        """The block text, from wherever this host carries it, with any styling stripped.
+
+        Stripped because these tests assert what the message SAYS. On a host verified to render
+        them the $NAMEs are bolded, which splits `$NAME not saved` in two. The escapes have their
+        own tests; assertNoTrace still reads the raw streams, so nothing about the actual output
+        goes unchecked here.
+        """
         if host == "claude-code":
             decision = json.loads(out)
             self.assertEqual(decision["decision"], "block")
-            return decision["reason"]
-        return err
+            return plain(decision["reason"])
+        return plain(err)
 
     def deny_reason(self, host, out, err):
         """The tool-deny text, from wherever this host carries it."""

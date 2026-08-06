@@ -5,6 +5,19 @@ patching an interpreter default.
 """
 import builtins
 import contextlib
+import re
+
+_SGR = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def plain(text):
+    """`text` with SGR escapes removed, for assertions about wording rather than styling.
+
+    The block reason bolds the $NAMEs on hosts verified to render escapes, which splits any
+    assertion that expects a name and the words after it to be adjacent. Tests that care about the
+    escapes assert on them directly; every other test wants to read the sentence.
+    """
+    return _SGR.sub("", text)
 
 
 @contextlib.contextmanager

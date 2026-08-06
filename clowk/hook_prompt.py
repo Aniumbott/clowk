@@ -57,6 +57,59 @@ ECHO_LIMIT = 1000
 ECHO_HEAD = 500
 ECHO_TAIL = 300
 
+# --- emphasis -------------------------------------------------------------------------------------
+# The message used to be one undifferentiated block, with nothing marking the $NAME the user came
+# for. Whether a host renders an escape was unverified, and guessing wrong makes it WORSE than
+# monotone: a literal `[1m` in front of every name.
+#
+# Measured on 2026-08-06 against a real block through the real Claude Code 2.1.223 -- both the
+# interactive TUI under a pty and `claude -p`. Escapes survive and are honoured; markdown is not
+# rendered, so `**bold**` would print its asterisks. Full findings in NOTES.md.
+#
+# BOLD, not colour, and this is the measured part rather than a taste call. The host already wraps
+# the whole reason in its own amber (SGR 38;2;255;193;7). Bold COMPOSES with that -- Ink re-emitted
+# `amber, bold, 22m, 39m` around the probe -- while a colour REPLACES the amber for that span and
+# then reverts to the terminal default, which is inconsistent inside the block and can be
+# low-contrast on a light theme. Bold adds emphasis without fighting the host's own styling.
+#
+# 22m (bold off) rather than 0m (reset everything), for the same reason: 0m would clear the host's
+# amber too and drop the rest of the line to the default colour.
+BOLD = "\x1b[1m"
+UNBOLD = "\x1b[22m"
+
+
+def emphasis_ok(host, env=None):
+    """True if this host is KNOWN to render escapes and the environment does not forbid them.
+
+    Deliberately not `isatty`. The hook's stdout and stderr are pipes to the host, never a
+    terminal -- measured, all three streams report False -- so an isatty gate always answers "no
+    colour" and the feature becomes dead code that the tests still pass.
+
+    What is true at runtime is that the host forwards the terminal's own environment into the
+    hook: TERM=xterm-256color and COLORTERM=truecolor were both present in a real hook invocation.
+    So TERM is the signal, and it is also what protects Windows without a platform special case --
+    a stock Windows console sets no TERM at all, and needs virtual-terminal processing enabled
+    before an escape is anything but garbage, which a child process cannot check or enable for it.
+    No TERM, no escapes.
+
+    claude-code only, because it is the only host whose rendering has been verified. codex and
+    gemini-cli take the reason on stderr with exit 2, which is a different path entirely; a probe
+    there could not be completed without granting hook trust in a live config, so they get the
+    plain message. A host that reads well with no escapes at all is the requirement; emphasis is
+    the bonus where it is known to land.
+    """
+    env = os.environ if env is None else env
+    if host != "claude-code":
+        return False
+    if env.get("NO_COLOR"):          # no-color.org; an empty value is not an opt-in
+        return False
+    term = env.get("TERM", "")
+    return bool(term) and term != "dumb"
+
+
+def _em(text, emphasis):
+    return BOLD + text + UNBOLD if emphasis else text
+
 
 # Sessions that have already been shown the pointer. A session blocking five credentials does not
 # need the explanation five times -- the agent read it the first time and the skill stays loaded.
@@ -112,8 +165,9 @@ def _host_from(argv):
     return "claude-code"
 
 
-def build_message(rewritten, stored, tiers, copied, unfiled=(), skipped=0, rotated=None):
-    """The block reason. Plain text -- hooks cannot set colour or markdown -- but emoji carry fine.
+def build_message(rewritten, stored, tiers, copied, unfiled=(), skipped=0, rotated=None,
+                  emphasis=False):
+    """The block reason, which is the DISPLAY string and never the clipboard payload.
 
     Kept short on purpose. This is read by a person who has just been interrupted mid-thought, so it
     answers three questions in order and stops: what happened, what do I paste, how do I override.
@@ -122,23 +176,31 @@ def build_message(rewritten, stored, tiers, copied, unfiled=(), skipped=0, rotat
     `rotated` maps a filed name to the name that already holds a different value of the same kind.
     That line is the only warning the user gets that their habitual $NAME still resolves to the
     revoked key, and this is the one moment they can act on it, so it names the remedy too.
+
+    `emphasis` bolds the $NAMEs, and only where they are ANNOUNCED. The echoed paste is left plain
+    whatever the host renders, because it is a preview of the clipboard payload and has to look
+    like it -- a styled preview invites the reader to believe the payload is styled too. The
+    payload itself is `rewritten`, which this function only ever reads.
+
+    Structure carries the message with no escapes at all -- indentation, one idea per short line,
+    the existing emoji -- because two of the three hosts get exactly that.
     """
     rotated = rotated or {}
     lines = ["👀 clowk caught a credential before it reached the model.", ""]
     for name in stored:
         hint = "   ·  shape-only guess, `clowk clear %s` if wrong" % name \
             if tiers.get(name) == "low" else ""
-        lines.append("   💾  $%s%s" % (name, hint))
+        lines.append("   💾  %s%s" % (_em("$" + name, emphasis), hint))
         stale = rotated.get(name)
         if stale:
-            lines.append("       ↻  $%s already holds a different value of the same kind."
-                         % stale)
+            lines.append("       ↻  %s already holds a different value of the same kind."
+                         % _em("$" + stale, emphasis))
             lines.append("          Rotated it upstream?")
             lines.append("          `clowk set %s` makes this the value that name resolves to."
                          % stale)
     for name in unfiled:
-        lines.append("   ⚠️   $%s not saved — could not write %s, so keep this one yourself"
-                     % (name, vault.path()))
+        lines.append("   ⚠️   %s not saved — could not write %s, so keep this one yourself"
+                     % (_em("$" + name, emphasis), vault.path()))
     if skipped:
         lines.append("   ⚠️   %d more hidden but not saved — %d hits in one message looks like a "
                      "pasted log" % (skipped, skipped + len(stored) + len(unfiled)))
@@ -229,7 +291,7 @@ def main(argv, stdin, stdout, stderr):
     # generic reason is always better than letting an exception reach the fail-open handler,
     # which would transmit the credential with nothing on either stream.
     try:
-        reason = capture(event, findings)
+        reason = capture(event, findings, emphasis_ok(host))
     except Exception:  # noqa: BLE001 -- see above; deliberately never re-raised
         # No rewrite here: a half-substituted prompt could still hold a raw value.
         reason = ("clowk found a credential in this message but hit an internal error, so it was "
@@ -238,7 +300,7 @@ def main(argv, stdin, stdout, stderr):
     return hosts.block(host, reason, stdout, stderr)
 
 
-def capture(event, findings):
+def capture(event, findings, emphasis=False):
     """Redact every finding out of the prompt, file what it can, return the block reason.
 
     Redaction is unconditional; filing is not -- it stops at MAX_FILED and tolerates a vault
@@ -292,7 +354,8 @@ def capture(event, findings):
     if (stored or unfiled) and pointer_needed(event.get("session_id", "")):
         rewritten = rewritten + "\n\n" + SKILL_POINTER
     copied = clip.copy(rewritten)
-    return build_message(rewritten, stored, tiers, copied, unfiled, skipped, rotated)
+    return build_message(rewritten, stored, tiers, copied, unfiled, skipped, rotated,
+                         emphasis)
 
 
 # --- one-pass redaction -------------------------------------------------------------------------
