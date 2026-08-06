@@ -520,6 +520,26 @@ class TestIdempotency(IntegrationCase):
         self.assertEqual(vault.names(), ["STRIPE_SECRET_KEY"])
         self.assertEqual(vault.list_secrets()["STRIPE_SECRET_KEY"]["sources"], ["/a", "/b"])
 
+    def test_an_idempotent_capture_is_still_counted_end_to_end(self):
+        """Idempotent in the vault does not mean invisible in the ledger.
+
+        The two tests above are the whole reason a re-catch went unrecorded: `sources` was the only
+        thing store() accumulated, and it dedups, so re-pasting one key in one project produced a
+        byte-identical vault and clowk could not say it had happened. The value must still not be
+        overwritten and there must still be one entry -- those are asserted above -- but the ledger
+        has to move.
+        """
+        payload = {"prompt": "use " + STRIPE + " again", "cwd": "/proj"}
+        for _ in range(3):
+            self.prompt_hook(payload)
+        meta = vault.list_secrets()["STRIPE_SECRET_KEY"]
+        self.assertEqual(meta["catches"], 3)
+        self.assertEqual(meta["sources"], ["/proj"])
+        self.assertTrue(meta["last_caught"] >= meta["first_caught"])
+        listing = self.run_cli("list")[1]
+        self.assertIn("3 times in all", listing)
+        self.assertIn("3 times", self.run_cli("uses")[1])
+
     def test_the_same_secret_seen_by_two_hosts_stays_one_entry(self):
         for host in ALL_HOSTS:
             self.prompt_hook({"prompt": "use " + STRIPE, "cwd": "/proj"}, host)

@@ -11,8 +11,21 @@ import json
 import os
 
 DEFAULT_PATH = os.path.join(os.path.expanduser("~"), ".clowk", "vault.json")
-_META_KEYS = ("rule", "confidence", "first_caught", "sources", "uses")
+_META_KEYS = ("rule", "confidence", "first_caught", "last_caught", "catches", "sources", "uses")
 _REFUSAL = "clowk will not modify it -- fix or move the file, then retry."
+
+
+def _default(key):
+    """What a metadata key reads as when the vault predates it.
+
+    A vault written by an earlier clowk has no `catches` and no `last_caught`, and every read path
+    has to survive that -- the same treatment `sources` and `uses` already get. A function rather
+    than a dict of defaults so each caller gets its OWN empty list; one shared list handed to every
+    entry is a mutation bug waiting for its first caller.
+    """
+    if key in ("sources", "uses"):
+        return []
+    return 0 if key == "catches" else ""
 
 
 class VaultUnreadable(Exception):
@@ -112,6 +125,18 @@ def store(name, value, rule="", confidence="", source="", detail=False):
     especially -- and that is a name collision, about which "did you rotate it?" is the wrong
     question. An entry with no rule recorded (anything `clowk add` stored, or a hand-edited one)
     reports nothing either, because there is nothing to compare.
+
+    EVERY call adds to the ledger -- `catches` and `last_caught` -- whatever the directory dedup
+    below decides. Re-catching the same credential where clowk had already seen it used to record
+    nothing at all: `sources` was the only running total and it appends only for a NEW directory, so
+    the second and the twentieth paste of one key in one project were both invisible. That left
+    clowk unable to answer the one question its own ledger exists for -- is this becoming a habit? --
+    which is the signal that says stop pasting it and reference it instead.
+
+    Costs nothing extra per capture, which matters because hook_prompt files up to MAX_FILED values
+    per paste and every one of them reloads and rewrites this whole file: `_save` was ALREADY
+    unconditional here, dedup or not, so this adds two dict writes and two JSON keys per entry and
+    no I/O whatsoever.
     """
     data = _load()
     secrets = data["secrets"]
@@ -123,18 +148,39 @@ def store(name, value, rule="", confidence="", source="", detail=False):
     while key in secrets and secrets[key].get("value") != value:
         key = "%s_%d" % (name, n)
         n += 1
-    entry = secrets.get(key) or {"first_caught": _now(), "sources": [], "uses": []}
+    now = _now()
+    known = secrets.get(key)          # None means this call creates the entry
+    entry = known or {"first_caught": now, "sources": [], "uses": []}
     entry["value"] = value
     if rule:
         entry["rule"] = rule
     if confidence:
         entry["confidence"] = confidence
+    entry["catches"] = _prior_catches(entry, known is not None) + 1
+    entry["last_caught"] = now
     sources = entry.setdefault("sources", [])
     if source and source not in sources:
         sources.append(source)
     secrets[key] = entry
     _save(data)
     return (key, rotated) if detail else key
+
+
+def _prior_catches(entry, already_known):
+    """How many catches this entry had before the one being recorded now.
+
+    An entry that predates the field resumes from 1 rather than from 0, because its `first_caught`
+    is proof that a catch happened -- counting it as the first would misreport an upgraded vault
+    from the moment of upgrade. A brand-new entry resumes from 0.
+
+    The vault is a plaintext file the README invites you to hand-edit, so a count that is a string,
+    a list, a bool or negative has to fall back rather than raise: a capture that fails here is a
+    credential clowk does not file, and it is being asked to file it.
+    """
+    prior = entry.get("catches")
+    if isinstance(prior, int) and not isinstance(prior, bool) and prior >= 0:
+        return prior
+    return 1 if already_known else 0
 
 
 def get(name):
@@ -150,7 +196,7 @@ def list_secrets():
     """Metadata only -- deliberately never returns a value."""
     out = {}
     for name, entry in _load()["secrets"].items():
-        out[name] = dict((k, entry.get(k, [] if k in ("sources", "uses") else "")) for k in _META_KEYS)
+        out[name] = dict((k, entry.get(k, _default(k))) for k in _META_KEYS)
     return out
 
 

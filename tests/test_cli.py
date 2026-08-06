@@ -63,6 +63,53 @@ class TestList(CliCase):
         self.assertIn("shape-only", out)
 
 
+class TestListAndUsesShowARepeatedCatch(CliCase):
+    """The count and the last-seen stamp only pay for themselves if a surface prints them.
+
+    They are the answer to "is this key becoming a habit?", which is what says stop pasting it and
+    start referencing it, and neither `list` nor `uses` could answer it.
+    """
+
+    def test_a_single_catch_adds_no_line(self):
+        # first_caught already says everything about a value caught once, and last_caught is the
+        # same instant. A second line there would be noise on every entry in the listing.
+        self.vault.store("A", "v", source="/p")
+        code, out, err = self.run_cli("list")
+        self.assertNotIn("repeat", out)
+
+    def test_list_reports_the_repeats_and_the_last_one(self):
+        for _ in range(4):
+            self.vault.store("A", "v", source="/p")
+        code, out, err = self.run_cli("list")
+        self.assertIn("4 times", out)
+        self.assertIn(self.vault.list_secrets()["A"]["last_caught"], out)
+
+    def test_uses_reports_when_it_was_first_and_last_caught(self):
+        for _ in range(3):
+            self.vault.store("A", "v", source="/p")
+        meta = self.vault.list_secrets()["A"]
+        code, out, err = self.run_cli("uses", "A")
+        self.assertIn(meta["first_caught"], out)
+        self.assertIn(meta["last_caught"], out)
+        self.assertIn("3 times", out)
+
+    def test_uses_of_a_once_caught_credential_still_says_when(self):
+        self.vault.store("A", "v", source="/p")
+        code, out, err = self.run_cli("uses", "A")
+        self.assertIn(self.vault.list_secrets()["A"]["first_caught"], out)
+
+    def test_a_vault_from_an_older_version_prints_without_inventing_a_count(self):
+        with open(os.environ["CLOWK_VAULT"], "w", encoding="utf-8") as f:
+            json.dump({"version": 1, "secrets": {"OLD": {
+                "value": "one", "first_caught": "2026-01-01T00:00:00",
+                "sources": ["/p"], "uses": []}}}, f)
+        for argv in (("list",), ("uses",)):
+            code, out, err = self.run_cli(*argv)
+            self.assertEqual(code, 0, err)
+            self.assertIn("2026-01-01T00:00:00", out)
+            self.assertNotIn("times", out)
+
+
 class TestAddAndSet(CliCase):
     def test_add_reads_the_value_from_the_environment_not_argv(self):
         os.environ["CLOWK_VALUE"] = "sk_" "live_typedbyhand"

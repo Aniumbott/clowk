@@ -216,6 +216,93 @@ class TestMetadata(VaultCase):
         self.assertEqual(self.vault.names(), [])
 
 
+class TestEveryRecatchReachesTheLedger(VaultCase):
+    """Re-catching a credential in a directory clowk already knew recorded NOTHING.
+
+    store reuses the entry when the same value comes back -- correct, nothing is overwritten -- and
+    appended to `sources` only when the directory was new. So the second, fifth and twentieth paste
+    of the same key in the same project left no trace at all: no count, no last-seen. clowk could
+    not tell you a credential is becoming a habit, which is exactly the signal that says stop
+    pasting it and start referencing it.
+    """
+
+    def meta(self, name="A"):
+        return self.vault.list_secrets()[name]
+
+    def test_a_recatch_in_a_known_directory_is_counted(self):
+        self.vault.store("A", "one", source="/p")
+        self.assertEqual(self.meta()["catches"], 1)
+        self.vault.store("A", "one", source="/p")
+        self.vault.store("A", "one", source="/p")
+        self.assertEqual(self.meta()["catches"], 3)
+        self.assertEqual(self.meta()["sources"], ["/p"])   # dedup is right and stays
+
+    def test_a_recatch_in_a_new_directory_is_counted_too(self):
+        self.vault.store("A", "one", source="/p")
+        self.vault.store("A", "one", source="/q")
+        self.assertEqual(self.meta()["catches"], 2)
+        self.assertEqual(self.meta()["sources"], ["/p", "/q"])
+
+    def test_the_last_caught_stamp_moves_and_first_caught_does_not(self):
+        self.vault.store("A", "one", source="/p")
+        first = self.meta()["first_caught"]
+        self.assertEqual(self.meta()["last_caught"], first)   # one catch: both are this instant
+        self.vault.store("A", "one", source="/p")
+        self.assertEqual(self.meta()["first_caught"], first, "first_caught must never move")
+        self.assertTrue(self.meta()["last_caught"] >= first)
+
+    def test_a_rotation_is_not_a_catch(self):
+        # `clowk set` goes through replace(), which keeps the ledger by design. A new value under an
+        # existing name is a rotation, not another paste of the same credential.
+        self.vault.store("A", "one", source="/p")
+        self.vault.store("A", "one", source="/p")
+        before = self.meta()
+        self.assertTrue(self.vault.replace("A", "two"))
+        after = self.meta()
+        self.assertEqual(after["catches"], before["catches"])
+        self.assertEqual(after["first_caught"], before["first_caught"])
+        self.assertEqual(after["last_caught"], before["last_caught"])
+
+    def test_recording_a_use_is_not_a_catch(self):
+        self.vault.store("A", "one", source="/p")
+        self.vault.record_use("A", "/p")
+        self.assertEqual(self.meta()["catches"], 1)
+
+    def test_a_vault_from_an_older_version_reads_and_counts_forward(self):
+        """Backward compatibility, both halves.
+
+        An entry written before these fields existed has neither, and list_secrets must default
+        them rather than raising -- the same treatment sources and uses already get. Its
+        first_caught also PROVES it was caught at least once, so the next catch takes it to 2
+        rather than pretending the paste that just happened was the first.
+        """
+        with open(self.vault.path(), "w", encoding="utf-8") as f:
+            json.dump({"version": 1, "secrets": {"OLD": {
+                "value": "one", "rule": "stripe-access-token", "confidence": "high",
+                "first_caught": "2026-01-01T00:00:00", "sources": ["/p"], "uses": []}}}, f)
+        self.assertEqual(self.meta("OLD")["catches"], 0)
+        self.assertEqual(self.meta("OLD")["last_caught"], "")
+        self.vault.store("OLD", "one", source="/p")
+        self.assertEqual(self.meta("OLD")["catches"], 2)
+        self.assertEqual(self.meta("OLD")["first_caught"], "2026-01-01T00:00:00")
+
+    def test_a_hand_edited_count_of_nonsense_does_not_crash_the_capture(self):
+        # The vault is a plaintext file the README invites you to edit. A capture must survive it.
+        for junk in ("lots", -3, None, [], True):
+            self.vault.clear("A")
+            with open(self.vault.path(), "w", encoding="utf-8") as f:
+                json.dump({"version": 1, "secrets": {"A": {
+                    "value": "one", "first_caught": "2026-01-01T00:00:00",
+                    "catches": junk, "sources": [], "uses": []}}}, f)
+            self.vault.store("A", "one", source="/p")
+            self.assertEqual(self.meta()["catches"], 2, junk)
+
+    def test_the_listing_still_never_exposes_a_value(self):
+        self.vault.store("A", "supersecret", source="/p")
+        self.vault.store("A", "supersecret", source="/p")
+        self.assertNotIn("supersecret", json.dumps(self.vault.list_secrets()))
+
+
 class TestLifecycle(VaultCase):
     def test_clear_removes_and_reports(self):
         self.vault.store("A", "one")

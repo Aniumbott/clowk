@@ -195,6 +195,11 @@ twice.
 Every `clowk get` is recorded, so `clowk uses` tells you where a credential was caught and what has
 drawn on it since. Rotation stops being archaeology.
 
+Every *re*-catch is recorded too, so `clowk list` and `clowk uses` will tell you a key has been
+caught five times and when the last one was. That is the number worth watching: pasting the same
+credential over and over is a habit, and `$(clowk get NAME)` — or `clowk add` for one clowk has
+never seen — is how you stop. A rotation through `clowk set` is not a catch and does not count.
+
 ## Commands
 
 ```

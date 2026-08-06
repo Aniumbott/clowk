@@ -58,6 +58,26 @@ def _read_value(prompt):
         return ""
 
 
+def _repeats(meta):
+    """True if this credential has been caught more than once, so a count says something new.
+
+    A value caught once needs no extra line: `first_caught` already answers when, and `last_caught`
+    is the same instant. A vault written before the count existed reports 0 and so prints nothing
+    either -- it must not claim a number it does not have.
+    """
+    catches = meta.get("catches")
+    return isinstance(catches, int) and catches > 1
+
+
+def _caught_summary(meta):
+    """When this credential was caught, and how often, in one line for `clowk uses`."""
+    first = meta.get("first_caught") or "(unknown)"
+    if not _repeats(meta):
+        return first
+    return "%d times, first %s, last %s" % (
+        meta["catches"], first, meta.get("last_caught") or "?")
+
+
 def cmd_list(out):
     items = vault.list_secrets()
     if not items:
@@ -74,6 +94,9 @@ def cmd_list(out):
         if meta.get("rule"):
             out.write("   rule: %s" % meta["rule"])
         out.write("\n")
+        if _repeats(meta):
+            out.write("      repeat: %d times in all, last %s\n"
+                      % (meta["catches"], meta.get("last_caught") or "?"))
         if meta.get("sources"):
             out.write("      from:   %s\n" % ", ".join(meta["sources"]))
         out.write("      used by: %s\n" % (", ".join(meta["uses"]) if meta.get("uses") else "(nothing recorded yet)"))
@@ -134,6 +157,7 @@ def cmd_uses(name, out, err):
     for key in sorted(items):
         meta = items[key]
         out.write("$%s\n" % key)
+        out.write("  caught:      %s\n" % _caught_summary(meta))
         out.write("  caught from: %s\n" % (", ".join(meta["sources"]) if meta.get("sources") else "(unknown)"))
         out.write("  used by:     %s\n" % (", ".join(meta["uses"]) if meta.get("uses") else "(nothing recorded yet)"))
     return 0
