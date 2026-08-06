@@ -45,7 +45,8 @@ POSITIVES = [
     ("dotenv", "MY_API_KEY=" + GENERIC),
     ("curl header", 'curl -H "X-Api-Key: ' + GENERIC + '" https://api.example.com/v1'),
     ("curl bearer", 'curl -H "Authorization: Bearer ' + GENERIC + '" https://x.dev'),
-    # vendor-prefixed, which the 91 prefix rules catch in any phrasing including none
+    # vendor-prefixed, which the pinned-prefix rules catch in any phrasing including none.
+    # No count written down here: it has drifted twice already, and test_tiers derives it.
     ("prefixed in prose", "deploy with this token - " + GH),
     ("prefixed alone", GH),
     ("prefixed stripe", "the stripe key is " + STRIPE),

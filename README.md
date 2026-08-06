@@ -303,10 +303,11 @@ was not saved.
 
 ## It will sometimes be wrong
 
-130 of the 221 rules match on shape rather than a literal vendor prefix, and clowk's standalone-token
-rule matches on shape alone, so a perfectly innocent prompt can get blocked. (That count is
-deliberately conservative: a pinned format with no trailing separator like `AKIA…` counts as
-shape-only too, and only the value half of a rule counts.)
+107 of the 221 rules match on shape rather than a literal vendor prefix, and clowk's standalone-token
+rule matches on shape alone, so a perfectly innocent prompt can get blocked. A rule counts as pinned
+only when the literal begins **the value the rule captures** — so `curl -u` and a Sidekiq hostname
+do not count, because in those rules the vendor's name sits outside the credential, and an
+alternation counts only when *every* branch pins something.
 
 Hex of 32 characters or more may also block on how many of the 16 digits appear — 8 of them — and
 not only on entropy, because an absolute entropy floor is calibrated for base64's 6.0-bit ceiling

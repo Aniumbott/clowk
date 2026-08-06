@@ -99,7 +99,7 @@
   ],
   "entropy": null,
   "ignorecase": false,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 1
  },
@@ -125,7 +125,7 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 1
  },
@@ -177,7 +177,7 @@
   ],
   "entropy": 4.5,
   "ignorecase": false,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 0
  },
@@ -190,7 +190,7 @@
   ],
   "entropy": 4.5,
   "ignorecase": false,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 0
  },
@@ -265,7 +265,7 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 1
  },
@@ -278,7 +278,7 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 1
  },
@@ -395,7 +395,7 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 1
  },
@@ -540,7 +540,7 @@
   ],
   "entropy": 2.75,
   "ignorecase": true,
-  "confidence": "high",
+  "confidence": "low",
   "secret_group": null,
   "group": 1
  },
@@ -566,7 +566,7 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 1
  },
@@ -761,7 +761,7 @@
   ],
   "entropy": 4.0,
   "ignorecase": true,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 0
  },
@@ -774,7 +774,7 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 0
  },
@@ -787,7 +787,7 @@
   ],
   "entropy": 2.0,
   "ignorecase": true,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 0
  },
@@ -827,7 +827,7 @@
   ],
   "entropy": 4.0,
   "ignorecase": true,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 1
  },
@@ -1011,7 +1011,7 @@
   ],
   "entropy": 4.0,
   "ignorecase": false,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 1
  },
@@ -1047,7 +1047,7 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 0
  },
@@ -1242,7 +1242,7 @@
   ],
   "entropy": 3.0,
   "ignorecase": false,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 0
  },
@@ -1334,7 +1334,7 @@
   ],
   "entropy": 3.0,
   "ignorecase": true,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 1
  },
@@ -1374,7 +1374,7 @@
   ],
   "entropy": null,
   "ignorecase": false,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 0
  },
@@ -1507,7 +1507,7 @@
   ],
   "entropy": 3.0,
   "ignorecase": true,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 1
  },
@@ -1700,7 +1700,7 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 1
  },
@@ -1877,7 +1877,7 @@
   ],
   "entropy": null,
   "ignorecase": false,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 0
  },
@@ -2050,7 +2050,7 @@
   ],
   "entropy": 3.5,
   "ignorecase": false,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 1
  },
@@ -2180,7 +2180,7 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 0
  },
@@ -2604,7 +2604,7 @@
   ],
   "entropy": 2.0,
   "ignorecase": false,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 0
  },
@@ -2617,7 +2617,7 @@
   ],
   "entropy": null,
   "ignorecase": false,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 0
  },
@@ -2643,7 +2643,7 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "high",
+  "confidence": "low",
   "secret_group": 2,
   "group": 2
  },
@@ -2657,7 +2657,7 @@
   ],
   "entropy": 3.0,
   "ignorecase": true,
-  "confidence": "high",
+  "confidence": "low",
   "secret_group": null,
   "group": 1
  },
@@ -2871,7 +2871,7 @@
   ],
   "entropy": 4.0,
   "ignorecase": false,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 1
  },
@@ -2911,7 +2911,7 @@
   ],
   "entropy": null,
   "ignorecase": true,
-  "confidence": "low",
+  "confidence": "high",
   "secret_group": null,
   "group": 1
  },

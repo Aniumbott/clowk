@@ -120,10 +120,14 @@ for b in blocks:
     if sg is not None and not 0 <= sg <= re.compile(rx, flags).groups:
         ignored_groups.append((rid, sg))   # declaration cannot apply to this compiled pattern
         sg = None
+    # The tier describes the value, so it has to be classified against the group the value is
+    # actually taken from -- the declared secretGroup where gitleaks gives one. Classifying the
+    # whole pattern instead reads sonar-api-token's keyword `sonar` as a pinned vendor prefix.
+    group = sg if sg is not None else secret_group(rx)
     rules.append({"id": rid, "env": env_name(rid), "regex": rx, "keywords": kws,
                   "entropy": ent, "ignorecase": ignorecase,
-                  "confidence": classify(rx), "secret_group": sg,
-                  "group": sg if sg is not None else secret_group(rx)})
+                  "confidence": classify(rx, group), "secret_group": sg,
+                  "group": group})
 
 # Atomically: `open(OUT, "w")` truncates to 0 bytes before json.dump writes anything, so an
 # interrupted refresh would leave the shipped ruleset empty and silently disable detection.

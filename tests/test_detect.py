@@ -156,9 +156,10 @@ CLEAN_PROMPTS = [
 
 class TestFalsePositives(unittest.TestCase):
     """The keyword gate and the entropy filter are the only two things holding false positives
-    down across 221 rules, 130 of which match on shape alone. Stubbing either one out used to
-    leave the whole suite green while ordinary prompts started getting blocked, so regressions
-    that break DETECTION were caught and regressions that break SUPPRESSION were invisible.
+    down across the vendored ruleset, roughly half of which matches on shape alone. Stubbing
+    either one out used to leave the whole suite green while ordinary prompts started getting
+    blocked, so regressions that break DETECTION were caught and regressions that break
+    SUPPRESSION were invisible. (No count written down: test_tiers derives it from classify.)
     """
 
     def test_ordinary_developer_prompts_are_not_blocked(self):

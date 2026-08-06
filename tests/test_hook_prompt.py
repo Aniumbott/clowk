@@ -162,6 +162,38 @@ class TestCapture(HookCase):
         self.assertIn("unclowk", err)
 
 
+class TestARealVendorKeyIsNotOfferedForDeletion(HookCase):
+    """The reported bug, read the way the user read it.
+
+    A live AWS pair was blocked and the message said
+
+        $AWS_ACCESS_KEY_ID   ·  shape-only guess, `clowk clear AWS_ACCESS_KEY_ID` if wrong
+
+    which advises deleting the only local copy of a working credential. `AKIA` is one of the most
+    vendor-specific shapes in the whole ruleset; it read "low" purely because classify only
+    recognised a literal prefix that ends in `_` or `-`. Asserted through the real block message
+    rather than on the tier, because the wording is the defect.
+    """
+
+    # AWS's own documented example key. Split like the other vendor-shaped fixtures so GitHub push
+    # protection does not reject every push of this repository -- see NOTES.md.
+    AKIA = "AKIA" + "IOSFODNN7EXAMPLE"
+
+    def test_the_message_names_the_key_without_offering_to_clear_it(self):
+        code, out, err = self.run_hook({"prompt": "rotate " + self.AKIA + " for me", "cwd": "/p"})
+        reason = plain(json.loads(out)["reason"])
+        self.assertIn("$AWS_ACCESS_KEY_ID", reason)
+        self.assertNotIn("shape-only guess", reason)
+        self.assertNotIn("clowk clear", reason)
+
+    def test_a_genuinely_shapeless_value_still_gets_the_hint(self):
+        # The other half: the hint has to keep appearing where it is true, or this "fix" is just
+        # the removal of a useful warning.
+        generic = "DL" + "fdfnU8pAERrHbccVspNtcq37DhhIyh"
+        code, out, err = self.run_hook({"prompt": "my api key is " + generic, "cwd": "/p"})
+        self.assertIn("shape-only guess", plain(json.loads(out)["reason"]))
+
+
 class TestBypassIsAnchoredToTheStart(HookCase):
     """`unclowk` is the one deliberate fail-open switch, so where it counts has to be pinned.
 

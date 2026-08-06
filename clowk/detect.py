@@ -1,15 +1,17 @@
 """Secret detection using the vendored gitleaks ruleset (rules.json).
 Keyword-gated + entropy-filtered, matching gitleaks semantics to keep false positives low.
 
-Confidence tiers: a rule whose regex carries a literal vendor prefix ending in _ or -
-(ghp_, xoxb-, sk-ant-) is "high"; a shape-only rule is "low". Both still block -- blocking is
+Confidence tiers: a rule whose captured value OPENS with a fixed literal run -- ghp_, xoxb-,
+AKIA, -----BEGIN -- is "high"; a shape-only rule is "low". Both still block -- blocking is
 the only thing that prevents transmission -- but the tier changes the wording and lets
 false-positive junk be purged from the vault later.
 
-The test is deliberately narrow, and it errs low: a prefix with no trailing separator (AKIA...)
-reads as "low" even though it is in fact a pinned vendor format. It only ever looks at the
-value half of a rule, never at the keyword half -- see classify(). Never word a "low" message
-as "this is probably not a credential" -- word it as "clowk is less sure what this is".
+The test is deliberately narrow and it still errs low, but it no longer errs low on a pinned
+prefix that happens to carry no trailing separator: `AKIA` used to read "low", so a live AWS key
+came back annotated "shape-only guess, `clowk clear AWS_ACCESS_KEY_ID` if wrong". It only ever
+looks at the part of a rule that produces the credential, never at the keyword context around it
+-- see classify(). Never word a "low" message as "this is probably not a credential" -- word it
+as "clowk is less sure what this is".
 """
 import base64
 import binascii
@@ -47,29 +49,14 @@ RULES, RULESET_ERROR = load_rules(RULES_PATH)
 
 Finding = namedtuple("Finding", "rule_id env secret start end confidence")
 
-# A literal run of 2+ alphanumerics followed by _ or - , e.g. ghp_ , xoxb- , sk_live_ .
-_LITERAL_PREFIX = re.compile(r"(?<![\\\[])([A-Za-z0-9]{2,}[_-])")
-_CHAR_CLASS = re.compile(r"\[[^\]]*\]")
 # regex metacharacters: a group body free of all of them can only match one fixed string.
 _META = frozenset("\\|.*+?[](){}^$")
-# the assignment operator in gitleaks' keyword=value template: everything before it is keyword
-# context, everything after it is the value. Present verbatim in 101 of the 221 vendored rules.
+# The assignment operator in gitleaks' keyword=value template. Present verbatim in 101 of the 221
+# vendored rules, which is the measurement the standalone-token rule exists because of -- see
+# STANDALONE_ID below. It no longer takes any part in classify(): reading the secret group's own
+# content excludes the keyword context by construction, and does so whichever side of the value
+# the keyword sits on.
 _OPERATOR = r"(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)"
-
-
-def classify(regex):
-    """Return "high" if the pattern pins a literal vendor prefix, else "low".
-
-    Only the value half counts. gitleaks' generic template is
-    `<keyword-alternation><operator><captured value><delimiter>`, and a literal run in the
-    KEYWORD half says nothing about the value's shape: hashicorp-tf-password's alternation
-    is (?:administrator_login_password|password), so `administrator_` used to read as a
-    pinned vendor prefix and a plain `password = "localdevonly1"` blocked at "high" -- which
-    suppresses the very "shape-only match, run clowk clear NAME" hint it needed. Splitting is
-    monotone: it only removes text, so it can never manufacture a false "high".
-    """
-    tail = regex.split(_OPERATOR, 1)[-1]   # no operator group -> classify the whole pattern
-    return "high" if _LITERAL_PREFIX.search(_CHAR_CLASS.sub("", tail)) else "low"
 
 
 def _skip_class(rx, i):
@@ -87,9 +74,9 @@ def _skip_class(rx, i):
     return i + 1
 
 
-def _first_group(rx):
-    """(open, close) indices of the leftmost capturing group's parens, or None."""
-    i, n, open_i, depth = 0, len(rx), None, 0
+def _group_end(rx, i):
+    """i points at a '('; return the index of its matching ')', or len(rx) if it is unbalanced."""
+    depth, n = 0, len(rx)
     while i < n:
         c = rx[i]
         if c == "\\":
@@ -99,21 +86,44 @@ def _first_group(rx):
             i = _skip_class(rx, i)
             continue
         if c == "(":
-            if open_i is None and (rx[i + 1:i + 2] != "?" or rx[i + 2:i + 4] == "P<"):
-                open_i, depth = i, 0   # (...) and (?P<name>...) capture; (?:  (?=  (?i:  do not
-            elif open_i is not None:
-                depth += 1
-            i += 1
+            depth += 1
+        elif c == ")":
+            depth -= 1
+            if depth == 0:
+                return i
+        i += 1
+    return n
+
+
+def _capture_span(rx, n=1):
+    """(open, close) indices of the nth capturing group's parens, or None.
+
+    `(...)` and `(?P<name>...)` capture; `(?:`  `(?=`  `(?i:` do not. Left-to-right including
+    nested groups, which is exactly how `re` numbers them, so n lines up with `m.group(n)`.
+    """
+    i, end, count = 0, len(rx), 0
+    while i < end:
+        c = rx[i]
+        if c == "\\":
+            i += 2
             continue
-        if c == ")":
-            if open_i is not None:
-                if depth == 0:
-                    return (open_i, i)
-                depth -= 1
-            i += 1
+        if c == "[":
+            i = _skip_class(rx, i)
+            continue
+        if c == "(":
+            if rx[i + 1:i + 2] != "?" or rx[i + 2:i + 4] == "P<":
+                count += 1
+                if count == n:
+                    return (i, _group_end(rx, i))
+            i += 1          # descend: the next capture may be nested inside this group
             continue
         i += 1
     return None
+
+
+def _first_group(rx):
+    """(open, close) indices of the leftmost capturing group's parens, or None."""
+    return _capture_span(rx, 1)
 
 
 def _alternatives(body):
@@ -172,6 +182,155 @@ def secret_group(regex):
     return 0
 
 
+# --- confidence tiers ---------------------------------------------------------------------------
+# Characters a pattern matches literally AND that a vendor marker is made of: ASCII alphanumerics
+# plus _ and - . Everything else ends the run -- an escape (`hvs\.`), a character class
+# (`AKIA[A-Z2-7]{16}`), a quantified atom (`https?`) -- because the run has to be text that EVERY
+# match is guaranteed to open with.
+_LITERAL_RUN = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-")
+# Zero-width escapes: walk past them, they match no text. `\b` heads most vendored patterns.
+_ZERO_WIDTH = frozenset("bBAZ")
+# Three characters, which is exactly what the previous test -- `[A-Za-z0-9]{2,}[_-]` -- also
+# demanded. So the floor is unchanged and only the requirement that the third character be a
+# separator goes away. Two would promote `s3`, `hm` and any two-letter word a vendor writes.
+MIN_LITERAL_RUN = 3
+# A guard, not a limit anything real reaches: the deepest head-nesting in the shipped 221 is 2.
+_MAX_NESTING = 12
+
+
+def _group_inner(body):
+    """A group body with its `?:` / `?i:` / `?P<name>` opener removed, or None if it matches nothing."""
+    if not body.startswith("?"):
+        return body
+    if body.startswith("?P<") and ">" in body:
+        return body.split(">", 1)[1]
+    if ":" in body:
+        return body.split(":", 1)[1]
+    return None                  # a bare flag group like (?i) -- zero-width
+
+
+def _past_quantifier(rx, i):
+    """Index just past any quantifier at i, including a lazy or possessive marker."""
+    n = len(rx)
+    if i < n and rx[i] in "?*+":
+        i += 1
+    elif i < n and rx[i] == "{":
+        j = rx.find("}", i)
+        if j != -1:
+            i = j + 1
+    if i < n and rx[i] in "?+":
+        i += 1
+    return i
+
+
+def _leading_literal(rx, depth=0):
+    """How many fixed characters every string this fragment matches is guaranteed to open with.
+
+    Guaranteed is the whole point, so this is deliberately a lower bound and stops early rather
+    than reasoning further:
+      * a quantified literal ends the run BEFORE it (`https?` counts 4, not 5; `A{2}` counts 0),
+        because a `?` makes it optional and a `{n}` moves everything after it;
+      * an alternation contributes the MINIMUM over its branches, so one branch that pins nothing
+        makes the whole head pin nothing -- vault-service-token's `s\\.` branch, and
+        sourcegraph-access-token's bare `[a-fA-F0-9]{40}` branch, which is every git SHA there is.
+        A top-level `|` is split BEFORE walking, because a group body carries its alternation
+        unwrapped: `(sgp_...|sgp_...|[a-fA-F0-9]{40})` reads 4 from its first branch alone otherwise,
+        which is the sourcegraph rule reading "confident vendor match" on every commit hash;
+      * an optional group is compared against being absent as well, so
+        `(?:https?://)?hooks.slack.com/` still counts 4 rather than 0.
+    """
+    if depth > _MAX_NESTING:
+        return 0
+    alts = _alternatives(rx)
+    if len(alts) > 1:
+        return min(_leading_literal(a, depth + 1) for a in alts)
+    i, n, run = 0, len(rx), 0
+    while i < n:
+        c = rx[i]
+        if c in "^$":
+            i += 1                                        # anchors match no text
+            continue
+        if c == "\\":
+            if rx[i + 1:i + 2] in _ZERO_WIDTH:
+                i += 2
+                continue
+            return run                                    # \. \/ \x60 -- a literal, but not one of ours
+        if c == "(":
+            close = _group_end(rx, i)
+            if rx[i + 1:i + 2] == "?" and rx[i + 2:i + 3] in ("=", "!", "<"):
+                i = close + 1                             # lookaround: zero-width
+                continue
+            body = _group_inner(rx[i + 1:close])
+            if body is None:
+                i = close + 1
+                continue
+            rest = rx[_past_quantifier(rx, close + 1):]
+            alts = _alternatives(body)
+            quant = rx[close + 1:]
+            if quant[:1] in ("?", "*") or quant[:3] in ("{0,", "{0}"):
+                return run + min([_leading_literal(a + rest, depth + 1) for a in alts]
+                                 + [_leading_literal(rest, depth + 1)])
+            return run + min(_leading_literal(a, depth + 1) for a in alts)
+        if c in _LITERAL_RUN:
+            nxt = rx[i + 1:i + 2]
+            if nxt and nxt in "?*{":
+                return run
+            run += 1
+            i += 1
+            if nxt == "+":
+                return run                                # one is guaranteed, the offset after is not
+            continue
+        return run
+    return run
+
+
+def classify(regex, group=None):
+    r"""Return "high" if the value this rule captures OPENS with a fixed literal, else "low".
+
+    Only the secret group's own content counts -- the text that ends up in the vault. That anchor
+    is what makes a bare three-character literal safe to accept without a trailing separator:
+
+      * three fixed characters ANYWHERE in the value half instead reads `curl` out of
+        curl-auth-user, `kind:`/`secret` out of kubernetes-secret-yaml and `gems.contribsys.com`
+        out of sidekiq-sensitive-url. In each of those the literal sits OUTSIDE the captured group,
+        so the credential clowk files carries no vendor evidence at all. Measured across the
+        shipped 221: those three were the only false highs a position-blind version produced.
+      * the anchor also subsumes the protection this used to get by splitting the pattern on
+        gitleaks' `keyword <operator> value` operator and classifying the tail.
+        hashicorp-tf-password's alternation is (?:administrator_login_password|password), and
+        `administrator_` used to read as a pinned vendor prefix, so a plain
+        `password = "localdevonly1"` blocked at "high" -- suppressing the very "shape-only match,
+        run clowk clear NAME" hint it needed. Its group 1 opens with `"`, so reading the group
+        answers that with no split, and answers it for a keyword sitting AFTER the value too,
+        which a split cannot.
+
+    Dropping the separator requirement is the fix. `[A-Za-z0-9]{2,}[_-]` recognised ghp_, xoxb-
+    and sk_live_ but not AKIA, AIza, LTAI, dapi, sha256~ or -----BEGIN: 26 rules, every one a
+    genuinely pinned vendor format, told the user "shape-only guess, `clowk clear NAME` if wrong"
+    -- i.e. offered to delete a working credential. Both halves of the change are needed: without
+    the anchor the separator was the only thing keeping `curl` out.
+
+    `group` is which group holds the value. It defaults to secret_group(regex), but a caller that
+    knows better must pass it, because gitleaks' own `secretGroup = N` overrides the heuristic.
+    sonar-api-token is why: it declares group 2, its leftmost capture is the fixed `(login|token)`,
+    and classifying the whole pattern instead reads the keyword `sonar` as the pinned prefix. Its
+    group 2 is `(?:squ_|sqp_|sqa_)?[a-z0-9=_-]{40}`, whose prefix is OPTIONAL, so
+    `sonar.login = <40 characters of anything>` matches carrying no marker.
+
+    A group of 0 means the whole match is the value, so there is no keyword half to exclude and the
+    whole pattern is read. That is sound only while no whole-match rule carries the keyword
+    template; true of all 221 today, and test_tiers fails if a refresh changes it.
+    """
+    if group is None:
+        group = secret_group(regex)
+    body = regex
+    if group:
+        span = _capture_span(regex, group)
+        if span is not None:
+            body = _group_inner(regex[span[0] + 1:span[1]]) or ""
+    return "high" if _leading_literal(body) >= MIN_LITERAL_RUN else "low"
+
+
 def _shannon(s):
     if not s:
         return 0.0
@@ -181,17 +340,17 @@ def _shannon(s):
 
 
 # --- standalone credential tokens -------------------------------------------------------------
-# The vendored gitleaks rules split into two kinds. 91 of the 221 pin a literal vendor prefix in the
-# value they capture -- ghp_, sk_live_, xoxb- -- so a bare paste can fire them with no keyword
+# The vendored gitleaks rules split into two kinds. 114 of the 221 pin a literal vendor prefix in the
+# value they capture -- ghp_, sk_live_, xoxb-, AKIA -- so a bare paste can fire them with no keyword
 # anywhere near. 101 of the 221 instead need `keyword <operator> value` verbatim, which is a SOURCE
 # CODE shape -- and clowk's whole job is catching what a human types into a chat, where people write
 # "here's the api key - VALUE", "my api key is VALUE", or just paste the value alone. Measured on a
 # labelled corpus, the shipped ruleset caught 11 of 20 realistic pastes: every miss was a prefix-less
 # credential in natural language.
 #
-# (Those two counts were 96 and 124 when this was written, and 96 came from a classify() that read a
-# vendor prefix out of a rule's KEYWORD half; the fix moved five rules high -> low and nothing
-# updated the number here. test_tiers now derives both from the ruleset.)
+# (The first count has been 96, then 91, and is now 114 -- twice because classify() was wrong, not
+# because the ruleset changed. Every number here is derived by test_tiers, which is the only reason
+# they are trustworthy: the two earlier corrections both left this comment stale.)
 #
 # This rule closes that, with no keyword requirement at all. It is one of the three rules clowk adds
 # to the vendored set, and it is tagged "low" because a bare token carries no vendor evidence.
@@ -568,7 +727,10 @@ def scan(text):
                 secret, start, end = m.group(0), m.start(0), m.end(0)
             if r.get("entropy") and not _passes_entropy(secret, r["entropy"]):
                 continue
-            conf = r.get("confidence") or classify(r["regex"])
+            # `group` is the resolved one -- gitleaks' declared secretGroup where there is one --
+            # so a hand-edited rules.json with no precomputed confidence classifies the same
+            # group the value is actually taken from.
+            conf = r.get("confidence") or classify(r["regex"], group)
             out.setdefault(secret, Finding(r["id"], r["env"], secret, start, end, conf))
     # Connection strings first among clowk's own rules: the whole string is the useful unit, and
     # claiming it before the standalone rule stops the password inside it being filed separately as
