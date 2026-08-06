@@ -642,6 +642,83 @@ class TestFilingStillGoesLongestFirst(HookCase):
         self.assertLessEqual(len(self.vault.names()), self.hook.MAX_FILED)
 
 
+class TestTheEchoedRewriteIsElided(HookCase):
+    """The reason echoed the whole rewritten prompt, which floods the terminal on a long one.
+
+    There was already a cap, and it went too far the other way: above ECHO_LIMIT the echo was
+    replaced ENTIRELY by a character count, so the user was told to paste something they could not
+    see any of. Head and tail are what let them confirm it is the right message before pasting it.
+
+    The one branch that must never be elided is a failed clipboard copy. clip.copy is best effort
+    and returns False when no clipboard tool exists -- every headless box -- and there the printed
+    text is the user's only copy of the rewrite. Eliding it would leave retyping or `unclowk`.
+    """
+
+    KEY = "ghp" "_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"
+    OPENING = "here is the deploy token"
+    CLOSING = "and that is the end of the message"
+
+    def prompt(self, filler_lines=200):
+        middle = "\n".join("step %d: rebuild the image and push it to the registry" % i
+                           for i in range(filler_lines))
+        return "%s %s\n%s\n%s" % (self.OPENING, self.KEY, middle, self.CLOSING)
+
+    def reason(self, copied, filler_lines=200):
+        self.addCleanup(setattr, self.hook.clip, "copy", self.hook.clip.copy)
+        self.hook.clip.copy = lambda text: copied
+        code, out, err = self.run_hook({"prompt": self.prompt(filler_lines), "cwd": "/p"})
+        self.assertEqual(code, 0)
+        return json.loads(out)["reason"]
+
+    def test_a_long_rewrite_shows_its_opening_and_its_closing(self):
+        reason = self.reason(copied=True)
+        self.assertIn(self.OPENING + " $GITHUB_TOKEN", reason, "the head of the message was cut")
+        self.assertIn(self.CLOSING, reason, "the tail of the message was cut")
+
+    def test_the_middle_is_dropped_rather_than_the_whole_thing(self):
+        reason = self.reason(copied=True)
+        self.assertNotIn("step 100:", reason, "nothing was elided")
+        self.assertLess(len(reason), 2000, "%d characters is still a flood" % len(reason))
+
+    def test_the_elision_says_where_the_whole_message_is(self):
+        self.assertIn("clipboard", self.reason(copied=True))
+
+    def test_a_failed_clipboard_copy_is_never_elided(self):
+        # The printed text is the only copy in that case, so every line has to be there.
+        reason = self.reason(copied=False)
+        self.assertIn(self.OPENING + " $GITHUB_TOKEN", reason)
+        self.assertIn(self.CLOSING, reason)
+        for i in (0, 100, 199):
+            self.assertIn("step %d:" % i, reason, "line %d was elided with no clipboard" % i)
+
+    def test_a_short_rewrite_is_still_echoed_whole(self):
+        reason = self.reason(copied=True, filler_lines=2)
+        for i in (0, 1):
+            self.assertIn("step %d:" % i, reason)
+        self.assertNotIn("elided", reason)
+
+    def test_the_raw_value_is_absent_from_both_branches(self):
+        for copied in (True, False):
+            self.assertNotIn(self.KEY, self.reason(copied=copied))
+
+    def test_one_enormous_single_line_is_still_cut(self):
+        # A minified bundle or a base64 blob has no newline to cut at, so the boundary preference
+        # has nothing to work with and the hard cut has to stand rather than fall through to whole.
+        self.addCleanup(setattr, self.hook.clip, "copy", self.hook.clip.copy)
+        self.hook.clip.copy = lambda text: True
+        one_line = "start " + self.KEY + " " + "x" * 9000 + " finish"
+        code, out, err = self.run_hook({"prompt": one_line, "cwd": "/p"})
+        reason = json.loads(out)["reason"]
+        self.assertIn("start $GITHUB_TOKEN", reason)
+        self.assertIn("finish", reason)
+        self.assertLess(len(reason), 2000, "a single long line was not cut")
+        self.assertGreater(len(reason), 800, "the head and tail were dropped too")
+
+    def test_an_elision_always_hides_enough_to_be_worth_a_marker(self):
+        self.assertGreater(self.hook.ECHO_LIMIT, self.hook.ECHO_HEAD + self.hook.ECHO_TAIL,
+                           "at this limit an elision can claim to hide almost nothing")
+
+
 class TestStdinIsDecodedAsUtf8(HookCase):
     """Hosts send UTF-8 JSON. Reading it through the locale codec is a silent pass-through.
 

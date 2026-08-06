@@ -38,10 +38,24 @@ SKILL_POINTER = (
 # Everything past the cap is still redacted and the turn is still blocked -- only filing stops.
 MAX_FILED = 20
 
-# Longest rewrite echoed into the block reason when the clipboard already has it. Without this a
-# 200 KB log paste produced a 220 KB reason, which is what the host shows the user. Never applied
-# when the clipboard copy failed: there the echo is the user's only copy of the rewrite.
-ECHO_LIMIT = 4000
+# Longest rewrite echoed WHOLE into the block reason when the clipboard already has it. Without a
+# cap a 200 KB log paste produced a 220 KB reason, which is what the host shows the user.
+#
+# Above the cap the echo used to be replaced entirely by a character count, which overshot: the
+# user was told to paste something they could see no part of. Now it keeps the head and the tail,
+# which is what answers the only question the echo is there for -- is this the message I meant? --
+# and the head is the larger share because that is where a person's own instruction sits.
+#
+# 1000 characters is a dozen lines, so anything a person actually typed around a credential is
+# still shown in full. Never applied when the clipboard copy failed: there the echo is the user's
+# only copy of the rewrite, so it is printed whole however long it is.
+#
+# The limit is deliberately larger than head + tail, so an elision always hides at least 200
+# characters. Equal to it, a 1001-character rewrite would print "1 more characters" and two thirds
+# of a marker's worth of nothing.
+ECHO_LIMIT = 1000
+ECHO_HEAD = 500
+ECHO_TAIL = 300
 
 
 # Sessions that have already been shown the pointer. A session blocking five credentials does not
@@ -132,13 +146,41 @@ def build_message(rewritten, stored, tiers, copied, unfiled=(), skipped=0, rotat
     lines.append("📋 Paste this%s:" % (" — already on your clipboard" if copied else ""))
     lines.append("")
     if copied and len(rewritten) > ECHO_LIMIT:
-        lines.append("   [%d characters — take it from the clipboard]" % len(rewritten))
+        head, tail = _elide(rewritten)
+        _echo(lines, head)
+        lines.append("   ⋯  %d more characters — the whole message is on your clipboard"
+                     % (len(rewritten) - len(head) - len(tail)))
+        _echo(lines, tail)
     else:
-        for line in rewritten.split("\n"):
-            lines.append("   " + line if line else "")
+        _echo(lines, rewritten)
     lines.append("")
     lines.append("🤔 Not a credential? Resend starting with  %s" % BYPASS)
     return "\n".join(lines)
+
+
+def _echo(lines, text):
+    """Append `text` to the message, indented under the paste heading."""
+    for line in text.split("\n"):
+        lines.append("   " + line if line else "")
+
+
+def _elide(text):
+    """(head, tail) of `text`, cut at a line boundary when one is near enough to the limit.
+
+    Cutting mid-word reads like corruption rather than like an omission, and the marker between
+    the two halves has to be believed -- so the boundary is preferred whenever there is one in the
+    second half of the head or the first half of the tail. A single enormous line has neither, and
+    then the hard cut stands.
+    """
+    head = text[:ECHO_HEAD]
+    cut = head.rfind("\n")
+    if cut > ECHO_HEAD // 2:
+        head = head[:cut]
+    tail = text[-ECHO_TAIL:]
+    cut = tail.find("\n")
+    if -1 < cut < ECHO_TAIL // 2:
+        tail = tail[cut + 1:]
+    return head, tail
 
 
 def read_payload(stdin):
