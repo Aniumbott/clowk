@@ -53,6 +53,60 @@ class TestStore(VaultCase):
         self.assertIsNone(self.vault.get("NOPE"))
 
 
+class TestStoreReportsARotation(VaultCase):
+    """store returned only the final key, so its caller could not tell a suffix from a clean file.
+
+    That is what left a rotation silent: the new value lands under NAME_2, the plain NAME still
+    resolves to the revoked one, and nothing said so at the moment it happened. The storage model
+    is deliberately unchanged -- nothing is overwritten and the old value survives -- so the only
+    thing missing was the report.
+    """
+
+    RULE = "stripe-access-token"
+
+    def test_the_plain_return_is_unchanged_when_no_detail_is_asked_for(self):
+        self.assertEqual(self.vault.store("A", "one", rule=self.RULE), "A")
+        self.assertEqual(self.vault.store("A", "two", rule=self.RULE), "A_2")
+
+    def test_a_same_rule_clash_reports_the_name_that_still_holds_the_old_value(self):
+        self.vault.store("A", "one", rule=self.RULE)
+        self.assertEqual(self.vault.store("A", "two", rule=self.RULE, detail=True), ("A_2", "A"))
+
+    def test_the_old_value_is_still_what_the_old_name_resolves_to(self):
+        # The point of reporting rather than promoting: an existing $A must not change meaning
+        # under anyone who already scripted against it.
+        self.vault.store("A", "one", rule=self.RULE)
+        self.vault.store("A", "two", rule=self.RULE)
+        self.assertEqual(self.vault.get("A"), "one")
+        self.assertEqual(self.vault.get("A_2"), "two")
+
+    def test_a_first_capture_reports_nothing(self):
+        self.assertEqual(self.vault.store("A", "one", rule=self.RULE, detail=True), ("A", ""))
+
+    def test_the_same_value_again_is_not_a_rotation(self):
+        self.vault.store("A", "one", rule=self.RULE)
+        self.assertEqual(self.vault.store("A", "one", rule=self.RULE, detail=True), ("A", ""))
+
+    def test_a_clash_with_a_different_kind_of_credential_is_not_a_rotation(self):
+        # Two vendors' credentials can land on one env name -- GENERIC_API_KEY especially. That is
+        # a name collision, and "did you rotate it?" is the wrong question to ask about it.
+        self.vault.store("A", "one", rule="generic-api-key")
+        self.assertEqual(self.vault.store("A", "two", rule=self.RULE, detail=True), ("A_2", ""))
+
+    def test_a_clash_with_no_rule_recorded_either_side_is_not_a_rotation(self):
+        # `clowk add` stores no rule, and an entry hand-written into the vault may have none.
+        # With nothing to compare, claiming a rotation would be a guess.
+        self.vault.store("A", "one")
+        self.assertEqual(self.vault.store("A", "two", detail=True), ("A_2", ""))
+
+    def test_a_second_rotation_still_points_at_the_plain_name(self):
+        # A_2 is already taken, so this lands on A_3 -- but the name the user's code says, and the
+        # one `clowk set` has to target, is still the plain one.
+        self.vault.store("A", "one", rule=self.RULE)
+        self.vault.store("A", "two", rule=self.RULE)
+        self.assertEqual(self.vault.store("A", "three", rule=self.RULE, detail=True), ("A_3", "A"))
+
+
 class TestUnreadableFile(VaultCase):
     """An existing-but-unparseable vault is not an empty vault.
 

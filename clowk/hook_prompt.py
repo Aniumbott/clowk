@@ -98,18 +98,30 @@ def _host_from(argv):
     return "claude-code"
 
 
-def build_message(rewritten, stored, tiers, copied, unfiled=(), skipped=0):
+def build_message(rewritten, stored, tiers, copied, unfiled=(), skipped=0, rotated=None):
     """The block reason. Plain text -- hooks cannot set colour or markdown -- but emoji carry fine.
 
     Kept short on purpose. This is read by a person who has just been interrupted mid-thought, so it
     answers three questions in order and stops: what happened, what do I paste, how do I override.
     The reasoning behind each rule belongs in the README, not here.
+
+    `rotated` maps a filed name to the name that already holds a different value of the same kind.
+    That line is the only warning the user gets that their habitual $NAME still resolves to the
+    revoked key, and this is the one moment they can act on it, so it names the remedy too.
     """
+    rotated = rotated or {}
     lines = ["👀 clowk caught a credential before it reached the model.", ""]
     for name in stored:
         hint = "   ·  shape-only guess, `clowk clear %s` if wrong" % name \
             if tiers.get(name) == "low" else ""
         lines.append("   💾  $%s%s" % (name, hint))
+        stale = rotated.get(name)
+        if stale:
+            lines.append("       ↻  $%s already holds a different value of the same kind."
+                         % stale)
+            lines.append("          Rotated it upstream?")
+            lines.append("          `clowk set %s` makes this the value that name resolves to."
+                         % stale)
     for name in unfiled:
         lines.append("   ⚠️   $%s not saved — could not write %s, so keep this one yourself"
                      % (name, vault.path()))
@@ -191,7 +203,7 @@ def capture(event, findings):
     that cannot be written. Raising here only costs the reason text, never the block.
     """
     prompt = event["prompt"]
-    stored, unfiled, tiers = [], [], {}
+    stored, unfiled, tiers, rotated = [], [], {}, {}
     taken, names, skipped, resume = set(), {}, 0, {}
     pattern = _one_pass(f.secret for f in findings)
     by_secret = dict((f.secret, f) for f in findings)
@@ -211,15 +223,18 @@ def capture(event, findings):
             skipped += 1
         else:
             try:
-                name = vault.store(
+                name, stale = vault.store(
                     finding.env, finding.secret,
                     rule=finding.rule_id, confidence=finding.confidence, source=event["cwd"],
+                    detail=True,
                 )
             except Exception:  # noqa: BLE001 -- unwritable/full/hand-edited vault; note, not raise
                 name = _placeholder(finding.env, taken, resume)
                 unfiled.append(name)
             else:
                 stored.append(name)
+                if stale:
+                    rotated[name] = stale
         taken.add(name)
         # Outside the try on purpose: a value clowk did not file must still leave the prompt,
         # or the raw secret would land in the reason and on the clipboard.
@@ -235,7 +250,7 @@ def capture(event, findings):
     if (stored or unfiled) and pointer_needed(event.get("session_id", "")):
         rewritten = rewritten + "\n\n" + SKILL_POINTER
     copied = clip.copy(rewritten)
-    return build_message(rewritten, stored, tiers, copied, unfiled, skipped)
+    return build_message(rewritten, stored, tiers, copied, unfiled, skipped, rotated)
 
 
 # --- one-pass redaction -------------------------------------------------------------------------

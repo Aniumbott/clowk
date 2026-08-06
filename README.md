@@ -207,6 +207,12 @@ clowk install [HOST]       register clowk's hooks and write the launcher; uninst
 `add` and `set` never take the value as an argument — that would put it straight in your shell
 history, which rather defeats the exercise.
 
+**After a rotation, `set` is the one you want.** Paste the replacement for a credential clowk
+already holds and nothing is overwritten — the new value is filed as `$NAME_2` and `$NAME` still
+resolves to the revoked one, which is why the block message says so and prints the `clowk set NAME`
+that moves the name across, keeping where and when it was first caught. It will not move it for
+you: an existing `$NAME` quietly changing meaning is the same accident in the other direction.
+
 ## The other hook, for when you are not the one pasting
 
 Your agent can leak a credential without you touching the keyboard: it `cat`s a `.env`, or runs
@@ -317,7 +323,7 @@ the junk is easy to spot and `clowk clear NAME` away.
 No dependencies, so no setup step:
 
 ```bash
-python3 -m unittest discover -s tests        # 399 tests, ~4s
+python3 -m unittest discover -s tests        # 414 tests, ~4s
 ```
 
 CI runs the same suite on Python 3.8 through 3.13 across Linux, macOS and Windows, plus three checks

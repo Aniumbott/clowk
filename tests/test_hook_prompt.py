@@ -341,6 +341,74 @@ class TestLogPasteDoesNotAvalanche(HookCase):
         self.assertGreater(len(reason), len(self.log) - len("".join(self.secrets)))
 
 
+class TestARotationIsNamedWhenItHappens(HookCase):
+    """After a rotation, $NAME kept resolving to the revoked key and nothing said so.
+
+    Reproduced: paste a Stripe key, it files as $STRIPE_SECRET_KEY. Rotate upstream, paste the new
+    one, and vault.store suffixes it to $STRIPE_SECRET_KEY_2 because the name is taken by a
+    different value. The user's code and habits still say $STRIPE_SECRET_KEY, which silently still
+    holds the dead value, so the next command gets a revoked credential and the failure arrives
+    looking like an API error rather than a clowk problem.
+
+    The storage model is right and stays: nothing is overwritten, the old value survives, and
+    `clowk set NAME` already exists to move a name onto a new value while keeping its ledger. The
+    only defect was that build_message annotated the shape-only guess and nothing else, so the one
+    moment when the user could act on this passed in silence.
+    """
+
+    OLD = "sk_" "live_4eC39HqLyjWDarjtT1zdp7dc"
+    NEW = "sk_" "live_9zQ71KpMxRvBnHt3Ld6sw2fa"
+
+    def block(self, secret):
+        code, out, err = self.run_hook({"prompt": "charge with " + secret, "cwd": "/p"})
+        self.assertEqual(code, 0)
+        return json.loads(out)["reason"]
+
+    def rotate(self):
+        self.block(self.OLD)
+        return self.block(self.NEW)
+
+    def test_the_suffixed_name_and_the_stale_one_are_both_named(self):
+        reason = self.rotate()
+        self.assertIn("$STRIPE_SECRET_KEY_2", reason)
+        self.assertIn("$STRIPE_SECRET_KEY ", reason + " ")
+
+    def test_the_remedy_is_spelled_out_as_a_command_that_exists(self):
+        self.assertIn("clowk set STRIPE_SECRET_KEY", self.rotate())
+
+    def test_the_new_value_is_not_silently_promoted_to_the_plain_name(self):
+        # The same class of bug in the other direction: promoting would change what an existing
+        # $NAME means for anyone who already scripted against it.
+        self.rotate()
+        self.assertEqual(self.vault.get("STRIPE_SECRET_KEY"), self.OLD)
+        self.assertEqual(self.vault.get("STRIPE_SECRET_KEY_2"), self.NEW)
+
+    def test_neither_value_appears_in_the_message(self):
+        reason = self.rotate()
+        self.assertNotIn(self.OLD, reason)
+        self.assertNotIn(self.NEW, reason)
+
+    def test_a_first_capture_says_nothing_about_rotation(self):
+        reason = self.block(self.OLD)
+        self.assertNotIn("clowk set", reason)
+        self.assertNotIn("rotat", reason.lower())
+
+    def test_the_same_key_pasted_twice_is_not_a_rotation(self):
+        self.block(self.OLD)
+        reason = self.block(self.OLD)
+        self.assertNotIn("clowk set", reason)
+        self.assertEqual(self.vault.names(), ["STRIPE_SECRET_KEY"])
+
+    def test_a_different_kind_of_credential_under_the_same_name_is_not_called_a_rotation(self):
+        # Written straight into the vault, because reaching this through two real rules that share
+        # an env name is incidental to what is being tested: the guard is rule id, not name.
+        self.vault.store("STRIPE_SECRET_KEY", "sk_" "live_someothervendorsvalue00",
+                         rule="generic-api-key")
+        reason = self.block(self.NEW)
+        self.assertIn("$STRIPE_SECRET_KEY_2", reason)
+        self.assertNotIn("clowk set", reason)
+
+
 class TestRedactionIsOnePass(HookCase):
     """capture() redacted with one str.replace over the whole prompt per finding.
 

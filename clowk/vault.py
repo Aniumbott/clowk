@@ -95,10 +95,30 @@ def _save(data):
     os.replace(tmp, p)
 
 
-def store(name, value, rule="", confidence="", source=""):
-    """Write value under name and return the final key. Suffixes on a same-name/different-value clash."""
+def store(name, value, rule="", confidence="", source="", detail=False):
+    """Write value under name and return the final key. Suffixes on a same-name/different-value clash.
+
+    With `detail`, returns (key, rotated) instead, where `rotated` is `name` when the clash was
+    with an entry recorded under the SAME rule -- i.e. almost certainly the same credential after
+    a rotation -- and "" otherwise. The caller cannot work that out from the key alone, which is
+    why a rotation used to pass in silence: the new value lands under NAME_2 while the plain NAME
+    still resolves to the revoked one, and nothing said so at the moment it could be acted on.
+
+    Reported, never acted on. Promoting the new value to the plain name would silently change what
+    an existing $NAME means for anyone who already scripted against it, which is the same class of
+    bug in the other direction. `replace` exists for when the user decides that is what they want.
+
+    Same rule id, not same name: two vendors' credentials can land on one env name -- GENERIC_API_KEY
+    especially -- and that is a name collision, about which "did you rotate it?" is the wrong
+    question. An entry with no rule recorded (anything `clowk add` stored, or a hand-edited one)
+    reports nothing either, because there is nothing to compare.
+    """
     data = _load()
     secrets = data["secrets"]
+    rotated = ""
+    existing = secrets.get(name)
+    if existing and existing.get("value") != value and rule and existing.get("rule") == rule:
+        rotated = name
     key, n = name, 2
     while key in secrets and secrets[key].get("value") != value:
         key = "%s_%d" % (name, n)
@@ -114,7 +134,7 @@ def store(name, value, rule="", confidence="", source=""):
         sources.append(source)
     secrets[key] = entry
     _save(data)
-    return key
+    return (key, rotated) if detail else key
 
 
 def get(name):
