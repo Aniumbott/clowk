@@ -768,8 +768,14 @@ class TestEmphasisIsGatedOnSomethingTrueAtRuntime(HookCase):
         # This is what protects Windows, where a stock console sets no TERM at all and needs
         # virtual-terminal processing enabled before an escape is anything but garbage.
         self.assertFalse(self.hook.emphasis_ok("claude-code", {}))
-        self.assertFalse(self.hook.emphasis_ok("claude-code", self.env(TERM="")))
-        self.assertFalse(self.hook.emphasis_ok("claude-code", self.env(TERM="dumb")))
+        for term in ("", "dumb", "DUMB", "Dumb"):
+            self.assertFalse(self.hook.emphasis_ok("claude-code", self.env(TERM=term)),
+                             "TERM=%r was sent escapes" % term)
+
+    def test_a_terminal_that_only_looks_dumb_still_gets_emphasis(self):
+        # dumb-emacs-ansi is a real TERM that does render escapes, so the check is an exact match
+        # on the folded name rather than a prefix.
+        self.assertTrue(self.hook.emphasis_ok("claude-code", self.env(TERM="dumb-emacs-ansi")))
 
     def reason(self, host="claude-code", emphasis=True):
         self.addCleanup(setattr, self.hook, "emphasis_ok", self.hook.emphasis_ok)
@@ -812,9 +818,13 @@ class TestEmphasisIsGatedOnSomethingTrueAtRuntime(HookCase):
 class TestTheClipboardPayloadIsNeverStyled(HookCase):
     """The clipboard payload is the text the user repastes INTO the chat.
 
-    An escape in it corrupts their prompt, can break the $NAME reference the whole flow depends on,
-    and would be transmitted to the model. The display string and the clipboard string are built
-    separately for exactly this reason, and this is the test that keeps them separate.
+    An escape clowk PUT there would corrupt their prompt, could break the $NAME reference the whole
+    flow depends on, and would be transmitted to the model. The display string and the clipboard
+    string are built separately for exactly that reason, and these keep them separate.
+
+    Note the exact claim. clowk adds none; it does not promise the payload is escape-free, because
+    the user's own pasted text may contain escapes and clowk substitutes values without editing
+    anything else. The last two tests below pin that distinction rather than leaving it implied.
     """
 
     KEY = "sk_" "live_4eC39HqLyjWDarjtT1zdp7dc"
@@ -853,6 +863,43 @@ class TestTheClipboardPayloadIsNeverStyled(HookCase):
         payload = self.paste("deploy with " + self.KEY + "\nthen restart")
         bad = [c for c in payload if ord(c) < 32 and c != "\n"]
         self.assertEqual(bad, [], "non-newline control characters in the payload: %r" % bad)
+
+    def test_clowk_adds_no_escape_to_a_prompt_that_already_had_one(self):
+        """The precise invariant, which is narrower than "the payload has no escapes".
+
+        A person pasting a coloured build log has escapes in their own text, and clowk deliberately
+        does not touch them: it substitutes the values it found and changes nothing else, so
+        stripping them would silently mangle the message the user chose to send. What must hold is
+        that clowk ADDS none of its own -- and that a pre-existing one cannot break the $NAME
+        reference the whole flow depends on, which is the thing the rule is protecting.
+        """
+        prompt = "build log:\n\x1b[31mERROR\x1b[0m failed\ndeploy with " + self.KEY + "\ndone"
+        payload = self.paste(prompt)
+        self.assertEqual(payload.count("\x1b"), prompt.count("\x1b"),
+                         "clowk added or removed an escape of its own")
+        self.assertIn("deploy with $STRIPE_SECRET_KEY\ndone", payload)
+        self.assertNotIn(self.KEY, payload)
+
+    def test_an_escape_near_the_credential_does_not_corrupt_the_reference(self):
+        payload = self.paste("\x1b[31mfailed\x1b[0m — deploy with " + self.KEY + " now")
+        self.assertIn("deploy with $STRIPE_SECRET_KEY now", payload)
+        self.assertNotIn(self.KEY, payload)
+        self.assertEqual(payload.count("\x1b"), 2)
+
+    def test_an_escape_glued_to_the_credential_still_redacts_it(self):
+        """A KNOWN limitation of detection, pinned here for its one guarantee: no leak.
+
+        With no separator, `ESC[1m` + the value reads as one token to the standalone rule -- `[`
+        is not in its lookbehind, so the match starts at the `1` and swallows the `1m`. The value
+        is still fully redacted, which is the property that matters, but it is filed under $SECRET
+        rather than $STRIPE_SECRET_KEY and the stored value carries the `1m`, so it would not work
+        as a credential. Fixing that means changing the token rule's boundaries, which is a
+        detection change needing the labelled-corpus run this repo does for those, and is not part
+        of the redaction work. Recorded rather than quietly tolerated.
+        """
+        payload = self.paste("\x1b[1m" + self.KEY + "\x1b[0m now")
+        self.assertNotIn(self.KEY, payload, "the credential leaked, which is not tolerable")
+        self.assertIn("$SECRET", payload)
 
 
 class TestStdinIsDecodedAsUtf8(HookCase):

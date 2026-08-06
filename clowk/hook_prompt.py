@@ -50,9 +50,10 @@ MAX_FILED = 20
 # still shown in full. Never applied when the clipboard copy failed: there the echo is the user's
 # only copy of the rewrite, so it is printed whole however long it is.
 #
-# The limit is deliberately larger than head + tail, so an elision always hides at least 200
-# characters. Equal to it, a 1001-character rewrite would print "1 more characters" and two thirds
-# of a marker's worth of nothing.
+# The limit is deliberately larger than head + tail, so the smallest elision this can produce
+# hides 201 characters and the marker always earns its line. Were the limit EQUAL to head + tail,
+# the shortest elided rewrite would be 801 characters and the marker would read "1 more
+# characters".
 ECHO_LIMIT = 1000
 ECHO_HEAD = 500
 ECHO_TAIL = 300
@@ -103,8 +104,10 @@ def emphasis_ok(host, env=None):
         return False
     if env.get("NO_COLOR"):          # no-color.org; an empty value is not an opt-in
         return False
-    term = env.get("TERM", "")
-    return bool(term) and term != "dumb"
+    # Case-folded, because `TERM=DUMB` otherwise sailed past a case-sensitive compare and got
+    # escapes -- the one terminal that certainly cannot render them. Exact match, not a prefix:
+    # `dumb-emacs-ansi` is a real TERM that does render them.
+    return env.get("TERM", "").lower() not in ("", "dumb")
 
 
 def _em(text, emphasis):
@@ -317,9 +320,11 @@ def capture(event, findings, emphasis=False):
     #
     # Still longest first, even though substitution no longer needs an order. It decides WHICH 20
     # values MAX_FILED files, and length is a rough proxy for "a real key rather than log noise":
-    # in text order, a genuine 48-character `sk_live_...` pasted below thirty 32-hex log lines
-    # falls outside the cap and is never written to the vault at all, so `clowk get` cannot reach
-    # it once the terminal has scrolled. Redaction is unaffected either way.
+    # in text order, the 57-character Slack token the test uses, pasted below thirty 32-hex log
+    # lines, falls outside the cap and is never written to the vault at all, so it cannot be
+    # retrieved once the terminal has scrolled. Redaction is unaffected either way. A weak proxy,
+    # and only preserved rather than defended -- a 32-character sk_live_ key TIES with a 32-hex log
+    # id and loses on sort stability. Confidence tier would discriminate; that is a separate change.
     for secret in sorted(_matched(pattern, prompt), key=len, reverse=True):
         finding = by_secret[secret]
         if len(stored) >= MAX_FILED:
