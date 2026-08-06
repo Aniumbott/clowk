@@ -264,10 +264,12 @@ can read, `cat` can read. It stops accidents. It will not stop an agent that is 
 
 - **Hook failure.** Every host fails open: if the hook crashes or times out, your prompt goes. clowk
   raises the bar, it cannot guarantee interception.
-- **The transcript on disk.** Blocking stops the model, not the disk. Claude Code writes the blocked
-  prompt to `~/.claude/projects/*.jsonl` itself, as a `system` record ending
-  `Original prompt: <your text, credential and all>`. Measured, not assumed. **Treat a blocked paste
-  as a key you still need to rotate.**
+- **The transcript on disk — and on your screen.** Blocking stops the model, not the disk. Claude
+  Code writes the blocked prompt to `~/.claude/projects/*.jsonl` itself, as a `system` record ending
+  `Original prompt: <your text, credential and all>`, and prints that same line under clowk's
+  message. Measured, not assumed. So **do not copy the terminal block** — someone has already
+  pasted one into another chat to report a bug and shipped the credential with it. The block message
+  says so on its last line. **Treat a blocked paste as a key you still need to rotate.**
 - **Files you `@`-mention.** The host reads those, not clowk.
 - **Grep**, which shows file contents to the model. The deny hook is registered on `Bash` and `Read`
   only, so anything else that reads a file goes around it.

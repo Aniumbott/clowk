@@ -228,6 +228,53 @@ class TestAGenericCatchIsFiledUnderTheUsersOwnLabel(HookCase):
         self.assertEqual(self.vault.get("API_KEY_2"), second)
 
 
+class TestTheHostsOwnEchoIsWarnedAbout(HookCase):
+    """Claude Code prints `Original prompt: <the text, credential and all>` under the block.
+
+    Documented in NOTES.md as the host's own behaviour, verified in both the TUI and `claude -p`,
+    and nothing clowk can suppress. It has now caused a real leak: a user selected the whole
+    terminal block to report a bug and pasted it, credentials included, into another chat. So the
+    message has to say so -- the block reason is the only text clowk controls at that moment.
+    """
+
+    KEY = "sk_" "live_4eC39HqLyjWDarjtT1zdp7dc"
+
+    def reason(self, host="claude-code"):
+        code, out, err = self.run_hook({"prompt": "use " + self.KEY, "cwd": "/p"}, host=host)
+        return plain(json.loads(out)["reason"] if host == "claude-code" else err)
+
+    def test_the_verified_host_is_told_its_own_prompt_is_printed_below(self):
+        reason = self.reason()
+        self.assertIn("Original prompt", reason)
+        self.assertIn("Do not copy", reason)
+
+    def test_the_warning_is_the_last_line_because_the_echo_follows_it(self):
+        self.assertIn("Original prompt", self.reason().rstrip().rsplit("\n", 1)[-1])
+
+    def test_the_unverified_hosts_are_not_told_something_nobody_measured(self):
+        # Same discipline as emphasis_ok: codex and gemini-cli take the reason on stderr with
+        # exit 2, a rendering path this project has not probed. A warning that points at text
+        # which may not be there -- "below this" -- is worse than none.
+        for host in ("codex", "gemini-cli"):
+            self.assertNotIn("Original prompt", self.reason(host), host)
+
+    def test_the_warning_never_reaches_the_clipboard_payload(self):
+        copied = []
+        self.addCleanup(setattr, self.hook.clip, "copy", self.hook.clip.copy)
+        self.hook.clip.copy = lambda text: copied.append(text) or True
+        self.reason()
+        self.assertEqual(len(copied), 1)
+        self.assertNotIn("Original prompt", copied[0])
+
+    def test_it_costs_exactly_one_line(self):
+        # The message had an elision pass to stop it flooding the terminal; this must not undo it.
+        with_warning = self.reason()
+        self.addCleanup(setattr, self.hook, "echoes_prompt", self.hook.echoes_prompt)
+        self.hook.echoes_prompt = lambda host: False
+        without = self.reason()
+        self.assertEqual(len(with_warning.split("\n")), len(without.split("\n")) + 1)
+
+
 class TestBypassIsAnchoredToTheStart(HookCase):
     """`unclowk` is the one deliberate fail-open switch, so where it counts has to be pinned.
 

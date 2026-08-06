@@ -114,6 +114,36 @@ def _em(text, emphasis):
     return BOLD + text + UNBOLD if emphasis else text
 
 
+# --- the host's own echo --------------------------------------------------------------------------
+# Claude Code prints `Original prompt: <the text, credential and all>` immediately below the block
+# reason. Verified 2026-08-06 in both the TUI and `claude -p`, recorded in NOTES.md, and clowk cannot
+# stop it: the host writes it after the hook has exited.
+#
+# It has now caused a real leak. A user selected the whole terminal block to report a bug and pasted
+# it into another chat, credentials included -- so the value clowk had just kept off the wire went
+# over it anyway, by hand. The block reason is the only text clowk controls at that moment, so the
+# warning goes there, LAST, next to the thing it describes.
+ECHO_WARNING = ("🙈 Claude Code prints your Original prompt below this — credential and all. "
+                "Do not copy that part.")
+
+
+def echoes_prompt(host):
+    """True if this host is KNOWN to print the raw prompt back after a block.
+
+    claude-code only, and for the same reason emphasis_ok is: it is the only host whose block
+    rendering has been measured. codex and gemini-cli take the reason on stderr with exit 2, a
+    different path entirely, and a probe there needs hook trust granted in a live config.
+
+    Erring towards silence here rather than towards warning, which is the opposite of how clowk
+    treats detection, and deliberately: the sentence makes a claim about WHERE the credential is on
+    screen -- "below this" -- and a spatial claim about output clowk has never seen is not a
+    cautious warning, it is a wrong one. A user who checks and finds nothing there learns to skim
+    the rest of the block, which is the part that keeps the credential off the wire.
+    Widen this the moment either host is measured; NOTES.md tracks that.
+    """
+    return host == "claude-code"
+
+
 # Sessions that have already been shown the pointer. A session blocking five credentials does not
 # need the explanation five times -- the agent read it the first time and the skill stays loaded.
 def _seen_path():
@@ -169,7 +199,7 @@ def _host_from(argv):
 
 
 def build_message(rewritten, stored, tiers, copied, unfiled=(), skipped=0, rotated=None,
-                  emphasis=False):
+                  emphasis=False, warn_echo=False):
     """The block reason, which is the DISPLAY string and never the clipboard payload.
 
     Kept short on purpose. This is read by a person who has just been interrupted mid-thought, so it
@@ -187,6 +217,11 @@ def build_message(rewritten, stored, tiers, copied, unfiled=(), skipped=0, rotat
 
     Structure carries the message with no escapes at all -- indentation, one idea per short line,
     the existing emoji -- because two of the three hosts get exactly that.
+
+    `warn_echo` appends ECHO_WARNING, and it is last on purpose: the thing it warns about is printed
+    by the host directly underneath, so the sentence sits next to what it describes. One line, no
+    blank line before it -- it pairs with the bypass line as a two-line footer, because the message
+    was elided down for a reason and a fourth section would grow it back.
     """
     rotated = rotated or {}
     lines = ["👀 clowk caught a credential before it reached the model.", ""]
@@ -220,6 +255,8 @@ def build_message(rewritten, stored, tiers, copied, unfiled=(), skipped=0, rotat
         _echo(lines, rewritten)
     lines.append("")
     lines.append("🤔 Not a credential? Resend starting with  %s" % BYPASS)
+    if warn_echo:
+        lines.append(ECHO_WARNING)
     return "\n".join(lines)
 
 
@@ -294,16 +331,20 @@ def main(argv, stdin, stdout, stderr):
     # generic reason is always better than letting an exception reach the fail-open handler,
     # which would transmit the credential with nothing on either stream.
     try:
-        reason = capture(event, findings, emphasis_ok(host))
+        reason = capture(event, findings, emphasis_ok(host), echoes_prompt(host))
     except Exception:  # noqa: BLE001 -- see above; deliberately never re-raised
         # No rewrite here: a half-substituted prompt could still hold a raw value.
+        # The echo warning belongs here too, and more than anywhere else: nothing was rewritten, so
+        # the raw credential the host reprints below is the ONLY copy on screen.
         reason = ("clowk found a credential in this message but hit an internal error, so it was "
                   "neither filed nor rewritten.\n\nTo send the original text anyway, start your "
                   "message with:  %s" % BYPASS)
+        if echoes_prompt(host):
+            reason = reason + "\n" + ECHO_WARNING
     return hosts.block(host, reason, stdout, stderr)
 
 
-def capture(event, findings, emphasis=False):
+def capture(event, findings, emphasis=False, warn_echo=False):
     """Redact every finding out of the prompt, file what it can, return the block reason.
 
     Redaction is unconditional; filing is not -- it stops at MAX_FILED and tolerates a vault
@@ -360,7 +401,7 @@ def capture(event, findings, emphasis=False):
         rewritten = rewritten + "\n\n" + SKILL_POINTER
     copied = clip.copy(rewritten)
     return build_message(rewritten, stored, tiers, copied, unfiled, skipped, rotated,
-                         emphasis)
+                         emphasis, warn_echo)
 
 
 # --- one-pass redaction -------------------------------------------------------------------------

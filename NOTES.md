@@ -101,6 +101,14 @@ below already said the value reaches the disk; it also reaches the screen, so a 
 a scrollback buffer both get it. Nothing clowk can do about either — it is one more reason a blocked
 paste is still a key you have to rotate.
 
+This has now cost someone a credential: a user selected the whole terminal block to report a bug and
+pasted it into another chat, raw value included. So the block message says so, on its last line, next
+to the echo it describes — `hook_prompt.ECHO_WARNING`, gated by `echoes_prompt()`. **claude-code only,
+and for the same reason `emphasis_ok` is:** the sentence makes a claim about *where* the credential is
+on screen, and clowk has never seen codex's or gemini-cli's block output. A warning that points at
+text which is not there teaches the reader to skim the rest of the block. Widen the gate when either
+host is measured — that measurement is the only thing missing.
+
 ## Things that do not work here
 
 - **`PostToolUse` `updatedToolOutput` is ignored in Claude Code 2.1.202.** The hook fires and emits
