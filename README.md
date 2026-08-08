@@ -120,6 +120,23 @@ nothing depends on `PATH` — but move the clone and you re-run `install`.
 On Windows use `python` or `py`; there is no `python3` on a stock install. On Codex, hooks need
 trust: run `/hooks` and approve clowk. Trust is hash-based, so every update asks again.
 
+### Updating
+
+```bash
+git pull
+clowk install                # and again per host you registered
+```
+
+There is no `clowk update`, and **`git pull` on its own leaves you half-updated**. The hooks and the
+launcher hold absolute paths into this clone, so those pick up new code immediately. The skill is
+*copied* to `~/.claude/skills/clowk/` and `/clowk` is *generated* into `~/.claude/commands/`, so
+neither moves until you re-run `install` — which is idempotent, and never overwrites a `/clowk` you
+wrote yourself. Restart the agent afterwards.
+
+If you also installed the plugin, that is a separate copy on its own schedule: `/plugin marketplace
+update clowk`. It refreshes only when `plugin.json`'s version changes, so a pull alone will not move
+it.
+
 <details>
 <summary><code>/clowk</code> and the optional plugin install</summary>
 
@@ -128,19 +145,26 @@ generates that file rather than copying `commands/clowk.md`, which resolves `${C
 — only set for plugin commands. A `/clowk` you wrote yourself is never overwritten.
 
 It also copies the skill to `~/.claude/skills/clowk/`, so the agent knows what a `$NAME` is without
-the plugin. That is only true from 0.3.0 on — before it, the plugin was the only thing delivering the
-skill, and an agent without it read `$DATABASE_URL` as an ordinary empty variable and asked you to
-paste the real one again. If that is why you installed the plugin, you no longer need it.
+the plugin. Without that skill an agent reads `$DATABASE_URL` as an ordinary empty variable and asks
+you to paste the real one again, which rather undoes the exercise.
 
-To install as a plugin anyway, inside Claude Code, with `<clone>` this directory's absolute path:
+The plugin is therefore optional. It delivers the skill and `/clowk:clowk`, and nothing else — it
+declares no hooks, so the guard itself still comes from `clowk install`. To add it anyway:
+
+```
+/plugin marketplace add Aniumbott/clowk
+/plugin install clowk@clowk
+```
+
+Or from a local clone, with `<clone>` this directory's absolute path:
 
 ```
 /plugin marketplace add <clone>
-/plugin install clowk@clowk-dev
+/plugin install clowk@clowk
 ```
 
 **Either source makes a second copy.** `/plugin install` caches the whole tree under
-`~/.claude/plugins/cache/clowk-dev/clowk/<version>/`, pinned to the commit you installed at — local
+`~/.claude/plugins/cache/clowk/clowk/<version>/`, pinned to the commit you installed at — local
 path included, measured, not just a git URL. The cache key is `plugin.json`'s version, which does not
 change when the source does, so `/clowk:clowk` runs that snapshot until you bump and refresh. Both
 copies read the same vault, so nothing breaks at once; they drift. A git URL needs the `.git` suffix.
