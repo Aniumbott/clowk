@@ -1,8 +1,7 @@
 # clowk — design
 
-The durable decisions and why they are what they are. Current architecture:
-`docs/superpowers/specs/2026-07-29-clowk-architecture.md`. Diagram:
-`clowk-architecture.svg`. Platform findings: `NOTES.md`.
+The durable decisions and why they are what they are. Diagram: `assets/architecture.svg`.
+Platform findings, and what is verified against what is assumed: `NOTES.md`.
 
 ## The problem
 

@@ -160,10 +160,10 @@ class TestTheShippedSvgsAreValidAndCurrent(unittest.TestCase):
     had been deleted, so the fix is to make the numbers derive from the code that owns them.
     """
 
-    SVGS = ("clowk-architecture.svg", "clowk-logo.svg", "clowk-logo-dark.svg")
+    SVGS = ("assets/architecture.svg", "assets/logo.svg", "assets/logo-dark.svg")
 
     def setUp(self):
-        self.diagram = read("clowk-architecture.svg")
+        self.diagram = read("assets", "architecture.svg")
 
     def test_every_shipped_svg_parses(self):
         for name in self.SVGS:

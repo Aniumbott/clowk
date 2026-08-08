@@ -1,8 +1,8 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="clowk-logo-dark.svg">
-  <img src="clowk-logo.svg" alt="" width="96" height="96">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+  <img src="assets/logo.svg" alt="" width="96" height="96">
 </picture>
 
 # clowk
@@ -298,7 +298,7 @@ pattern all pass. A path counts as a read only when something that reads files i
 
 Everything at once, including the parts with no flow to draw. Click through for full size.
 
-[![clowk architecture — capture, store, use, deny](clowk-architecture.svg)](clowk-architecture.svg)
+[![clowk architecture — capture, store, use, deny](assets/architecture.svg)](assets/architecture.svg)
 
 ## Limitations
 
