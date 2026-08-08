@@ -41,6 +41,7 @@ nothing to sign up for.
 
 | | |
 |---|---|
+| [What it is good for](#what-it-is-good-for) | Beyond catching a mistake |
 | [Quick start](#quick-start) | Install, update, uninstall |
 | [How it works](#how-it-works) | The capture path and what gets detected |
 | [Using a credential](#using-a-credential) | `$(clowk get NAME)` and the guard around it |
@@ -52,6 +53,32 @@ nothing to sign up for.
 | [False positives](#false-positives) | Why they happen and how to clear them |
 | [Contributing](#contributing) | How to help |
 | [Development](#development) | Tests, layout, the ruleset |
+
+## What it is good for
+
+Catching a paste is how most people meet clowk, but it is the smaller half. The same three
+primitives — a local store, a `$NAME` reference that is worthless on its own, and a guard that only
+permits command substitution — make clowk a **credential supply route for agents** rather than only a
+net under your mistakes.
+
+Nothing here needs a credential to have been leaked first. `clowk add NAME` takes a value at the
+terminal, so it never enters a chat at all.
+
+| Use it for | How |
+|---|---|
+| **Credentials that survive across sessions** | `clowk add` each one once, then name clowk in your `CLAUDE.md`. Every future session can reach `$(clowk get DATABASE_URL)` without a value ever entering a prompt, a transcript, or the model. |
+| **Keeping keys out of the agent's environment** | A captured value is not exported. `env`, `printenv` and a leaked `.env` dump cannot reveal it — unlike `export STRIPE_KEY=…` in your shell profile, which every agent session inherits and any `env` call prints straight into the transcript. |
+| **Runbooks and docs you can commit** | `psql "$(clowk get DATABASE_URL)"` is safe to write into a committed runbook, `CLAUDE.md`, or a README. The reference is worth nothing to whoever clones it. |
+| **One store across several agent CLIs** | Claude Code, Codex and Gemini CLI all read the same `~/.clowk/vault.json`. One credential store instead of three sets of environment variables. |
+| **Rotation without archaeology** | `clowk uses NAME` reports where a credential was captured and every directory that has drawn on it since, so a rotation is a list to work through rather than a guess. |
+| **Noticing a bad habit** | Re-catches are counted. When `clowk list` says a key has been caught five times, that key belongs in `clowk add` and out of your muscle memory. |
+| **Agent-initiated leaks** | The tool-deny hook refuses `cat .env`, `git credential fill`, private keys and the vault itself — the ways a credential reaches a transcript without you typing anything. |
+| **Pasting logs and dumps** | Credentials inside a pasted log are redacted before the model sees them, whether or not they get filed. |
+
+**What it is not good for.** Screen sharing and recordings: Claude Code prints the raw prompt back to
+your terminal under clowk's message, so the value is on screen even though the model never got it.
+It is also not a CI or deployment secret manager — there is no daemon, no network, and the vault is a
+local file belonging to one user.
 
 ## Quick start
 
