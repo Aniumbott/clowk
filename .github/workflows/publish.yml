@@ -16,7 +16,7 @@ on:
         required: true
         default: testpypi
         type: choice
-        options: [testpypi, pypi]
+        options: [testpypi, pypi, alias]
 
 jobs:
   build:
@@ -103,8 +103,12 @@ jobs:
 
   alias:
     name: PyPI · clowk-cli alias
-    needs: build
-    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi')
+    # No `needs: build` for the alias target: that job builds and checks the clowk artifacts, which
+    # has nothing to do with publishing a metadata-only alias, and requiring it would mean a clowk
+    # problem blocked an unrelated upload.
+    if: >-
+      github.event_name == 'release'
+      || (github.event_name == 'workflow_dispatch' && (inputs.target == 'pypi' || inputs.target == 'alias'))
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
