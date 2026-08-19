@@ -61,6 +61,23 @@ class TestTheUpgradeCommandMatchesTheManager(UpdateCase):
 
 
 class TestCheckIsReadOnly(UpdateCase):
+    """These stub registered_hosts on purpose.
+
+    The first version read the real machine, so they passed on a developer box with clowk installed
+    and failed on every CI runner, where nothing is registered -- three red jobs across seven
+    platforms for a reason that had nothing to do with the code under test. A test that depends on
+    the host's configuration is testing the host.
+    """
+
+    def setUp(self):
+        UpdateCase.setUp(self)
+        self._real = update.registered_hosts
+        update.registered_hosts = lambda: ["claude-code"]
+        self.addCleanup(self._restore)
+
+    def _restore(self):
+        update.registered_hosts = self._real
+
     def test_check_does_not_refuse_on_a_dirty_tree(self):
         # The whole point of --check is to report. Refusing made it useless in any working clone.
         code = update.run(["--check"], self.out, self.err)

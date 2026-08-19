@@ -30,6 +30,22 @@ class SetupCase(unittest.TestCase):
 
 
 class TestItNeverBlocksWithoutATerminal(SetupCase):
+    """detected_hosts is stubbed because the branch under test is only reachable with hosts present.
+
+    Without the stub this passed on a machine with agent CLIs installed and took the "no hosts found"
+    branch on a fresh runner, asserting a message that environment never produces. Both paths refuse
+    correctly; the test was just naming the wrong one.
+    """
+
+    def setUp(self):
+        SetupCase.setUp(self)
+        self._real = setup.detected_hosts
+        setup.detected_hosts = lambda: ["claude-code", "codex"]
+        self.addCleanup(self._restore)
+
+    def _restore(self):
+        setup.detected_hosts = self._real
+
     def test_no_flags_and_no_tty_refuses_instead_of_prompting(self):
         code = self.run_setup([])
         self.assertEqual(code, 1)
