@@ -146,9 +146,39 @@ real command, because the caller that matters is the non-interactive shell your 
 > missing tool.
 
 `install` merges into your existing settings, backs them up first, and refuses a settings file that
-is not valid UTF-8 JSON. `uninstall` removes only what clowk wrote, byte for byte, and never touches
-the vault. Hooks and launcher hold absolute paths to this clone and to the interpreter you ran
-`install` with, so nothing depends on `PATH` — but move the clone and you re-run `install`.
+is not valid UTF-8 JSON. `uninstall` removes only what clowk wrote, byte for byte. Hooks and launcher
+hold absolute paths to this clone and to the interpreter you ran `install` with, so nothing depends on
+`PATH` — but move the clone and you re-run `install`.
+
+### Uninstalling
+
+```bash
+clowk uninstall                       # per host you registered
+```
+
+**Your credentials are a separate decision, and `uninstall` makes you take it.** The vault is the only
+copy of every value in it, so removing clowk does not remove `~/.clowk/vault.json` unless you say so.
+Either way it tells you the file is still there, how many credentials it holds, and that nothing else
+on your machine reads it — a plaintext file of live keys should not be left behind by accident, and it
+should not be destroyed by accident either.
+
+Interactively you get three options: back it up first, delete it, or keep it. Deleting asks you to
+type `DELETE` rather than pressing a key, because it cannot be undone. Unattended, it keeps the vault
+and prints the flags:
+
+```bash
+clowk uninstall --backup ~/keys.txt   # every value, as readable text, mode 0600
+clowk uninstall --purge               # delete the vault, no prompt
+clowk uninstall --keep-vault          # keep it without being asked
+```
+
+A backup is plaintext by definition and **clowk's own deny hook does not protect it** — it only knows
+the vault's real path. Move it somewhere safe or delete it once you have restored what you need with
+`clowk add`.
+
+> **Run `clowk uninstall` before `pip uninstall clowk` or `pipx uninstall clowk`.** Removing the
+> package first leaves the hooks registered, pointing at a script that no longer exists — and since
+> every host fails open, that is a guard that silently passes every credential from then on.
 
 On Windows use `python` or `py`; there is no `python3` on a stock install. On Codex, hooks need
 trust: run `/hooks` and approve clowk. Trust is hash-based, so every update asks again.
@@ -314,7 +344,8 @@ repeatedly is a habit, and `clowk add` is how you stop.
 | `clowk deny PATTERN` | Undo an allow |
 | `clowk update` | Fetch new code, then refresh the skill and command that do not move on their own. `--check` looks without changing |
 | `clowk setup` | Guided first-time setup: detect hosts, install, then verify the guard actually blocks. `--hosts a,b`, `--yes`, `--dry-run` for unattended use |
-| `clowk install [HOST]` | Register hooks for one host; `uninstall` removes them |
+| `clowk install [HOST]` | Register hooks for one host |
+| `clowk uninstall [HOST]` | Remove them, then decide about the vault. `--backup FILE`, `--purge`, `--keep-vault` |
 | `clowk --version` | The installed version |
 | `clowk debug-payload` | Dump what a host sends, for adding a new one |
 
@@ -438,7 +469,7 @@ Useful to know before opening a PR:
 ## Development
 
 ```bash
-python3 -m unittest discover -s tests        # 542 tests, ~4s
+python3 -m unittest discover -s tests        # 560 tests, ~4s
 ```
 
 CI runs the same suite on Python 3.8 through 3.13 across Linux, macOS and Windows, plus three checks

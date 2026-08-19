@@ -243,3 +243,88 @@ def record_use(name, where):
     if where not in uses:
         uses.append(where)
         _save(data)
+
+# --- export and purge -----------------------------------------------------------------------------
+# The vault is the only copy of anything it holds. `clowk uninstall` used to leave it behind silently,
+# which is the wrong kind of quiet in both directions: a user who wanted a clean machine kept a
+# plaintext file of live credentials, and a user who assumed uninstall took it with them believed they
+# had cleaned up when they had not.
+
+def export_text():
+    """The whole vault as readable text, values included. None if there is nothing to export.
+
+    Plaintext, because the vault already is and because the point is to be readable by a human with
+    no tooling -- the same reasoning that keeps the vault plain JSON. The caller is responsible for
+    the file mode and for telling the user what they now have on disk.
+    """
+    data = _load()
+    secrets = data.get("secrets") or {}
+    if not secrets:
+        return None
+    lines = ["clowk vault export",
+             "",
+             "Every VALUE below is a live credential in plaintext. Move this file somewhere safe or",
+             "delete it once you are done -- clowk's own deny hook does not protect it, because it",
+             "only knows about the vault's real path.",
+             "",
+             "Restore by hand: `clowk add NAME` and paste the value at the prompt.",
+             "=" * 78,
+             ""]
+    for name in sorted(secrets):
+        entry = secrets[name] or {}
+        lines.append("NAME:  %s" % name)
+        lines.append("VALUE: %s" % entry.get("value", ""))
+        for key in ("rule", "confidence", "first_caught", "last_caught", "catches"):
+            if entry.get(key) not in (None, "", []):
+                lines.append("  %-13s %s" % (key + ":", entry[key]))
+        for key in ("sources", "uses"):
+            for item in entry.get(key) or []:
+                lines.append("  %-13s %s" % (key + ":", item))
+        lines.append("")
+    return "\n".join(lines)
+
+
+def write_export(destination):
+    """Write export_text() to destination at mode 0600. Returns the path, or None if nothing to write."""
+    text = export_text()
+    if text is None:
+        return None
+    destination = os.path.expanduser(destination)
+    parent = os.path.dirname(destination)
+    if parent and not os.path.isdir(parent):
+        os.makedirs(parent)
+    # Create with the mode already restrictive rather than chmod-ing after: between the two there is
+    # a window where a file of live credentials is world-readable.
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    handle = os.open(destination, flags, 0o600)
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as f:
+            f.write(text)
+    except Exception:
+        try:
+            os.close(handle)
+        except OSError:
+            pass
+        raise
+    try:
+        os.chmod(destination, 0o600)   # no-op on Windows, which relies on user-profile ACLs
+    except OSError:
+        pass
+    return destination
+
+
+def purge():
+    """Delete the vault file itself. Returns True if it was there. Irreversible."""
+    target = path()
+    if not os.path.exists(target):
+        return False
+    os.remove(target)
+    return True
+
+
+def count():
+    """How many credentials the vault holds, or 0 if it is absent or empty."""
+    try:
+        return len((_load().get("secrets") or {}))
+    except VaultUnreadable:
+        return 0

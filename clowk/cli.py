@@ -383,7 +383,112 @@ def cmd_install(host, out, err):
     return 0
 
 
-def cmd_uninstall(host, out, err):
+VAULT_FLAGS = ("--purge", "--keep-vault", "--backup")
+
+
+def install_mod_vault_flags():
+    return VAULT_FLAGS
+
+
+def _vault_notice(out, err, argv, stdin):
+    """Deal with the vault after the hooks are gone. Returns an exit code.
+
+    The vault is the only copy of what it holds, and until now uninstall left it behind in silence.
+    That reads two opposite ways and both are bad: someone wanting a clean machine keeps a plaintext
+    file of live credentials, and someone assuming uninstall took it with them believes they have
+    cleaned up when they have not. So it is always mentioned, deletion always needs a typed word, and
+    a backup is always on offer first.
+    """
+    purge = "--purge" in argv
+    keep = "--keep-vault" in argv
+    backup_to = None
+    if "--backup" in argv:
+        index = list(argv).index("--backup")
+        if index + 1 < len(argv) and not argv[index + 1].startswith("-"):
+            backup_to = argv[index + 1]
+        else:
+            backup_to = os.path.join("~", "clowk-vault-backup.txt")
+
+    total = vault.count()
+    if total == 0:
+        out.write("\nYour vault holds nothing, so there was nothing to keep or remove.\n")
+        return 0
+
+    out.write("\n%s\n" % ("-" * 66))
+    out.write("Your vault still holds %d credential%s, in plaintext:\n    %s\n"
+              % (total, "" if total == 1 else "s", vault.path()))
+    out.write("Removing clowk does not remove that file, and nothing else on your machine\n"
+              "reads it. It is the only copy of every value in it.\n")
+
+    if backup_to:
+        try:
+            written = vault.write_export(backup_to)
+        except (IOError, OSError) as exc:
+            err.write("Could not write the backup (%s), so the vault was left alone.\n" % exc)
+            return 1
+        out.write("\nBacked up to %s (mode 0600).\n" % written)
+        out.write("That file contains every value in the clear. clowk's deny hook does NOT\n"
+                  "protect it -- move it somewhere safe or delete it when you are done.\n")
+
+    if purge:
+        if vault.purge():
+            out.write("\nDeleted %s. %d credential%s gone.\n"
+                      % (vault.path(), total, "" if total == 1 else "s"))
+        return 0
+    if keep:
+        out.write("\nKept, as asked.\n")
+        return 0
+
+    interactive = False
+    try:
+        interactive = bool((stdin or sys.stdin).isatty())
+    except Exception:  # noqa: BLE001 -- a StringIO has no isatty
+        interactive = False
+    if not interactive:
+        out.write("\nKept it, because there is no terminal here to ask. To decide explicitly:\n"
+                  "    clowk uninstall --backup FILE     write every value to a text file\n"
+                  "    clowk uninstall --purge           delete the vault\n"
+                  "    clowk uninstall --keep-vault      keep it without being asked again\n")
+        return 0
+
+    stream = stdin or sys.stdin
+    while True:
+        out.write("\n  b) back it up to a text file first\n"
+                  "  d) delete it now\n"
+                  "  k) keep it  (default)\n\nWhich? ")
+        out.flush()
+        answer = (stream.readline() or "").strip().lower()
+        if answer in ("", "k", "keep"):
+            out.write("Kept %s.\n" % vault.path())
+            return 0
+        if answer in ("b", "backup"):
+            target = os.path.join("~", "clowk-vault-backup.txt")
+            out.write("Write it to [%s]: " % target)
+            out.flush()
+            typed = (stream.readline() or "").strip()
+            try:
+                written = vault.write_export(typed or target)
+            except (IOError, OSError) as exc:
+                err.write("Could not write that (%s). Nothing was deleted.\n" % exc)
+                continue
+            out.write("Backed up to %s (mode 0600). Every value is in the clear in there, and\n"
+                      "clowk's deny hook does not protect it.\n" % written)
+            continue
+        if answer in ("d", "delete"):
+            # A typed word, not y/n. This is irreversible and the vault is the only copy.
+            out.write("\nThis cannot be undone. Type DELETE to remove %d credential%s: "
+                      % (total, "" if total == 1 else "s"))
+            out.flush()
+            if (stream.readline() or "").strip() != "DELETE":
+                out.write("Not deleted.\n")
+                continue
+            if vault.purge():
+                out.write("Deleted %s.\n" % vault.path())
+            return 0
+        out.write("Not one of b, d or k.\n")
+
+
+def cmd_uninstall(host, out, err, argv=(), stdin=None):
     try:
         result = install_mod.uninstall(host)
     except KeyError:
@@ -399,7 +504,7 @@ def cmd_uninstall(host, out, err):
         out.write("Removed %s.\n" % install_mod.skill_path(host))
     if install_mod.uninstall_launcher():
         out.write("Removed %s.\n" % install_mod.launcher_path())
-    return 0
+    return _vault_notice(out, err, tuple(argv), stdin)
 
 
 def main(argv, out=None, err=None):
@@ -451,8 +556,26 @@ def _dispatch(argv, out, err):
         return setup_mod.run(args, out, err)
     if cmd == "install" and len(args) <= 1:
         return cmd_install(args[0] if args else "claude-code", out, err)
-    if cmd == "uninstall" and len(args) <= 1:
-        return cmd_uninstall(args[0] if args else "claude-code", out, err)
+    if cmd == "uninstall":
+        flags = [a for a in args if a.startswith("-")]
+        positional = [a for a in args if not a.startswith("-")]
+        # --backup may take a path, which is positional-looking but belongs to the flag.
+        if "--backup" in args:
+            index = args.index("--backup")
+            if index + 1 < len(args) and not args[index + 1].startswith("-"):
+                taken = args[index + 1]
+                if taken in positional:
+                    positional.remove(taken)
+        if len(positional) > 1:
+            err.write("Usage: clowk uninstall [HOST] [--backup FILE] [--purge] [--keep-vault]\n")
+            return 1
+        unknown = [f for f in flags if f not in install_mod_vault_flags()]
+        if unknown:
+            err.write("Unknown option(s): %s\n"
+                      "Usage: clowk uninstall [HOST] [--backup FILE] [--purge] [--keep-vault]\n"
+                      % ", ".join(unknown))
+            return 1
+        return cmd_uninstall(positional[0] if positional else "claude-code", out, err, args)
     if cmd == "get" and len(args) == 1:
         return cmd_get(args[0], out, err)
     if cmd == "debug-payload" and not args:
