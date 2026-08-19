@@ -213,5 +213,53 @@ class TestTheShippedSvgsAreValidAndCurrent(unittest.TestCase):
         self.assertIn(os.path.join(".local", "bin"), install.launcher_path())
 
 
+class TestTheMermaidDiagramsCanRenderOnGitHub(unittest.TestCase):
+    """A diagram that fails to parse shows an error box where the picture should be.
+
+    One did. GitHub reported `Parse error on line 2 ... got 'PS'` on a node label containing
+    `psql &quot;$(clowk get NAME)&quot;` -- it read the `(` as the start of a node shape. Two things
+    the error message itself proved: GitHub decodes HTML entities BEFORE parsing, because the error
+    quoted the label with `&quot;` already turned into `"`, which is why replacing the parentheses
+    with `&#40;` and `&#41;` does not help. They decode straight back.
+
+    Neither mermaid 10.9.8 nor 11.17.0 reproduces the failure locally, so a parser-based check would
+    pass while GitHub still broke. This lints for the construct instead, which is deterministic and
+    needs no Node. The other two diagrams in the same file use `<b>` and `<br/>` and render fine, so
+    those are not the problem and are not banned here.
+    """
+
+    BANNED = (
+        ("(", "GitHub reads a parenthesis in a node label as the start of a node shape"),
+        (")", "GitHub reads a parenthesis in a node label as the start of a node shape"),
+        ("&#40;", "entities are decoded before parsing, so this becomes a parenthesis"),
+        ("&#41;", "entities are decoded before parsing, so this becomes a parenthesis"),
+    )
+
+    def labels(self):
+        """(file, block number, label text) for every quoted node label in every mermaid block."""
+        import re
+
+        found = []
+        for name in ("README.md", "DESIGN.md", "NOTES.md"):
+            try:
+                text = read(name)
+            except IOError:
+                continue
+            for index, block in enumerate(re.findall(r"```mermaid\n(.*?)```", text, re.S), 1):
+                for label in re.findall(r'\[\(?"(.*?)"\)?\]', block):
+                    found.append((name, index, label))
+        return found
+
+    def test_there_are_diagrams_to_check(self):
+        self.assertTrue(self.labels(), "no mermaid labels found -- the regex has stopped matching")
+
+    def test_no_node_label_contains_a_parenthesis(self):
+        for name, index, label in self.labels():
+            for token, why in self.BANNED:
+                self.assertNotIn(token, label,
+                                 "%s mermaid block %d: %r contains %r -- %s"
+                                 % (name, index, label, token, why))
+
+
 if __name__ == "__main__":
     unittest.main()
