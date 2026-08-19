@@ -1,0 +1,102 @@
+# Publishing uses PyPI Trusted Publishing (OIDC), so no long-lived API token exists in this
+# repository's secrets. For a tool whose entire subject is not handling long-lived credentials, using
+# one to ship it would be a poor advertisement.
+#
+# One-time setup on PyPI, before the first run: add a Trusted Publisher for this repository with
+# workflow name `publish.yml` and environment `pypi` (and `testpypi` on test.pypi.org).
+name: publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Where to publish
+        required: true
+        default: testpypi
+        type: choice
+        options: [testpypi, pypi]
+
+jobs:
+  build:
+    name: build and check the artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --quiet build twine
+      - run: python -m build
+
+      # PyPI will not let a version be re-uploaded, so a broken artifact is permanent. Every check
+      # that can run before the upload runs here.
+      - name: The wheel must carry the files an install cannot work without
+        run: |
+          python - <<'PY'
+          import glob, sys, zipfile
+          whl = glob.glob("dist/*.whl")[0]
+          names = zipfile.ZipFile(whl).namelist()
+          need = ["clowk/rules.json", "clowk/gitleaks.toml", "clowk/data/SKILL.md", "clowk/cli.py"]
+          missing = [n for n in need if n not in names]
+          if missing:
+              sys.exit("wheel is missing %s -- it would install and silently not work" % missing)
+          print("wheel carries all of:", ", ".join(need))
+          PY
+
+      - name: The version must agree everywhere before it becomes permanent
+        run: |
+          python - <<'PY'
+          import glob, json, os, re, sys
+          sys.path.insert(0, ".")
+          from clowk import __version__ as version
+          plugin = json.load(open(".claude-plugin/plugin.json"))["version"]
+          if plugin != version:
+              sys.exit("plugin.json says %s, package says %s" % (plugin, version))
+          if version not in open("assets/architecture.svg", encoding="utf-8").read():
+              sys.exit("the diagram does not name %s" % version)
+          if not glob.glob("dist/clowk-%s-py3-none-any.whl" % version):
+              sys.exit("no wheel built for %s" % version)
+          print("version %s agrees across package, plugin.json, diagram and wheel" % version)
+          PY
+
+      - name: The long description must render on PyPI
+        run: python -m twine check dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  testpypi:
+    name: TestPyPI
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi'
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  pypi:
+    name: PyPI
+    needs: build
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi')
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

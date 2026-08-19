@@ -53,6 +53,7 @@ which runs your package manager or `git pull` when you ask it to.
 | [Configuration](#configuration) | Paths and environment variables |
 | [False positives](#false-positives) | Why they happen and how to clear them |
 | [Contributing](#contributing) | How to help |
+| [Security](#security) | Reporting a vulnerability |
 | [Development](#development) | Tests, layout, the ruleset |
 
 ## What it is good for
@@ -435,6 +436,15 @@ replace the vendored copy with a newer one from
 dialect to Python's and prints what it translated and what it could not use; a rule it cannot compile
 is skipped, and a test fails if that ever loses one. Check `NOTES.md` first — it records, with dates,
 what upstream's newest config actually is, which is currently the copy already vendored here.
+
+## Security
+
+Report anything exploitable privately through
+[GitHub's advisory form](https://github.com/Aniumbott/clowk/security/advisories/new), never in a
+public issue, and never with a real credential in it. [`SECURITY.md`](https://github.com/Aniumbott/clowk/blob/main/SECURITY.md)
+lists what counts — and, just as usefully, which documented limits do not: `cat` reading the vault,
+hooks failing open, and the host recording the prompt it blocked are all design trades explained
+above rather than findings.
 
 ## License
 
