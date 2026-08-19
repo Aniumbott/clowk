@@ -48,7 +48,7 @@
 </g>
 <text x="126" y="54" style="font-size:31px;font-weight:700;letter-spacing:-0.4px">clowk</text>
 <text x="126" y="80" class="b" style="font-size:13.5px">catches credentials you paste into an agent chat, before the model sees them</text>
-<text x="852" y="46" class="f" style="text-anchor:end">0.1.0 · no daemon, no proxy, no encryption</text>
+<text x="852" y="46" class="f" style="text-anchor:end">0.2.0 · no daemon, no proxy, no encryption</text>
 <text x="852" y="64" class="f" style="text-anchor:end">a capture-and-bookkeeping tool —</text>
 <text x="852" y="80" class="f" style="text-anchor:end">deliberately not a security boundary</text>
 

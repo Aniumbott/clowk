@@ -1,0 +1,69 @@
+# clowk ships as a pure-Python wheel with NO dependencies, and that is a hard requirement rather
+# than a preference: every agent host fails open, so a hook that cannot import is a hook that
+# transmits your secret. CI fails the build if a third-party import appears anywhere.
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "clowk"
+dynamic = ["version"]
+description = "Catches credentials you paste into an agent chat before they reach the model, files them locally, and records where each one came from."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+authors = [{ name = "Aniket Rana" }]
+keywords = ["security", "secrets", "credentials", "dlp", "claude-code", "codex", "gemini-cli", "agent", "hook"]
+dependencies = []
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Security",
+  "Topic :: Software Development :: Quality Assurance",
+]
+
+[project.urls]
+Homepage = "https://github.com/Aniumbott/clowk"
+Source = "https://github.com/Aniumbott/clowk"
+Issues = "https://github.com/Aniumbott/clowk/issues"
+
+# `clowk` on PATH without the ~/.local/bin shim. `main` takes argv explicitly so tests can drive it,
+# hence the zero-argument wrapper.
+[project.scripts]
+clowk = "clowk.cli:entry"
+
+[tool.hatch.version]
+path = "clowk/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["clowk"]
+# rules.json and gitleaks.toml are loaded relative to __file__, and data/SKILL.md is the only copy
+# of the skill a wheel has -- omitting any of the three produces an install that looks healthy and
+# either scans nothing or teaches the agent nothing.
+artifacts = ["clowk/rules.json", "clowk/gitleaks.toml", "clowk/data/SKILL.md"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "clowk",
+  "skills",
+  "commands",
+  ".claude-plugin",
+  "tests",
+  "build_rules.py",
+  "README.md",
+  "DESIGN.md",
+  "NOTES.md",
+  "LICENSE",
+  "assets",
+]

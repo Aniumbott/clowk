@@ -399,6 +399,10 @@ def main(argv, out=None, err=None):
 
 
 def _dispatch(argv, out, err):
+    if argv and argv[0] in ("-V", "--version", "version"):
+        from clowk import __version__
+        out.write("clowk %s\n" % __version__)
+        return 0
     if not argv or argv[0] in ("-h", "--help", "help"):
         out.write(__doc__ + "\n")
         return 1 if not argv else 0
@@ -435,6 +439,11 @@ def _dispatch(argv, out, err):
     return 1
 
 
-if __name__ == "__main__":
+def entry():
+    """The console_scripts target. `main` takes argv explicitly so the tests can drive it."""
     _use_utf8(sys.stdout, sys.stderr)
     sys.exit(main(sys.argv[1:]))
+
+
+if __name__ == "__main__":
+    entry()

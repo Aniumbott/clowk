@@ -187,10 +187,22 @@ class TestTheShippedSvgsAreValidAndCurrent(unittest.TestCase):
         self.assertIn("%d rules" % total, self.diagram,
                       "the diagram's rule count is not %d" % total)
 
-    def test_the_diagram_names_the_shipped_version(self):
-        version = json.loads(read(".claude-plugin", "plugin.json"))["version"]
+    def test_every_copy_of_the_version_agrees_with_the_package(self):
+        """clowk/__init__.py is the authority; pyproject reads it and two mirrors must follow.
+
+        The version is the plugin cache's key, so a plugin.json left behind serves a stale snapshot
+        of the whole tree while reporting itself current -- which is exactly what happened on this
+        machine, where /plugin listed 0.3.0 against a source tree twenty commits ahead.
+        """
+        from clowk import __version__ as version
+
+        plugin = json.loads(read(".claude-plugin", "plugin.json"))["version"]
+        self.assertEqual(plugin, version,
+                         ".claude-plugin/plugin.json says %s, the package says %s" % (plugin, version))
         self.assertIn(version, self.diagram,
                       "the diagram does not name version %s" % version)
+        self.assertIn('path = "clowk/__init__.py"', read("pyproject.toml"),
+                      "pyproject must read the version from the package, not restate it")
 
     def test_the_diagram_names_the_launcher_install_really_writes(self):
         from clowk import install

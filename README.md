@@ -1,8 +1,8 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
-  <img src="assets/logo.svg" alt="" width="96" height="96">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Aniumbott/clowk/main/assets/logo-dark.svg">
+  <img src="https://raw.githubusercontent.com/Aniumbott/clowk/main/assets/logo.svg" alt="" width="96" height="96">
 </picture>
 
 # clowk
@@ -11,7 +11,7 @@
 
 [![tests](https://github.com/Aniumbott/clowk/actions/workflows/ci.yml/badge.svg)](https://github.com/Aniumbott/clowk/actions/workflows/ci.yml)
 [![python](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
-[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![license](https://img.shields.io/badge/license-MIT-green)](https://github.com/Aniumbott/clowk/blob/main/LICENSE)
 
 </div>
 
@@ -298,7 +298,7 @@ pattern all pass. A path counts as a read only when something that reads files i
 
 Everything at once, including the parts with no flow to draw. Click through for full size.
 
-[![clowk architecture — capture, store, use, deny](assets/architecture.svg)](assets/architecture.svg)
+[![clowk architecture — capture, store, use, deny](https://raw.githubusercontent.com/Aniumbott/clowk/main/assets/architecture.svg)](https://github.com/Aniumbott/clowk/blob/main/assets/architecture.svg)
 
 ## Limitations
 
@@ -405,5 +405,5 @@ what upstream's newest config actually is, which is currently the copy already v
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE). Secret patterns derive from
+MIT — see [`LICENSE`](https://github.com/Aniumbott/clowk/blob/main/LICENSE). Secret patterns derive from
 [gitleaks](https://github.com/gitleaks/gitleaks) (MIT).

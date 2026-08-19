@@ -231,3 +231,48 @@ jobs:
               assert after == before, "%s did not round-trip: %r" % (host, after)
               print("%-12s merge, idempotent, exact round-trip" % host)
           PY
+
+  package:
+    name: wheel · install · guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build
+        run: |
+          python -m pip install --quiet build
+          python -m build
+      - name: The wheel must carry the three files an install cannot work without
+        run: |
+          python - <<'PY'
+          import glob, sys, zipfile
+          whl = glob.glob("dist/*.whl")[0]
+          names = zipfile.ZipFile(whl).namelist()
+          need = ["clowk/rules.json", "clowk/gitleaks.toml", "clowk/data/SKILL.md", "clowk/cli.py"]
+          missing = [n for n in need if n not in names]
+          if missing:
+              sys.exit("wheel is missing %s -- it would install and silently not work" % missing)
+          print("wheel carries all of:", ", ".join(need))
+          PY
+      - name: Install the wheel somewhere with no repository, and exercise it
+        run: |
+          python -m venv /tmp/v
+          /tmp/v/bin/pip install --quiet dist/*.whl
+          cd /tmp                      # no repo root anywhere above us
+          /tmp/v/bin/clowk --version
+          /tmp/v/bin/python - <<'PY'
+          import os, sys, tempfile
+          os.environ["CLOWK_SKILL"] = os.path.join(tempfile.mkdtemp(), "SKILL.md")
+          from clowk import detect, install
+          assert detect.RULES and detect._COMPILED, "ruleset did not load from the wheel"
+          # Assembled from parts, not written out: a literal Stripe-shaped key in a tracked file
+          # is blocked by GitHub push protection, which is the same class of tool as clowk.
+          probe = "my key is " + "sk_" + "live_" + "4eC39HqLyjWDarjtT1zdp7dc"
+          assert detect.scan(probe), "scan found nothing"
+          # the Phase 0 bug: root is site-packages, so this must still find the packaged skill
+          path = install.install_skill("/nonexistent-root")
+          assert path and os.path.isfile(path), "a pip install would deliver no skill"
+          print("packaged install scans and delivers the skill")
+          PY
