@@ -34,8 +34,9 @@ returned on your clipboard with a `$NAME` reference in place of the secret.
 🤔 Not a credential? Resend starting with  unclowk
 ```
 
-Claude Code, Codex and Gemini CLI. Python 3.8+, standard library only. No network, no daemon,
-nothing to sign up for.
+Claude Code, Codex and Gemini CLI. Python 3.8+, standard library only. No daemon, nothing to sign up
+for, and **neither hook ever touches the network** — the only command that does is `clowk update`,
+which runs your package manager or `git pull` when you ask it to.
 
 ## Contents
 
@@ -77,8 +78,8 @@ terminal, so it never enters a chat at all.
 
 **What it is not good for.** Screen sharing and recordings: Claude Code prints the raw prompt back to
 your terminal under clowk's message, so the value is on screen even though the model never got it.
-It is also not a CI or deployment secret manager — there is no daemon, no network, and the vault is a
-local file belonging to one user.
+It is also not a CI or deployment secret manager — there is no daemon, nothing on the network in the
+capture path, and the vault is a local file belonging to one user.
 
 ## Quick start
 
@@ -128,14 +129,20 @@ trust: run `/hooks` and approve clowk. Trust is hash-based, so every update asks
 ### Updating
 
 ```bash
-git pull
-clowk install                # and once per additional host you registered
+clowk update           # --check to look without changing anything
 ```
 
-**`git pull` alone leaves you half-updated.** The hooks and launcher hold absolute paths, so they
-pick up new code immediately — but the skill is *copied* to `~/.claude/skills/clowk/` and `/clowk` is
-*generated* into `~/.claude/commands/`, so neither moves until you re-run `install`. It is
-idempotent and never overwrites a `/clowk` you wrote yourself. Restart the agent afterwards.
+**Why this is a command and not just `git pull`.** The hooks and launcher hold absolute paths, so they
+pick up new code immediately — but the skill is *copied* into each host's skills directory and
+`/clowk` is *generated* into `~/.claude/commands/`, so neither moves until install runs again. New
+code, old skill, and nothing on screen saying so. `clowk update` does both halves for every host you
+have registered.
+
+For a clone it runs `git pull --ff-only` itself, refusing if you have modified tracked files.
+Untracked files are ignored, since they cannot make the pull fail. For a package install it prints
+the right command for the manager it can see — `pipx upgrade`, `uv tool upgrade` or `pip install
+--upgrade` — rather than guessing, because guessing wrong can leave a half-replaced package and on
+Windows `pip install -U` against a running package can fail on locked files.
 
 <details>
 <summary><code>/clowk</code> and the optional plugin</summary>
@@ -278,6 +285,7 @@ repeatedly is a habit, and `clowk add` is how you stop.
 | `clowk uses [NAME]` | Where a credential was caught, and what has drawn on it |
 | `clowk allow PATTERN` | Stop denying one of clowk's rules — a filename, suffix or command phrase, exactly as the deny message prints it |
 | `clowk deny PATTERN` | Undo an allow |
+| `clowk update` | Fetch new code, then refresh the skill and command that do not move on their own. `--check` looks without changing |
 | `clowk setup` | Guided first-time setup: detect hosts, install, then verify the guard actually blocks. `--hosts a,b`, `--yes`, `--dry-run` for unattended use |
 | `clowk install [HOST]` | Register hooks for one host; `uninstall` removes them |
 | `clowk --version` | The installed version |
@@ -403,7 +411,7 @@ Useful to know before opening a PR:
 ## Development
 
 ```bash
-python3 -m unittest discover -s tests        # 527 tests, ~4s
+python3 -m unittest discover -s tests        # 539 tests, ~4s
 ```
 
 CI runs the same suite on Python 3.8 through 3.13 across Linux, macOS and Windows, plus three checks

@@ -15,6 +15,8 @@ Usage:
   clowk debug-payload           dump what a host sends this hook, to add a new host
   clowk setup                   guided first-time setup: pick hosts, install, then verify
                                 --hosts a,b  --yes  --dry-run  for unattended use
+  clowk update                  fetch new code, then refresh the skill and command that
+                                do not move on their own. --check to look without changing
   clowk install [HOST]          register clowk's hooks (default host: claude-code)
   clowk uninstall [HOST]        remove them
 
@@ -436,6 +438,9 @@ def _dispatch(argv, out, err):
         return cmd_deny(args[0], out, err)
     if cmd == "allow" and len(args) == 1:
         return cmd_allow(args[0], out, err)
+    if cmd == "update":
+        from clowk import update as update_mod
+        return update_mod.run(args, out, err)
     if cmd == "setup":
         from clowk import setup as setup_mod
         return setup_mod.run(args, out, err)
