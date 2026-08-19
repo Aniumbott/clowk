@@ -342,14 +342,19 @@ def cmd_install(host, out, err):
         out.write("Backed up your previous settings to %s.\n" % result["backup"])
     # Every host, not just Claude Code: `clowk get` is how a credential is used everywhere, and
     # until this existed the word `clowk` was not a command on any of them.
-    launcher = install_mod.install_launcher(root)
+    packaged = install_mod.packaged_command()
+    if packaged:
+        out.write("`clowk` already resolves to %s, so no launcher was written.\n" % packaged)
+        launcher = None
+    else:
+        launcher = install_mod.install_launcher(root)
     if launcher:
         out.write("Wrote %s, so `clowk` runs as a command.\n" % launcher)
         if not install_mod.launcher_on_path(launcher):
             folder = os.path.dirname(launcher)
             out.write("  %s is NOT on your PATH, so that command cannot be found yet. Add it:\n"
                       "    export PATH=\"%s:$PATH\"\n" % (folder, folder))
-    else:
+    elif not packaged:
         out.write("Left %s alone -- it exists and clowk did not write it.\n"
                   % install_mod.launcher_path())
     # Only Claude Code has ~/.claude/commands; the others use different mechanisms.

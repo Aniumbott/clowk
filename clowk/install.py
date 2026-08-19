@@ -219,6 +219,37 @@ def uninstall_launcher():
     return True
 
 
+_PACKAGE_PARENT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def packaged_command():
+    """A `clowk` on PATH that is NOT the shim this module writes, or None.
+
+    A pip, pipx or uv install already provides `clowk` through a console_scripts entry point, so
+    writing the shim on top would be a second command shadowing the first depending on PATH order.
+    Detected by resolution rather than by install mode, because a package installed into a venv that
+    is not on PATH provides no reachable command at all -- and `$(clowk get NAME)` in the agent's
+    non-interactive shell is exactly the caller that needs one. In that case the shim still earns
+    its place.
+    """
+    # A git checkout has no console_scripts entry point, so the shim is always required there. This
+    # check comes first because `which` can otherwise find a shim written by an earlier install at
+    # the default location while CLOWK_BIN points somewhere else, and reading that as "packaged"
+    # would skip writing the launcher the caller actually asked for.
+    if os.path.isdir(os.path.join(_PACKAGE_PARENT, ".git")):
+        return None
+    found = shutil.which("clowk")
+    if not found:
+        return None
+    try:
+        if os.path.samefile(found, launcher_path()):
+            return None
+    except OSError:
+        if os.path.abspath(found) == os.path.abspath(launcher_path()):
+            return None
+    return found
+
+
 def launcher_on_path(path):
     """True if the launcher's directory is on PATH, so the command can actually be run."""
     parent = os.path.dirname(os.path.abspath(path))

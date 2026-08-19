@@ -140,5 +140,35 @@ class mock_path(object):
         return False
 
 
+class TestAPackagedInstallNeedsNoShim(unittest.TestCase):
+    """pip, pipx and uv all provide `clowk` through a console_scripts entry point.
+
+    Writing the shim on top of one would be a second command shadowing the first depending on PATH
+    order. But the check cannot simply be "is `clowk` on PATH": an earlier install's shim at the
+    default location, with CLOWK_BIN now pointing elsewhere, resolves too -- and reading that as
+    "packaged" skipped writing the launcher the caller had just asked for, which broke two existing
+    tests. A git checkout has no entry point, so that is the discriminator, checked first.
+    """
+
+    def test_a_clone_always_needs_the_shim(self):
+        # This repository is a checkout, so there is no entry point to defer to.
+        self.assertIsNone(install.packaged_command())
+
+    def test_the_check_looks_for_a_git_directory_beside_the_package(self):
+        self.assertTrue(os.path.isdir(os.path.join(install._PACKAGE_PARENT, ".git")),
+                        "the premise of the test above")
+
+    def test_uninstall_still_removes_a_shim_an_older_version_wrote(self):
+        # Upgraders keep a stale shim otherwise, pointing at a path that may no longer exist.
+        path = install.launcher_path()
+        parent = os.path.dirname(path)
+        if parent and not os.path.isdir(parent):
+            os.makedirs(parent)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("#!/bin/sh\n# %s\nexit 0\n" % install.LAUNCHER_MARKER)
+        self.assertTrue(install.uninstall_launcher())
+        self.assertFalse(os.path.exists(path))
+
+
 if __name__ == "__main__":
     unittest.main()

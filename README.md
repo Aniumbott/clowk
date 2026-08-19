@@ -111,7 +111,10 @@ clowk setup --hosts claude-code,codex --yes
 clowk setup --dry-run                     # print the plan, write nothing
 ```
 
-If `~/.local/bin` is not on your `PATH`, `install` says so and prints the line to add.
+A package install already provides `clowk` on your PATH through an entry point, so nothing extra is
+written. From a clone there is no entry point, so `install` writes `~/.local/bin/clowk` — and if that
+directory is not on your `PATH` it says so and prints the line to add. Either way `clowk` has to be a
+real command, because the caller that matters is the non-interactive shell your agent runs.
 
 > **Do not substitute a shell alias.** Aliases exist only in interactive shells, and the caller that
 > matters is the non-interactive Bash your agent runs. There `$(clowk get NAME)` expands to nothing,
@@ -411,7 +414,7 @@ Useful to know before opening a PR:
 ## Development
 
 ```bash
-python3 -m unittest discover -s tests        # 539 tests, ~4s
+python3 -m unittest discover -s tests        # 542 tests, ~4s
 ```
 
 CI runs the same suite on Python 3.8 through 3.13 across Linux, macOS and Windows, plus three checks
