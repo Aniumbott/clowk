@@ -109,6 +109,32 @@ on screen, and clowk has never seen codex's or gemini-cli's block output. A warn
 text which is not there teaches the reader to skim the rest of the block. Widen the gate when either
 host is measured — that measurement is the only thing missing.
 
+## Skills directories per host (verified 2026-08-19)
+
+- **Claude Code** reads `~/.claude/skills/<name>/SKILL.md`.
+- **Codex** reads `~/.codex/skills/<name>/SKILL.md` — the identical layout, confirmed by finding an
+  unrelated third-party skill already installed there. clowk installs its skill for both hosts.
+  Until 2026-08-19 the install was gated on `host == "claude-code"`, so Codex users got hooks and no
+  skill, which is the failure the skill exists to prevent.
+- **Gemini CLI has neither.** No `skills/` and no `commands/` directory under `~/.gemini`, and no
+  user-level `GEMINI.md`. So clowk installs no skill there and says so out loud rather than inventing
+  a path that nothing would read.
+
+## Installing as a package (verified 2026-08-19)
+
+- `pip install --user clowk` is **refused outright** on Homebrew Python (PEP 668
+  `externally-managed-environment`), and the same marker ships on Debian, Ubuntu and Fedora system
+  Pythons. Measured on the maintainer's machine, which also has no bare `pip` on `PATH` at all. This
+  is why the clone stays a first-class install route and why the README leads with `uv tool install`
+  and `pipx install`.
+- PyPI's project page prints `pip install <name>` in a box on every project. It is their template and
+  cannot be configured, so the README's own install block has to contradict it immediately.
+- **uv caches index metadata, so a yanked release can still be installed.** After `0.2.0` was yanked,
+  `uv tool install clowk` still resolved `0.2.0`; `uv cache clean clowk` plus `--refresh` then gave
+  `0.1.0`. Worth knowing before concluding that a yank did not take.
+- A wheel has no repository root: `cli.py`'s `root` is `site-packages`, so anything resolved relative
+  to it must also exist inside the package. That is why `clowk/data/SKILL.md` exists.
+
 ## Things that do not work here
 
 - **`PostToolUse` `updatedToolOutput` is ignored in Claude Code 2.1.202.** The hook fires and emits
@@ -120,7 +146,9 @@ host is measured — that measurement is the only thing missing.
 ## Still unverified
 
 - Whether hooks fire for subagent (`Task`) tool calls. Affects the deny hook's coverage only.
-- Gemini CLI's `BeforeAgent` payload field names.
+- Gemini CLI's `BeforeAgent` payload field names. `clowk setup` verifies that the
+  registered command blocks a payload clowk understands, which is NOT the same as
+  proving Gemini sends one — so setup reports that host as unproven by name.
 - **How to deny a tool call on Gemini CLI (`BeforeTool`).** Only the prompt event's exit-2 block is
   verified there. clowk denies with exit 2 + the reason on stderr, the usual command-hook
   convention. If exit 2 turns out not to deny, the call proceeds — but the reason is still on

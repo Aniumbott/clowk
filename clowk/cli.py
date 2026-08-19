@@ -18,7 +18,10 @@ Usage:
   clowk update                  fetch new code, then refresh the skill and command that
                                 do not move on their own. --check to look without changing
   clowk install [HOST]          register clowk's hooks (default host: claude-code)
-  clowk uninstall [HOST]        remove them
+  clowk uninstall [HOST]        remove them, then decide about the vault -- it is NOT
+                                deleted unless you say so. --backup FILE writes the vault
+                                as JSON at mode 0600, --purge deletes it, --keep-vault keeps
+  clowk --version               the installed version
 
 There is no `export`: the vault is a plaintext JSON file, so reading it IS the export.
 """

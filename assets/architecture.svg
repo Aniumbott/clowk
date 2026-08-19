@@ -116,11 +116,11 @@
 
 <rect x="652" y="380" width="596" height="152" rx="14" class="indigo"/>
 <text x="672" y="408" class="tiny">THE LEDGER, THE CLI, AND THE LAUNCHER</text>
-<text x="672" y="434" class="m" style="font-size:12.5px;fill:#4338ca">clowk  add · get · set · list · clear · rename · uses · deny · allow</text>
+<text x="672" y="434" class="m" style="font-size:12.5px;fill:#4338ca">clowk  setup · update · add · get · set · list · uses · clear · rename</text>
 <text x="672" y="458" class="b">add types a key at the terminal instead of pasting it into a chat. list</text>
 <text x="672" y="476" class="b">never prints a value. Every get is recorded with its directory, so uses</text>
 <text x="672" y="494" class="b">shows what has drawn on a credential since it was caught.</text>
-<text x="672" y="518" class="b">install writes <tspan class="m" style="fill:#4338ca">~/.local/bin/clowk</tspan>, and reports if that is off your PATH</text>
+<text x="672" y="518" class="b">a pip install brings its own <tspan class="m" style="fill:#4338ca">clowk</tspan>; a clone gets <tspan class="m" style="fill:#4338ca">~/.local/bin/clowk</tspan></text>
 
 <!-- ── using one ───────────────────────────────────────────────── -->
 <rect x="32" y="552" width="1216" height="152" rx="14" class="teal"/>

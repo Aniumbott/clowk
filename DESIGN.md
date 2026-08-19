@@ -69,6 +69,61 @@ provisioning a credential, not intercepting the one you just pasted. That survey
 and is worth redoing before it gets repeated in public copy. Interception is the part that was
 already working here, so it is the part that shipped.
 
+## Why setup verifies instead of reporting success
+
+Registering hooks is the easy half and every failure this project has had is silent: hosts fail open,
+a hook whose script has moved says nothing, an unverified payload shape scans an empty string while
+looking installed. So `clowk setup` ends by firing a canary credential through the command actually
+registered in the settings file and checking the turn is blocked and the value reaches neither stream.
+
+Read back rather than recomputed, deliberately. Recomputing proves install *could* write a working
+command, which is a different claim from the one on disk working, and they diverge the moment a clone
+moves or an interpreter is removed.
+
+What the canary proves is bounded and the output says so: the registered command blocks a payload
+clowk understands. It cannot prove the host sends one. gemini-cli is reported unverified for that
+reason rather than given a tick it has not earned.
+
+No arrow-key interface. That needs termios on POSIX and msvcrt on Windows, and curses is not in the
+Windows standard library -- two paths, one of which this project cannot test, on the cosmetic layer.
+Numbered prompts work over SSH and in every terminal, and setup must run headless anyway or it is
+useless from a Dockerfile.
+
+## Why update is a command and not `git pull`
+
+Hooks and the launcher hold absolute paths and pick up new code immediately. The skill is COPIED into
+each host's skills directory and `/clowk` is GENERATED into ~/.claude/commands, so both keep serving
+old content until install runs again -- new code, old skill, nothing on screen saying so. That is the
+half nobody remembers, so a command does both.
+
+It does not upgrade a packaged install for you. pipx, uv and pip each need a different verb, guessing
+wrong can leave a half-replaced package, and on Windows `pip install -U` against a running package can
+fail on locked files. It prints the command for the manager it can see instead.
+
+## Why uninstall asks about the vault instead of deciding
+
+Uninstall used to leave ~/.clowk/vault.json behind in silence, which reads two opposite ways and both
+are harmful: someone clearing a machine keeps a plaintext file of live credentials they believe is
+gone, and someone who wanted to keep them has no idea whether they still exist.
+
+So the vault is always mentioned, and the default without a terminal is to keep it -- keeping is
+recoverable and deleting is not. Deletion needs the word DELETE typed rather than a keystroke. The
+backup is the vault's own JSON rather than a report, so restoring is a file copy instead of re-typing
+every credential by hand, and it says plainly that clowk's deny hook does not cover it: that hook
+knows the vault's real path and nothing else.
+
+## Why the package and the clone are both first-class
+
+`pip install --user` is refused outright by Homebrew, Debian, Ubuntu and Fedora Pythons under PEP 668,
+so packaging cannot be the only route. A clone needs no installer at all and is immune to that, which
+makes it the fallback that always works -- and the consequence is that the launcher shim cannot be
+deleted, only skipped when a console_scripts entry point already exists.
+
+The skill therefore ships twice: clowk/data/SKILL.md inside the package, because a wheel has no
+repository root, and skills/clowk/SKILL.md where the Claude Code plugin spec looks. A test pins them
+byte-identical rather than generating one from the other, since a generated copy ships stale from any
+build that skipped the step.
+
 ## Honest positioning
 
 "Catches what you paste, and tells you where it came from." Not a boundary — clowk runs as the same
