@@ -167,14 +167,17 @@ type `DELETE` rather than pressing a key, because it cannot be undone. Unattende
 and prints the flags:
 
 ```bash
-clowk uninstall --backup ~/keys.txt   # every value, as readable text, mode 0600
-clowk uninstall --purge               # delete the vault, no prompt
-clowk uninstall --keep-vault          # keep it without being asked
+clowk uninstall --backup ~/clowk-backup.json   # the vault itself, values and all, mode 0600
+clowk uninstall --purge                        # delete the vault, no prompt
+clowk uninstall --keep-vault                   # keep it without being asked
 ```
 
-A backup is plaintext by definition and **clowk's own deny hook does not protect it** — it only knows
-the vault's real path. Move it somewhere safe or delete it once you have restored what you need with
-`clowk add`.
+The backup is the vault's own JSON rather than a report, so **restoring is a file copy** —
+`cp ~/clowk-backup.json ~/.clowk/vault.json` — not a re-typing of every credential. It carries a
+`_restore` key saying so, since JSON cannot hold a comment.
+
+It is plaintext by definition, and **clowk's own deny hook does not protect it** — that hook knows the
+vault's real path and nothing else. Move it somewhere safe or delete it once you are done.
 
 > **Run `clowk uninstall` before `pip uninstall clowk` or `pipx uninstall clowk`.** Removing the
 > package first leaves the hooks registered, pointing at a script that no longer exists — and since
@@ -469,7 +472,7 @@ Useful to know before opening a PR:
 ## Development
 
 ```bash
-python3 -m unittest discover -s tests        # 560 tests, ~4s
+python3 -m unittest discover -s tests        # 562 tests, ~4s
 ```
 
 CI runs the same suite on Python 3.8 through 3.13 across Linux, macOS and Windows, plus three checks

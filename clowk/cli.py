@@ -407,7 +407,7 @@ def _vault_notice(out, err, argv, stdin):
         if index + 1 < len(argv) and not argv[index + 1].startswith("-"):
             backup_to = argv[index + 1]
         else:
-            backup_to = os.path.join("~", "clowk-vault-backup.txt")
+            backup_to = os.path.join("~", "clowk-vault-backup.json")
 
     total = vault.count()
     if total == 0:
@@ -427,8 +427,9 @@ def _vault_notice(out, err, argv, stdin):
             err.write("Could not write the backup (%s), so the vault was left alone.\n" % exc)
             return 1
         out.write("\nBacked up to %s (mode 0600).\n" % written)
-        out.write("That file contains every value in the clear. clowk's deny hook does NOT\n"
-                  "protect it -- move it somewhere safe or delete it when you are done.\n")
+        out.write("That file is the vault's own JSON with every value in the clear, so restoring is\n"
+                  "copying it back over %s. clowk's deny hook does NOT protect it -- move it\n"
+                  "somewhere safe or delete it when you are done.\n" % vault.path())
 
     if purge:
         if vault.purge():
@@ -446,14 +447,14 @@ def _vault_notice(out, err, argv, stdin):
         interactive = False
     if not interactive:
         out.write("\nKept it, because there is no terminal here to ask. To decide explicitly:\n"
-                  "    clowk uninstall --backup FILE     write every value to a text file\n"
+                  "    clowk uninstall --backup FILE     copy the vault, values and all, to a JSON file\n"
                   "    clowk uninstall --purge           delete the vault\n"
                   "    clowk uninstall --keep-vault      keep it without being asked again\n")
         return 0
 
     stream = stdin or sys.stdin
     while True:
-        out.write("\n  b) back it up to a text file first\n"
+        out.write("\n  b) back it up to a JSON file first\n"
                   "  d) delete it now\n"
                   "  k) keep it  (default)\n\nWhich? ")
         out.flush()
@@ -462,7 +463,7 @@ def _vault_notice(out, err, argv, stdin):
             out.write("Kept %s.\n" % vault.path())
             return 0
         if answer in ("b", "backup"):
-            target = os.path.join("~", "clowk-vault-backup.txt")
+            target = os.path.join("~", "clowk-vault-backup.json")
             out.write("Write it to [%s]: " % target)
             out.flush()
             typed = (stream.readline() or "").strip()
@@ -471,8 +472,9 @@ def _vault_notice(out, err, argv, stdin):
             except (IOError, OSError) as exc:
                 err.write("Could not write that (%s). Nothing was deleted.\n" % exc)
                 continue
-            out.write("Backed up to %s (mode 0600). Every value is in the clear in there, and\n"
-                      "clowk's deny hook does not protect it.\n" % written)
+            out.write("Backed up to %s (mode 0600). It is the vault's own JSON, so restoring is\n"
+                      "copying it back over %s. Every value is in the clear in there, and clowk's\n"
+                      "deny hook does not protect it.\n" % (written, vault.path()))
             continue
         if answer in ("d", "delete"):
             # A typed word, not y/n. This is irreversible and the vault is the only copy.

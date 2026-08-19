@@ -250,56 +250,43 @@ def record_use(name, where):
 # plaintext file of live credentials, and a user who assumed uninstall took it with them believed they
 # had cleaned up when they had not.
 
-def export_text():
-    """The whole vault as readable text, values included. None if there is nothing to export.
+def export_data():
+    """The whole vault as a JSON-serialisable dict, values included. None if there is nothing.
 
-    Plaintext, because the vault already is and because the point is to be readable by a human with
-    no tooling -- the same reasoning that keeps the vault plain JSON. The caller is responsible for
-    the file mode and for telling the user what they now have on disk.
+    Deliberately the vault's own structure rather than a report: restoring is then a file copy back to
+    the path in `path()`, not a re-typing of every credential by hand. A `_restore` key is added
+    because JSON cannot carry a comment, and an export nobody knows how to put back is a puzzle
+    rather than a backup. Extra top-level keys are ignored by _load, so the copy-back still works.
     """
     data = _load()
     secrets = data.get("secrets") or {}
     if not secrets:
         return None
-    lines = ["clowk vault export",
-             "",
-             "Every VALUE below is a live credential in plaintext. Move this file somewhere safe or",
-             "delete it once you are done -- clowk's own deny hook does not protect it, because it",
-             "only knows about the vault's real path.",
-             "",
-             "Restore by hand: `clowk add NAME` and paste the value at the prompt.",
-             "=" * 78,
-             ""]
-    for name in sorted(secrets):
-        entry = secrets[name] or {}
-        lines.append("NAME:  %s" % name)
-        lines.append("VALUE: %s" % entry.get("value", ""))
-        for key in ("rule", "confidence", "first_caught", "last_caught", "catches"):
-            if entry.get(key) not in (None, "", []):
-                lines.append("  %-13s %s" % (key + ":", entry[key]))
-        for key in ("sources", "uses"):
-            for item in entry.get(key) or []:
-                lines.append("  %-13s %s" % (key + ":", item))
-        lines.append("")
-    return "\n".join(lines)
+    out = dict(data)
+    out["_restore"] = (
+        "Every value below is a live credential in plaintext. To restore, copy this file over %s "
+        "(mode 0600), or add them one at a time with `clowk add NAME`. clowk's deny hook does NOT "
+        "protect this file -- it only knows the vault's real path -- so move it somewhere safe or "
+        "delete it once you are done." % path())
+    return out
 
 
 def write_export(destination):
-    """Write export_text() to destination at mode 0600. Returns the path, or None if nothing to write."""
-    text = export_text()
-    if text is None:
+    """Write export_data() as JSON at mode 0600. Returns the path, or None if there is nothing."""
+    data = export_data()
+    if data is None:
         return None
     destination = os.path.expanduser(destination)
     parent = os.path.dirname(destination)
     if parent and not os.path.isdir(parent):
         os.makedirs(parent)
-    # Create with the mode already restrictive rather than chmod-ing after: between the two there is
-    # a window where a file of live credentials is world-readable.
-    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-    handle = os.open(destination, flags, 0o600)
+    # Created with the restrictive mode rather than chmod-ed after: between the two there is a window
+    # in which a file of live credentials is world-readable.
+    handle = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     try:
         with os.fdopen(handle, "w", encoding="utf-8") as f:
-            f.write(text)
+            json.dump(data, f, indent=2)
+            f.write("\n")
     except Exception:
         try:
             os.close(handle)

@@ -10,6 +10,7 @@ So: it is always mentioned, deletion always needs a typed word rather than a key
 always on offer, and with no terminal to ask it keeps the vault and prints the flags.
 """
 import io
+import json
 import os
 import shutil
 import sys
@@ -94,27 +95,27 @@ class TestWithNoTerminalItKeepsTheVault(VaultCase):
 class TestBackup(VaultCase):
     def test_it_writes_every_value_at_mode_0600(self):
         self.seed(2)
-        target = os.path.join(self.dir, "backup.txt")
+        target = os.path.join(self.dir, "backup.json")
         self.notice(["--backup", target, "--keep-vault"])
         self.assertTrue(os.path.isfile(target))
-        body = open(target, encoding="utf-8").read()
-        self.assertEqual(body.count("VALUE:"), 2)
+        blob = json.load(open(target, encoding="utf-8"))
+        self.assertEqual(sorted(blob["secrets"]), sorted(vault.names()))
         for name in vault.names():
-            self.assertIn(name, body)
+            self.assertEqual(blob["secrets"][name]["value"], vault.get(name))
         if os.name != "nt":
             self.assertEqual(os.stat(target).st_mode & 0o777, 0o600,
                              "a file of live credentials was left readable by others")
 
     def test_it_warns_that_the_backup_is_unprotected_plaintext(self):
         self.seed(1)
-        self.notice(["--backup", os.path.join(self.dir, "b.txt"), "--keep-vault"])
+        self.notice(["--backup", os.path.join(self.dir, "b.json"), "--keep-vault"])
         body = self.out.getvalue()
         self.assertIn("in the clear", body)
         self.assertIn("deny hook", body)
 
     def test_backing_up_does_not_delete_anything_by_itself(self):
         self.seed(2)
-        self.notice(["--backup", os.path.join(self.dir, "b.txt"), "--keep-vault"])
+        self.notice(["--backup", os.path.join(self.dir, "b.json"), "--keep-vault"])
         self.assertTrue(os.path.isfile(self.vault_path))
         self.assertEqual(vault.count(), 2)
 
@@ -165,10 +166,10 @@ class TestTheInteractiveConfirmation(VaultCase):
 
     def test_backup_then_delete_in_one_session(self):
         self.seed(2)
-        target = os.path.join(self.dir, "typed-backup.txt")
+        target = os.path.join(self.dir, "typed-backup.json")
         self.notice([], FakeTTY("b\n%s\nd\nDELETE\n" % target))
         self.assertTrue(os.path.isfile(target), "the backup was not written")
-        self.assertEqual(open(target, encoding="utf-8").read().count("VALUE:"), 2)
+        self.assertEqual(len(json.load(open(target, encoding="utf-8"))["secrets"]), 2)
         self.assertFalse(os.path.exists(self.vault_path))
 
     def test_an_unrecognised_answer_reprompts_rather_than_guessing(self):
@@ -179,13 +180,39 @@ class TestTheInteractiveConfirmation(VaultCase):
 
 
 class TestTheExportIsRestorable(VaultCase):
-    def test_it_tells_you_how_to_put_the_values_back(self):
+    """JSON rather than a report, so restoring is a file copy and not a re-typing exercise."""
+
+    def test_it_is_valid_json_carrying_restore_instructions(self):
         self.seed(1)
-        text = vault.export_text()
-        self.assertIn("clowk add", text, "an export with no restore instructions is a puzzle")
+        blob = vault.export_data()
+        json.dumps(blob)          # must be serialisable
+        self.assertIn("_restore", blob, "JSON cannot hold a comment, so the note has to be a key")
+        self.assertIn("clowk add", blob["_restore"])
+        self.assertIn(vault.path(), blob["_restore"])
+
+    def test_copying_the_backup_back_really_restores_the_vault(self):
+        # The claim the file makes about itself, actually exercised.
+        self.seed(3)
+        expected = {name: vault.get(name) for name in vault.names()}
+        target = os.path.join(self.dir, "roundtrip.json")
+        vault.write_export(target)
+        self.assertTrue(vault.purge())
+        self.assertEqual(vault.count(), 0)
+        shutil.copyfile(target, self.vault_path)
+        self.assertEqual(vault.count(), 3)
+        self.assertEqual({name: vault.get(name) for name in vault.names()}, expected)
+
+    def test_the_extra_key_does_not_confuse_the_loader(self):
+        # _restore is a top-level addition; the vault must still read normally with it present.
+        self.seed(1)
+        target = os.path.join(self.dir, "withnote.json")
+        vault.write_export(target)
+        shutil.copyfile(target, self.vault_path)
+        vault.store("LATER", "sk_" + "live_" + "ZZZZYYYYXXXXWWWWVVVVUUUU", source="/r")
+        self.assertIn("LATER", vault.names())
 
     def test_an_empty_vault_exports_nothing_rather_than_an_empty_file(self):
-        self.assertIsNone(vault.export_text())
+        self.assertIsNone(vault.export_data())
         self.assertIsNone(vault.write_export(os.path.join(self.dir, "nope.txt")))
         self.assertFalse(os.path.exists(os.path.join(self.dir, "nope.txt")))
 
