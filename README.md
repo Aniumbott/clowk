@@ -82,18 +82,32 @@ local file belonging to one user.
 
 ## Quick start
 
+Pick whichever suits the machine — there is no single command that works everywhere, because
+`pip install --user` is refused outright on Homebrew, Debian, Ubuntu and Fedora Pythons
+([PEP 668](https://peps.python.org/pep-0668/)):
+
 ```bash
-git clone https://github.com/Aniumbott/clowk.git
-cd clowk
-python3 clowk/cli.py install     # Claude Code — also writes the `clowk` command itself
+uv tool install clowk                                          # if you have uv
+pipx install clowk                                             # what Homebrew and apt suggest
+git clone https://github.com/Aniumbott/clowk.git && cd clowk    # no prerequisites at all
 ```
 
-Restart the agent. That first run writes `~/.local/bin/clowk`, so from then on:
+Then, whichever route you took, one command:
 
 ```bash
-clowk install codex          # Codex
-clowk install gemini-cli     # Gemini CLI
-clowk list                   # what is stored — names and metadata, never values
+clowk setup          # from a clone: python3 clowk/cli.py setup
+```
+
+It finds the agent CLIs on your machine, asks which to set up, registers the hooks, installs the
+skill — and then **fires a test credential through the hook it just registered** to confirm the turn
+is really blocked and the value leaks into neither stream. A host it cannot prove is reported as
+unproven rather than given a tick.
+
+For dotfiles, a Dockerfile or CI, it runs unattended:
+
+```bash
+clowk setup --hosts claude-code,codex --yes
+clowk setup --dry-run                     # print the plan, write nothing
 ```
 
 If `~/.local/bin` is not on your `PATH`, `install` says so and prints the line to add.
@@ -258,7 +272,9 @@ repeatedly is a habit, and `clowk add` is how you stop.
 | `clowk uses [NAME]` | Where a credential was caught, and what has drawn on it |
 | `clowk allow PATTERN` | Stop denying one of clowk's rules — a filename, suffix or command phrase, exactly as the deny message prints it |
 | `clowk deny PATTERN` | Undo an allow |
-| `clowk install [HOST]` | Register hooks and write the launcher; `uninstall` removes both |
+| `clowk setup` | Guided first-time setup: detect hosts, install, then verify the guard actually blocks. `--hosts a,b`, `--yes`, `--dry-run` for unattended use |
+| `clowk install [HOST]` | Register hooks for one host; `uninstall` removes them |
+| `clowk --version` | The installed version |
 | `clowk debug-payload` | Dump what a host sends, for adding a new one |
 
 `add` and `set` never take the value as an argument — that would put it straight in your shell
@@ -381,7 +397,7 @@ Useful to know before opening a PR:
 ## Development
 
 ```bash
-python3 -m unittest discover -s tests        # 501 tests, ~4s
+python3 -m unittest discover -s tests        # 521 tests, ~4s
 ```
 
 CI runs the same suite on Python 3.8 through 3.13 across Linux, macOS and Windows, plus three checks

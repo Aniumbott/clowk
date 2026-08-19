@@ -13,6 +13,8 @@ Usage:
   clowk deny PATTERN            undo an allow, putting the rule back
                                 command phrase, exactly as the deny message prints it
   clowk debug-payload           dump what a host sends this hook, to add a new host
+  clowk setup                   guided first-time setup: pick hosts, install, then verify
+                                --hosts a,b  --yes  --dry-run  for unattended use
   clowk install [HOST]          register clowk's hooks (default host: claude-code)
   clowk uninstall [HOST]        remove them
 
@@ -427,6 +429,9 @@ def _dispatch(argv, out, err):
         return cmd_deny(args[0], out, err)
     if cmd == "allow" and len(args) == 1:
         return cmd_allow(args[0], out, err)
+    if cmd == "setup":
+        from clowk import setup as setup_mod
+        return setup_mod.run(args, out, err)
     if cmd == "install" and len(args) <= 1:
         return cmd_install(args[0] if args else "claude-code", out, err)
     if cmd == "uninstall" and len(args) <= 1:
