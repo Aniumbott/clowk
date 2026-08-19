@@ -19,6 +19,29 @@ A pre-transmit hook for agent CLIs. It scans your prompt before it is sent; if i
 credential, the turn is blocked, the value is filed locally under a name, and your message is
 returned on your clipboard with a `$NAME` reference in place of the secret.
 
+> ### Install
+>
+> **`pip install clowk` will not work on most machines**, and that is not clowk's doing: Homebrew,
+> Debian, Ubuntu and Fedora Pythons refuse to install into themselves
+> ([PEP 668](https://peps.python.org/pep-0668/)), and many of them have no bare `pip` on `PATH` at
+> all. Use whichever of these you have:
+>
+> ```bash
+> uv tool install clowk        # uv installs clowk into its own isolated environment
+> pipx install clowk           # what Homebrew and apt themselves recommend; brew install pipx
+> ```
+>
+> Neither? A clone needs no installer of any kind:
+>
+> ```bash
+> git clone https://github.com/Aniumbott/clowk.git && cd clowk
+> ```
+>
+> Then, whichever route you took, one command — `clowk setup` (from a clone,
+> `python3 clowk/cli.py setup`). It finds your agent CLIs, registers the hooks, installs the skill,
+> and then fires a test credential through the hook it just registered to prove the block really
+> happens.
+
 ```
 👀 clowk caught a credential before it reached the model.
 
