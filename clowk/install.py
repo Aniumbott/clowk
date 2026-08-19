@@ -251,20 +251,41 @@ def skill_source(root):
     return None
 
 
-def skill_path():
-    """Where the user-level clowk skill lives. CLOWK_SKILL overrides it, for tests."""
+# Where each host looks for a user-level skill. Claude Code and Codex use the identical
+# <dir>/skills/<name>/SKILL.md layout, verified on disk. gemini-cli has neither a skills nor a
+# commands directory and no documented equivalent, so it gets None rather than a guess -- inventing
+# a location would write a file nothing reads and uninstall would have to hunt for it later.
+#
+# Until this table existed, cli.cmd_install gated the skill behind `host == "claude-code"`, so a
+# Codex user got both hooks and no skill: the agent then reads $DATABASE_URL as an ordinary empty
+# variable and asks for the real value again, which is the whole failure the skill prevents.
+SKILL_TARGETS = {
+    "claude-code": os.path.join("~", ".claude", "skills", "clowk", "SKILL.md"),
+    "codex": os.path.join("~", ".codex", "skills", "clowk", "SKILL.md"),
+    "gemini-cli": None,
+}
+
+
+def skill_path(host="claude-code"):
+    """Where this host's copy of the skill lives, or None if it has nowhere to put one.
+
+    CLOWK_SKILL overrides every host, which is what the tests use for isolation.
+    """
     override = os.environ.get("CLOWK_SKILL")
     if override:
         return override
-    return os.path.expanduser(os.path.join("~", ".claude", "skills", "clowk", "SKILL.md"))
+    relative = SKILL_TARGETS.get(host)
+    return os.path.expanduser(relative) if relative else None
 
 
-def install_skill(root):
-    """Copy the skill to the user's skills directory. Returns the path, or None."""
+def install_skill(root, host="claude-code"):
+    """Copy the skill to this host's skills directory. Returns the path, or None."""
     source = skill_source(root)
     if source is None:
         return None
-    path = skill_path()
+    path = skill_path(host)
+    if path is None:
+        return None
     parent = os.path.dirname(path)
     if parent:
         try:
@@ -278,10 +299,10 @@ def install_skill(root):
     return path
 
 
-def uninstall_skill():
-    """Remove the copied skill. Returns True if it was there. Leaves an unrelated file alone."""
-    path = skill_path()
-    if not os.path.exists(path):
+def uninstall_skill(host="claude-code"):
+    """Remove this host's copied skill. True if it was there. Leaves an unrelated file alone."""
+    path = skill_path(host)
+    if path is None or not os.path.exists(path):
         return False
     try:
         with open(path, encoding="utf-8") as f:

@@ -350,18 +350,25 @@ def cmd_install(host, out, err):
     else:
         out.write("Left %s alone -- it exists and clowk did not write it.\n"
                   % install_mod.launcher_path())
+    # Only Claude Code has ~/.claude/commands; the others use different mechanisms.
     if host == "claude-code":
-        # Only Claude Code has ~/.claude/commands; the other hosts use different mechanisms.
         command = install_mod.install_command(root)
         if command:
             out.write("Wrote %s, so `/clowk` works without installing the plugin.\n" % command)
         else:
             out.write("Left %s alone -- it exists and clowk did not write it.\n"
                       % install_mod.command_path())
-        skill = install_mod.install_skill(root)
+    # The skill goes wherever the host reads one, which is Claude Code AND Codex -- identical
+    # layout. Gated on the path existing rather than on the host name, so adding a host is a
+    # table entry rather than another branch here.
+    if install_mod.skill_path(host) is not None:
+        skill = install_mod.install_skill(root, host)
         if skill:
             out.write("Wrote %s -- the assistant reads this to learn how to use a credential "
                       "without reading it.\n" % skill)
+    else:
+        out.write("No skill installed: %s has no known skills directory, so the assistant will "
+                  "not be told what a $NAME is.\n" % host)
     out.write("Restart %s so it picks the hooks up.\n" % host)
     if host == "codex":
         out.write("Codex requires hook trust: run /hooks and approve clowk. Every clowk\n"
@@ -381,8 +388,8 @@ def cmd_uninstall(host, out, err):
     out.write("Removed %d clowk hook(s) from %s.\n" % (result["removed"], result["settings"]))
     if install_mod.uninstall_command():
         out.write("Removed %s.\n" % install_mod.command_path())
-    if install_mod.uninstall_skill():
-        out.write("Removed %s.\n" % install_mod.skill_path())
+    if install_mod.uninstall_skill(host):
+        out.write("Removed %s.\n" % install_mod.skill_path(host))
     if install_mod.uninstall_launcher():
         out.write("Removed %s.\n" % install_mod.launcher_path())
     return 0

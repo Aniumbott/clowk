@@ -167,3 +167,52 @@ class TestChoosing(SetupCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestEveryHostThatCanReadASkillGetsOne(unittest.TestCase):
+    """Codex reads skills from the same layout as Claude Code, and was never given one.
+
+    cli.cmd_install gated the skill behind `host == "claude-code"`, so a Codex user got both hooks
+    and no skill -- and without it the agent reads $DATABASE_URL as an ordinary empty variable and
+    asks for the real value again. That is the exact failure the skill exists to prevent, shipped to
+    one of three supported hosts.
+    """
+
+    def test_claude_code_and_codex_both_have_a_skill_destination(self):
+        for host in ("claude-code", "codex"):
+            self.assertIsNotNone(install.SKILL_TARGETS[host], "%s has nowhere to put the skill" % host)
+
+    def test_the_two_destinations_are_different_files(self):
+        os.environ.pop("CLOWK_SKILL", None)
+        self.assertNotEqual(install.skill_path("claude-code"), install.skill_path("codex"))
+
+    def test_gemini_gets_none_rather_than_an_invented_path(self):
+        self.assertIsNone(install.SKILL_TARGETS["gemini-cli"])
+        os.environ.pop("CLOWK_SKILL", None)
+        self.assertIsNone(install.skill_path("gemini-cli"))
+
+    def test_every_target_host_has_an_entry_either_way(self):
+        # A host added to TARGETS without a decision here would silently install no skill.
+        self.assertEqual(sorted(install.SKILL_TARGETS), sorted(install.TARGETS))
+
+    def test_installing_and_removing_for_codex_is_symmetric(self):
+        target = os.path.join(tempfile.mkdtemp(), "skills", "clowk", "SKILL.md")
+        self.addCleanup(shutil.rmtree, os.path.dirname(os.path.dirname(target)), True)
+        previous = install.SKILL_TARGETS["codex"]
+        os.environ.pop("CLOWK_SKILL", None)
+        install.SKILL_TARGETS["codex"] = target
+        try:
+            root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            self.assertEqual(install.install_skill(root, "codex"), target)
+            self.assertTrue(os.path.isfile(target))
+            self.assertTrue(install.uninstall_skill("codex"))
+            self.assertFalse(os.path.exists(target))
+        finally:
+            install.SKILL_TARGETS["codex"] = previous
+
+    def test_installing_for_gemini_writes_nothing_and_says_so(self):
+        out, err = io.StringIO(), io.StringIO()
+        from clowk import cli
+        os.environ.pop("CLOWK_SKILL", None)
+        self.assertIsNone(install.install_skill(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "gemini-cli"))

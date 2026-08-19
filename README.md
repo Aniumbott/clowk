@@ -251,8 +251,14 @@ bare `clowk get`, a substitution piped into `echo`/`cat`/`printf`, a redirect, a
 shell variable — each of those would put the value back in your transcript. The check lives in the
 hook rather than in `clowk get` because a process cannot tell whether it was command-substituted.
 
-Your agent learns this from the skill `install` drops in `~/.claude/skills/`, pointed at from a
-session's first block, so the rule arrives with the `$NAME` it governs.
+Your agent learns this from a skill `setup` installs, pointed at from a session's first block so the
+rule arrives with the `$NAME` it governs. What each host gets:
+
+| Host | Hooks | Skill | `/clowk` |
+|---|---|---|---|
+| Claude Code | `UserPromptSubmit` + `PreToolUse` | `~/.claude/skills/clowk/` | yes |
+| Codex | `UserPromptSubmit` + `PreToolUse` | `~/.codex/skills/clowk/` | no |
+| Gemini CLI | `BeforeAgent` + `BeforeTool` | none — it has no skills directory, so setup says so rather than inventing a path | no |
 
 Every `clowk get` is recorded, so `clowk uses` tells you where a credential was caught and what has
 drawn on it since. Re-catches are counted too: `clowk list` will tell you a key has been caught five
@@ -397,7 +403,7 @@ Useful to know before opening a PR:
 ## Development
 
 ```bash
-python3 -m unittest discover -s tests        # 521 tests, ~4s
+python3 -m unittest discover -s tests        # 527 tests, ~4s
 ```
 
 CI runs the same suite on Python 3.8 through 3.13 across Linux, macOS and Windows, plus three checks
