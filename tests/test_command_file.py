@@ -146,5 +146,38 @@ class TestSkill(CommandFileCase):
         self.assertTrue(os.path.exists(self.skill_target))
 
 
+class TestSkillSurvivesPackaging(CommandFileCase):
+    """A wheel has no repo root, and the skill was resolved relative to one.
+
+    `cli.py` computes root as the parent of the clowk package. In a clone that is the repository, so
+    root/skills/clowk/SKILL.md resolves. Installed with pip, root is site-packages -- that path does
+    not exist, install_skill returned None, and cmd_install printed nothing about it. The result
+    would be a pip release that registers both hooks and silently ships no skill, and without the
+    skill an agent reads $DATABASE_URL as an ordinary empty variable and asks for the real value
+    again. That is the defect 0.1.0 exists to have fixed, reintroduced by the packaging.
+    """
+
+    def test_the_skill_installs_when_root_is_not_a_repository(self):
+        # tempfile stands in for site-packages: a directory with no skills/ tree beneath it.
+        fake_root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, fake_root, True)
+        path = install.install_skill(fake_root)
+        self.assertEqual(path, self.skill_target,
+                         "install_skill found no source outside a repo, so a pip install would "
+                         "register hooks and quietly deliver no skill")
+        self.assertTrue(os.path.isfile(path))
+
+    def test_the_packaged_copy_matches_the_one_the_plugin_spec_needs(self):
+        # Two copies of one file on purpose: the wheel needs it inside the package, and the Claude
+        # Code plugin spec looks for skills/clowk/SKILL.md at the plugin root. Neither can move, so
+        # this pins them together instead -- the same trick the diagram's counts use.
+        packaged = install.PACKAGED_SKILL
+        plugin = os.path.join(ROOT, install.SKILL_SOURCE)
+        self.assertTrue(os.path.isfile(packaged), "%s is missing from the package" % packaged)
+        with open(packaged, "rb") as a, open(plugin, "rb") as b:
+            self.assertEqual(a.read(), b.read(),
+                             "the packaged skill and the plugin copy have drifted")
+
+
 if __name__ == "__main__":
     unittest.main()

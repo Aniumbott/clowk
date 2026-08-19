@@ -231,7 +231,24 @@ def launcher_on_path(path):
 # The skill is a file, so it can be copied verbatim rather than generated -- unlike the command,
 # it resolves no ${CLAUDE_PLUGIN_ROOT}. A user-level copy means /clowk's skill works without the
 # plugin, the same reason the command file is written here.
+#
+# It exists TWICE, and neither copy can move. clowk/data/SKILL.md ships inside the package, because
+# a wheel has no repository root: `root` is site-packages there, so resolving the plugin copy
+# beneath it returned None and a pip install would have registered both hooks while silently
+# delivering no skill -- and without the skill an agent reads $DATABASE_URL as an ordinary empty
+# variable and asks for the real value again. skills/clowk/SKILL.md stays where it is because that
+# is where the Claude Code plugin spec looks. A test pins the two byte-identical rather than trying
+# to generate one from the other, which would ship stale from any build that skipped the step.
+PACKAGED_SKILL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "SKILL.md")
 SKILL_SOURCE = os.path.join("skills", "clowk", "SKILL.md")
+
+
+def skill_source(root):
+    """The SKILL.md to copy, or None. Package data first, so an installed wheel works at all."""
+    for candidate in (PACKAGED_SKILL, os.path.join(root, SKILL_SOURCE)):
+        if os.path.isfile(candidate):
+            return candidate
+    return None
 
 
 def skill_path():
@@ -243,9 +260,9 @@ def skill_path():
 
 
 def install_skill(root):
-    """Copy skills/clowk/SKILL.md to the user's skills directory. Returns the path, or None."""
-    source = os.path.join(root, SKILL_SOURCE)
-    if not os.path.isfile(source):
+    """Copy the skill to the user's skills directory. Returns the path, or None."""
+    source = skill_source(root)
+    if source is None:
         return None
     path = skill_path()
     parent = os.path.dirname(path)
