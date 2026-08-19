@@ -141,6 +141,12 @@ class mock_path(object):
 
 
 class TestAPackagedInstallNeedsNoShim(unittest.TestCase):
+    """CLOWK_BIN is redirected here for the same reason the fixture above does it, and this class
+    originally forgot to: without it, the uninstall test below wrote a fake shim over the REAL
+    ~/.local/bin/clowk and then deleted it, so running the suite removed the developer's own
+    launcher. A test that reaches outside its temporary directory is a test that damages whoever
+    runs it.
+    """
     """pip, pipx and uv all provide `clowk` through a console_scripts entry point.
 
     Writing the shim on top of one would be a second command shadowing the first depending on PATH
@@ -157,6 +163,12 @@ class TestAPackagedInstallNeedsNoShim(unittest.TestCase):
     def test_the_check_looks_for_a_git_directory_beside_the_package(self):
         self.assertTrue(os.path.isdir(os.path.join(install._PACKAGE_PARENT, ".git")),
                         "the premise of the test above")
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        os.environ["CLOWK_BIN"] = os.path.join(self.dir, "bin", "clowk")
+        self.addCleanup(os.environ.pop, "CLOWK_BIN", None)
 
     def test_uninstall_still_removes_a_shim_an_older_version_wrote(self):
         # Upgraders keep a stale shim otherwise, pointing at a path that may no longer exist.
