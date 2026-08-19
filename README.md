@@ -61,6 +61,9 @@ Claude Code, Codex and Gemini CLI. Python 3.8+, standard library only. No daemon
 for, and **neither hook ever touches the network** — the only command that does is `clowk update`,
 which runs your package manager or `git pull` when you ask it to.
 
+**Why it exists:** [113 of my Claude Code transcripts had an API key in them](https://aniumbott.medium.com/113-of-my-claude-code-transcripts-had-an-api-key-in-them-and-clowk-helped-me-stop-that-70cababb21a1)
+— what I found when I went looking through my own, and what clowk was built to stop.
+
 ## Contents
 
 | | |
