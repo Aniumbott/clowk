@@ -1,0 +1,37 @@
+# An alias distribution: metadata and a dependency, no code. `pip install clowk-cli` installs `clowk`,
+# which is the only place the implementation lives -- so the two can never drift.
+#
+# The version floor is deliberately loose and this project's own version is expected to stay put. If
+# it pinned `clowk==<same version>`, every clowk release would need a second release here to match,
+# which is a standing chore in exchange for nothing: the alias has no content to keep in step.
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "clowk-cli"
+version = "0.1.0"
+description = "Alias for clowk -- installing this installs clowk, which provides the clowk command."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [{ name = "Aniket Rana" }]
+keywords = ["clowk", "security", "secrets", "credentials"]
+dependencies = ["clowk>=0.1.0"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Topic :: Security",
+]
+
+[project.urls]
+Homepage = "https://github.com/Aniumbott/clowk"
+Source = "https://github.com/Aniumbott/clowk"
+
+# No modules, so hatchling has nothing to discover and must be told the wheel is intentionally empty.
+[tool.hatch.build.targets.wheel]
+bypass-selection = true
