@@ -57,6 +57,24 @@ class TestList(CliCase):
         self.assertIn("STRIPE_KEY", out)
         self.assertNotIn("sk_" "live_secretvalue", out)
 
+    def test_names_are_printed_bare_so_they_can_be_copied(self):
+        """A leading $ makes the name unusable as a copy target.
+
+        `list` is where you go to find the name to pass to `clowk get`, `clear`, `rename` or `uses`,
+        and every one of those takes the bare name. Printing `$STRIPE_KEY` meant selecting the line
+        and then deleting a character, or copying a name that silently does not match.
+        """
+        self.vault.store("STRIPE_KEY", "sk_" "live_secretvalue", rule="stripe", source="/p")
+        code, out, err = self.run_cli("list")
+        self.assertIn("STRIPE_KEY", out)
+        self.assertNotIn("$STRIPE_KEY", out)
+
+    def test_uses_prints_the_name_bare_too(self):
+        self.vault.store("STRIPE_KEY", "sk_" "live_secretvalue", rule="stripe", source="/p")
+        code, out, err = self.run_cli("uses")
+        self.assertIn("STRIPE_KEY", out)
+        self.assertNotIn("$STRIPE_KEY", out)
+
     def test_low_confidence_entries_are_flagged(self):
         self.vault.store("A", "v", confidence="low")
         code, out, err = self.run_cli("list")

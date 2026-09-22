@@ -96,7 +96,10 @@ def cmd_list(out):
         flag = ""
         if meta.get("confidence") == "low":
             flag = "   [shape-only match -- clear it if it was a false positive]"
-        out.write("  $%s%s\n" % (name, flag))
+        # Bare, no leading $: this is the line you copy a name from, and every command that
+        # takes one -- get, clear, rename, set, uses -- wants it without the sigil. The $NAME
+        # form belongs in a prompt, which is where the block message and the skill teach it.
+        out.write("  %s%s\n" % (name, flag))
         out.write("      caught: %s" % (meta.get("first_caught") or "?"))
         if meta.get("rule"):
             out.write("   rule: %s" % meta["rule"])
@@ -163,7 +166,7 @@ def cmd_uses(name, out, err):
         return 0
     for key in sorted(items):
         meta = items[key]
-        out.write("$%s\n" % key)
+        out.write("%s\n" % key)
         out.write("  caught:      %s\n" % _caught_summary(meta))
         out.write("  caught from: %s\n" % (", ".join(meta["sources"]) if meta.get("sources") else "(unknown)"))
         out.write("  used by:     %s\n" % (", ".join(meta["uses"]) if meta.get("uses") else "(nothing recorded yet)"))

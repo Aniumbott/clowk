@@ -210,7 +210,10 @@ class TestCaptureThenCli(IntegrationCase):
     def test_list_shows_the_name_and_never_the_value(self):
         code, out, err = self.run_cli("list")
         self.assertEqual(code, 0)
-        self.assertIn("$STRIPE_SECRET_KEY", out)
+        # Bare, not $-prefixed: this is the line a user copies a name from, and every command that
+        # takes one wants it without the sigil.
+        self.assertIn("STRIPE_SECRET_KEY", out)
+        self.assertNotIn("$STRIPE_SECRET_KEY", out)
         self.assertNoTrace(STRIPE, out, err)
 
     def test_list_flags_a_shape_only_match_so_it_can_be_purged(self):
@@ -307,7 +310,8 @@ class TestMultipleCredentialsInOnePrompt(IntegrationCase):
         code, out, err = self.run_cli("list")
         self.assertIn("3 stored", out)
         for name, value in self.PAIRS:
-            self.assertIn("$" + name, out)
+            self.assertIn(name, out)
+            self.assertNotIn("$" + name, out)
             self.assertNoTrace(value, out, err)
 
 
