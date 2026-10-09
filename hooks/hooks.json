@@ -1,0 +1,4 @@
+{
+  "description": "clowk as a Claude Code mod: rewrites a credential in a prompt to its $NAME before the prompt is sent. Settings hooks from `clowk setup` stay registered as the backstop.",
+  "modules": ["./register.js"]
+}

@@ -11,6 +11,7 @@ import time
 import unittest
 
 from tests import plain
+from tests import plain as plain_text
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -123,7 +124,7 @@ class TestCapture(HookCase):
         reason = json.loads(out)["reason"]
         self.assertNotIn(self.KEY, reason)
         name = self.vault.names()[0]
-        self.assertIn("use $" + name + " now", reason)
+        self.assertIn("use $" + name + " now", plain(reason))
 
     def test_block_reason_always_mentions_the_bypass(self):
         code, out, err = self.run_hook({"prompt": "use " + self.KEY, "cwd": "/proj"})
@@ -153,7 +154,7 @@ class TestCapture(HookCase):
         self.assertNotIn(key, reason)
         self.assertNotIn("cdef0123456789abcdef", reason)
         self.assertEqual(self.vault.names(), ["FLUTTERWAVE_SECRET_KEY"])
-        self.assertIn("key $FLUTTERWAVE_SECRET_KEY ok", reason)
+        self.assertIn("key $FLUTTERWAVE_SECRET_KEY ok", plain(reason))
 
     def test_codex_host_blocks_via_exit_two_and_stderr(self):
         code, out, err = self.run_hook({"prompt": "use " + self.KEY, "cwd": "/p"}, host="codex")
@@ -275,6 +276,43 @@ class TestTheHostsOwnEchoIsWarnedAbout(HookCase):
         self.assertEqual(len(with_warning.split("\n")), len(without.split("\n")) + 1)
 
 
+class TestTurnsClaudeCodeStartsItselfAreNotBlocked(HookCase):
+    """A subagent's hand-back, a task notice, a peer message: `source: "system"` on Claude Code.
+
+    Blocking one cut the agent off from its own subagent's result mid-task, and protected nothing --
+    whatever credential is in it came out of a model or a tool already."""
+
+    KEY = "ghp" "_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"
+
+    def test_a_system_turn_with_a_token_goes_through(self):
+        code, out, err = self.run_hook({"prompt": "report: " + self.KEY, "cwd": "/p", "source": "system"})
+        self.assertEqual((code, out, err), (0, "", ""))
+        self.assertIsNone(self.vault.get("GITHUB_TOKEN"))
+
+    def test_a_subagent_hand_back_without_a_source_field_goes_through(self):
+        # 2.1.295 sends no `source`; this is the wrapper a real hand-back arrived in.
+        prompt = '<agent-message from="a29989586dc269eb3">\n[Subagent hand-back] ... ' + self.KEY
+        code, out, err = self.run_hook({"prompt": prompt, "cwd": "/p"})
+        self.assertEqual((code, out), (0, ""))
+
+    def test_a_task_notification_without_a_source_field_goes_through(self):
+        code, out, err = self.run_hook({"prompt": "<task-notification> <task-id>x</task-id> " + self.KEY,
+                                        "cwd": "/p"})
+        self.assertEqual((code, out), (0, ""))
+
+    def test_the_wrapper_only_counts_at_the_start(self):
+        code, out, err = self.run_hook({"prompt": "see <task-notification> " + self.KEY, "cwd": "/p"})
+        self.assertEqual(json.loads(out)["decision"], "block")
+
+    def test_what_the_user_typed_is_still_blocked(self):
+        for source in ("user", "sdk", None):
+            payload = {"prompt": "use " + self.KEY, "cwd": "/p"}
+            if source:
+                payload["source"] = source
+            code, out, err = self.run_hook(payload)
+            self.assertEqual(json.loads(out)["decision"], "block", source)
+
+
 class TestBypassIsAnchoredToTheStart(HookCase):
     """`unclowk` is the one deliberate fail-open switch, so where it counts has to be pinned.
 
@@ -329,7 +367,7 @@ class TestFilingFailureStillBlocks(HookCase):
         self.assertNotEqual(out, "", "a failed vault write cancelled the block")
         reason = json.loads(out)["reason"]
         self.assertNotIn(self.KEY, reason)
-        self.assertIn("use $STRIPE_SECRET_KEY now", reason)
+        self.assertIn("use $STRIPE_SECRET_KEY now", plain(reason))
         self.assertIn("not saved", reason)
         self.assertIn("unclowk", reason)
 
@@ -455,8 +493,8 @@ class TestLogPasteDoesNotAvalanche(HookCase):
         # $AUTH_TOKEN, not $GENERIC_API_KEY: the generic rule matched this log line because of the
         # words `auth_token_hint=`, and it is named after the credential words in them -- `hint`
         # is not one, so it is not in the name.
-        self.assertIn("$AUTH_TOKEN status=200", reason)
-        self.assertGreater(len(reason), len(self.log) - len("".join(self.secrets)))
+        self.assertIn("$AUTH_TOKEN status=200", plain(reason))
+        self.assertGreater(len(plain(reason)), len(self.log) - len("".join(self.secrets)))
 
 
 class TestARotationIsNamedWhenItHappens(HookCase):
@@ -677,7 +715,7 @@ class TestOverlappingFindingsStillCollapseToOneName(HookCase):
         self.assertNotIn(self.KEY, reason)
         self.assertNotIn("prodstore", reason)
         self.assertNotIn("core.windows.net", reason)
-        self.assertIn("connect with $AZURE_STORAGE_CONNECTION_STRING", reason)
+        self.assertIn("connect with $AZURE_STORAGE_CONNECTION_STRING", plain(reason))
 
 
 class TestStraddlingFindingsLeaveNoWholeValue(HookCase):
@@ -760,81 +798,107 @@ class TestFilingStillGoesLongestFirst(HookCase):
         self.assertLessEqual(len(self.vault.names()), self.hook.MAX_FILED)
 
 
-class TestTheEchoedRewriteIsElided(HookCase):
-    """The reason echoed the whole rewritten prompt, which floods the terminal on a long one.
+class TestThePreviewShowsOnlyTheLinesWithACredential(HookCase):
+    """The "Paste this" preview echoed the whole rewrite, then a head-and-tail elision of it.
 
-    There was already a cap, and it went too far the other way: above ECHO_LIMIT the echo was
-    replaced ENTIRELY by a character count, so the user was told to paste something they could not
-    see any of. Head and tail are what let them confirm it is the right message before pasting it.
+    Both answered the wrong question at length. What the user checks before repasting is the place
+    their credential was -- that it became a $NAME -- so the preview is now only the lines holding
+    a $NAME, each cut to SNIPPET_RADIUS characters either side of it, with an ellipsis where text
+    was cut. At most MAX_SNIPPETS such lines; the rest are counted.
 
-    The one branch that must never be elided is a failed clipboard copy. clip.copy is best effort
-    and returns False when no clipboard tool exists -- every headless box -- and there the printed
-    text is the user's only copy of the rewrite. Eliding it would leave retyping or `unclowk`.
+    The one branch that must never be cut is a failed clipboard copy. clip.copy is best effort and
+    returns False when no clipboard tool exists -- every headless box -- and there the printed text
+    is the user's only copy of the rewrite, so it is printed whole.
     """
 
     KEY = "ghp" "_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"
+    SECOND = "sk_" "live_4eC39HqLyjWDarjtT1zdp7dc"
     OPENING = "here is the deploy token"
     CLOSING = "and that is the end of the message"
 
     def prompt(self, filler_lines=200):
         middle = "\n".join("step %d: rebuild the image and push it to the registry" % i
                            for i in range(filler_lines))
-        return "%s %s\n%s\n%s" % (self.OPENING, self.KEY, middle, self.CLOSING)
+        return "%s\n%s %s\n%s" % (middle, self.OPENING, self.KEY, self.CLOSING)
 
-    def reason(self, copied, filler_lines=200):
+    def reason(self, prompt, copied=True):
         self.addCleanup(setattr, self.hook.clip, "copy", self.hook.clip.copy)
         self.hook.clip.copy = lambda text: copied
-        code, out, err = self.run_hook({"prompt": self.prompt(filler_lines), "cwd": "/p"})
+        code, out, err = self.run_hook({"prompt": prompt, "cwd": "/p"})
         self.assertEqual(code, 0)
-        return json.loads(out)["reason"]
+        return plain(json.loads(out)["reason"])
 
-    def test_a_long_rewrite_shows_its_opening_and_its_closing(self):
-        reason = self.reason(copied=True)
-        self.assertIn(self.OPENING + " $GITHUB_TOKEN", reason, "the head of the message was cut")
-        self.assertIn(self.CLOSING, reason, "the tail of the message was cut")
+    def preview(self, prompt, copied=True):
+        return self.reason(prompt, copied).split("📋")[1].split("🤔")[0]
 
-    def test_the_middle_is_dropped_rather_than_the_whole_thing(self):
-        reason = self.reason(copied=True)
-        self.assertNotIn("step 100:", reason, "nothing was elided")
-        self.assertLess(len(reason), 2000, "%d characters is still a flood" % len(reason))
+    def test_only_the_line_with_the_credential_is_shown(self):
+        preview = self.preview(self.prompt())
+        self.assertIn(self.OPENING + " $GITHUB_TOKEN", preview)
+        self.assertNotIn("step 0:", preview)
+        self.assertNotIn("step 199:", preview)
+        self.assertNotIn(self.CLOSING, preview)
 
-    def test_the_elision_says_where_the_whole_message_is(self):
-        self.assertIn("clipboard", self.reason(copied=True))
+    def test_a_long_line_is_cut_to_the_radius_on_both_sides_and_says_so(self):
+        r = self.hook.SNIPPET_RADIUS
+        before, after = "b " * 150 + "x" * (r - 1) + " ", " " + "y" * (r - 1) + " a" * 150
+        preview = self.preview(before + self.KEY + after)
+        self.assertIn("…" + "x" * (r - 1) + " $GITHUB_TOKEN " + "y" * (r - 1) + "…", preview)
+        self.assertNotIn("b x", preview)
+        self.assertNotIn("y a", preview)
 
-    def test_a_failed_clipboard_copy_is_never_elided(self):
+    def test_a_short_line_is_shown_whole_with_no_ellipsis(self):
+        preview = self.preview("use " + self.KEY + " now")
+        self.assertIn("use $GITHUB_TOKEN now", preview)
+        self.assertNotIn("…", preview)
+
+    def test_every_line_with_a_credential_is_shown(self):
+        preview = self.preview("first " + self.KEY + "\nnothing here\nsecond " + self.SECOND)
+        self.assertIn("first $GITHUB_TOKEN", preview)
+        self.assertIn("second $STRIPE_SECRET_KEY", preview)
+        self.assertNotIn("nothing here", preview)
+
+    def test_two_names_far_apart_on_one_line_are_two_windows(self):
+        gap = " then" * 40 + " "
+        preview = self.preview("a " + self.KEY + gap + self.SECOND + " b")
+        self.assertIn("a $GITHUB_TOKEN", preview)
+        self.assertIn("$STRIPE_SECRET_KEY b", preview)
+        self.assertNotIn(gap, preview)
+        self.assertIn(" … ", preview)
+
+    def test_two_names_close_together_are_one_window(self):
+        preview = self.preview("a " + self.KEY + " and " + self.SECOND + " b")
+        self.assertIn("a $GITHUB_TOKEN and $STRIPE_SECRET_KEY b", preview)
+
+    def test_past_the_line_cap_the_rest_are_counted_not_shown(self):
+        n = self.hook.MAX_SNIPPETS + 3
+        lines = ["line %d token %s" % (i, self.KEY[:-2] + "%02d" % i) for i in range(n)]
+        preview = self.preview("\n".join(lines))
+        shown = [i for i in range(n) if ("line %d token" % i) in preview]
+        self.assertEqual(len(shown), self.hook.MAX_SNIPPETS)
+        self.assertIn("3 more lines", preview)
+        self.assertIn("clipboard", preview)
+
+    def test_the_reason_stays_small_for_a_long_rewrite(self):
+        self.assertLess(len(self.reason(self.prompt(2000))), 1500)
+
+    def test_a_failed_clipboard_copy_is_never_cut(self):
         # The printed text is the only copy in that case, so every line has to be there.
-        reason = self.reason(copied=False)
-        self.assertIn(self.OPENING + " $GITHUB_TOKEN", reason)
-        self.assertIn(self.CLOSING, reason)
+        preview = self.preview(self.prompt(), copied=False)
+        self.assertIn(self.OPENING + " $GITHUB_TOKEN", preview)
+        self.assertIn(self.CLOSING, preview)
         for i in (0, 100, 199):
-            self.assertIn("step %d:" % i, reason, "line %d was elided with no clipboard" % i)
-
-    def test_a_short_rewrite_is_still_echoed_whole(self):
-        reason = self.reason(copied=True, filler_lines=2)
-        for i in (0, 1):
-            self.assertIn("step %d:" % i, reason)
-        self.assertNotIn("elided", reason)
+            self.assertIn("step %d:" % i, preview, "line %d was cut with no clipboard" % i)
 
     def test_the_raw_value_is_absent_from_both_branches(self):
         for copied in (True, False):
-            self.assertNotIn(self.KEY, self.reason(copied=copied))
+            self.assertNotIn(self.KEY, self.reason(self.prompt(), copied=copied))
 
     def test_one_enormous_single_line_is_still_cut(self):
-        # A minified bundle or a base64 blob has no newline to cut at, so the boundary preference
-        # has nothing to work with and the hard cut has to stand rather than fall through to whole.
-        self.addCleanup(setattr, self.hook.clip, "copy", self.hook.clip.copy)
-        self.hook.clip.copy = lambda text: True
-        one_line = "start " + self.KEY + " " + "x" * 9000 + " finish"
-        code, out, err = self.run_hook({"prompt": one_line, "cwd": "/p"})
-        reason = json.loads(out)["reason"]
-        self.assertIn("start $GITHUB_TOKEN", reason)
-        self.assertIn("finish", reason)
-        self.assertLess(len(reason), 2000, "a single long line was not cut")
-        self.assertGreater(len(reason), 800, "the head and tail were dropped too")
-
-    def test_an_elision_always_hides_enough_to_be_worth_a_marker(self):
-        self.assertGreater(self.hook.ECHO_LIMIT, self.hook.ECHO_HEAD + self.hook.ECHO_TAIL,
-                           "at this limit an elision can claim to hide almost nothing")
+        # A minified bundle or a base64 blob has no newline to cut at.
+        preview = self.preview("start " + self.KEY + " " + "x" * 9000 + " finish")
+        self.assertIn("start $GITHUB_TOKEN", preview)
+        self.assertNotIn("finish", preview)
+        self.assertLess(len(preview), 300)
 
 
 class TestEmphasisIsGatedOnSomethingTrueAtRuntime(HookCase):
@@ -910,11 +974,23 @@ class TestEmphasisIsGatedOnSomethingTrueAtRuntime(HookCase):
         reason = self.reason()
         self.assertNotIn("\x1b[0m", reason)
 
-    def test_the_echoed_paste_carries_no_escapes_even_when_the_rest_does(self):
-        # The echo is a preview of the clipboard payload, so it has to look like the payload.
-        reason = self.reason()
-        body = reason.split("📋")[1]
-        self.assertNotIn(self.ESC, body, "the preview of the paste was styled")
+    def test_the_name_in_the_preview_is_highlighted(self):
+        # The host draws the whole reason in amber (SGR 38;2;255;193;7), so a $NAME in the same
+        # amber did not stand out. Teal + bold, then bold off and the amber put back: measured on
+        # Claude Code 2.1.295, the amber resumes after the name instead of dropping to the default.
+        body = self.reason().split("📋")[1]
+        self.assertIn(self.hook.HIGHLIGHT + "$GITHUB_TOKEN" + self.hook.UNHIGHLIGHT, body)
+        self.assertEqual(self.hook.UNHIGHLIGHT, "\x1b[22;38;2;255;193;7m")
+
+    def test_the_highlight_never_resets_the_hosts_colour(self):
+        body = self.reason().split("📋")[1]
+        for reset in ("\x1b[0m", "\x1b[39m", "\x1b[m"):
+            self.assertNotIn(reset, body)
+
+    def test_the_highlight_does_not_swallow_a_longer_name(self):
+        # $GITHUB_TOKEN must not light up the front of $GITHUB_TOKEN_2.
+        self.assertEqual(self.hook._highlight("$A_KEY_2 and $A_KEY", ["A_KEY"], True),
+                         "$A_KEY_2 and " + self.hook.HIGHLIGHT + "$A_KEY" + self.hook.UNHIGHLIGHT)
 
     def test_an_unverified_host_gets_a_message_with_no_escapes_at_all(self):
         err = self.reason(host="codex")
@@ -927,8 +1003,7 @@ class TestEmphasisIsGatedOnSomethingTrueAtRuntime(HookCase):
         self.setUp()                              # a fresh vault, so the name does not suffix
         plain = self.reason(emphasis=False)
         self.assertNotIn(self.ESC, plain)
-        self.assertEqual(styled.replace("\x1b[1m", "").replace("\x1b[22m", ""), plain,
-                         "emphasis changed more than the escapes")
+        self.assertEqual(plain_text(styled), plain, "emphasis changed more than the escapes")
 
 
 class TestTheClipboardPayloadIsNeverStyled(HookCase):
@@ -1067,7 +1142,7 @@ class TestStdinIsDecodedAsUtf8(HookCase):
         self.assertNotIn(self.TOKEN, reason)
         self.assertEqual(self.vault.names(), ["GITHUB_TOKEN"])
         self.assertEqual(self.vault.get("GITHUB_TOKEN"), self.TOKEN)
-        return reason
+        return plain(reason)
 
     def test_a_utf8_locale_blocks_and_files_the_token(self):
         self.assertIn(self.REWRITE, self.assert_blocked_and_filed("utf-8"))
