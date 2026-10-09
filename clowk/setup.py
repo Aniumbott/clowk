@@ -26,7 +26,7 @@ import os
 import subprocess
 import sys
 
-from clowk import __version__, install as install_mod
+from clowk import __version__, install as install_mod, plugin as plugin_mod
 
 # Assembled from parts on purpose. A literal Stripe-shaped key in a tracked file is blocked by
 # GitHub push protection -- the same class of tool as clowk, refusing clowk's own test fixture.
@@ -227,6 +227,9 @@ def run(argv, out, err, stdin=None):
         out.write("  %-12s hooks into %s\n" % (host, install_mod.settings_path(host)))
     out.write("  %-12s %s\n" % ("skill", install_mod.skill_path()))
     out.write("  %-12s %s\n" % ("/clowk", install_mod.command_path()))
+    if "claude-code" in chosen:
+        out.write("  %-12s %s from %s, if Claude Code is %s+\n"
+                  % ("plugin", plugin_mod.PLUGIN, plugin_mod.MARKETPLACE, ".".join(map(str, plugin_mod.MIN_VERSION))))
     if opts["dry_run"]:
         out.write("\n--dry-run: nothing was written.\n")
         return 0
@@ -247,6 +250,13 @@ def run(argv, out, err, stdin=None):
         ok, detail = verify(host)
         results.append((host, ok, detail))
 
+    # The plugin lets Claude Code rewrite a credential in place instead of blocking. Without it the
+    # hooks above still block, so a skip or a failure here never fails setup.
+    plugin_result = None
+    if "claude-code" in chosen:
+        out.write("\n--- claude-code plugin ---\n")
+        plugin_result = plugin_mod.install()
+
     out.write("\n%s\n" % ("-" * 58))
     out.write("Result\n\n")
     worst = 0
@@ -262,6 +272,14 @@ def run(argv, out, err, stdin=None):
                       % ("", "understands. It does NOT prove this host sends one -- its payload"))
             out.write("  %-12s %s\n"
                       % ("", "shape is unverified, so it may scan an empty string. See NOTES.md."))
+    if plugin_result is not None:
+        ok, detail = plugin_result
+        mark = "skipped" if ok is None else ("installed" if ok else "NOT INSTALLED")
+        out.write("  %-12s %-13s %s\n" % ("plugin", mark, detail))
+        if ok is False:
+            out.write("  %-12s %s\n" % ("", "to add it by hand, in Claude Code:"))
+            out.write("  %-12s %s\n" % ("", "/plugin marketplace add %s" % plugin_mod.MARKETPLACE))
+            out.write("  %-12s %s\n" % ("", "/plugin install %s" % plugin_mod.PLUGIN))
     out.write("\nRestart each agent so it reads the new hooks.\n")
     if "codex" in [h for h, _, _ in results]:
         out.write("Codex also needs hook trust: run /hooks and approve clowk.\n")

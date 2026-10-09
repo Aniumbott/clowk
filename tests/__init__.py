@@ -5,7 +5,13 @@ patching an interpreter default.
 """
 import builtins
 import contextlib
+import os
 import re
+
+# `clowk setup` and `clowk uninstall` drive the user's own `claude` to add and remove the Claude Code
+# plugin. No test may reach the real one: pointed at a name that does not exist, every plugin step
+# reports a skip. tests/test_plugin.py points it at a fake instead.
+os.environ["CLOWK_CLAUDE"] = "clowk-tests-have-no-claude"
 
 _SGR = re.compile(r"\x1b\[[0-9;]*m")
 
