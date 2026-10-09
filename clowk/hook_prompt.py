@@ -38,25 +38,16 @@ SKILL_POINTER = (
 # Everything past the cap is still redacted and the turn is still blocked -- only filing stops.
 MAX_FILED = 20
 
-# Longest rewrite echoed WHOLE into the block reason when the clipboard already has it. Without a
-# cap a 200 KB log paste produced a 220 KB reason, which is what the host shows the user.
+# The "Paste this" preview is only the lines that hold a $NAME, each cut to SNIPPET_RADIUS characters
+# either side of the name(s), with an ellipsis where text was cut. What the user checks before
+# repasting is the place their credential was, so that is all the preview shows. The whole rewrite
+# used to be echoed (then head and tail of it), which flooded the terminal and buried the one line
+# that mattered. At most MAX_SNIPPETS lines; the rest are counted.
 #
-# Above the cap the echo used to be replaced entirely by a character count, which overshot: the
-# user was told to paste something they could see no part of. Now it keeps the head and the tail,
-# which is what answers the only question the echo is there for -- is this the message I meant? --
-# and the head is the larger share because that is where a person's own instruction sits.
-#
-# 1000 characters is a dozen lines, so anything a person actually typed around a credential is
-# still shown in full. Never applied when the clipboard copy failed: there the echo is the user's
-# only copy of the rewrite, so it is printed whole however long it is.
-#
-# The limit is deliberately larger than head + tail, so the smallest elision this can produce
-# hides 201 characters and the marker always earns its line. Were the limit EQUAL to head + tail,
-# the shortest elided rewrite would be 801 characters and the marker would read "1 more
-# characters".
-ECHO_LIMIT = 1000
-ECHO_HEAD = 500
-ECHO_TAIL = 300
+# Never applied when the clipboard copy failed: there the echo is the user's only copy of the
+# rewrite, so it is printed whole however long it is.
+SNIPPET_RADIUS = 40
+MAX_SNIPPETS = 5
 
 # --- emphasis -------------------------------------------------------------------------------------
 # The message used to be one undifferentiated block, with nothing marking the $NAME the user came
@@ -77,6 +68,15 @@ ECHO_TAIL = 300
 # amber too and drop the rest of the line to the default colour.
 BOLD = "\x1b[1m"
 UNBOLD = "\x1b[22m"
+
+# The $NAMEs in the preview are teal and bold, because in the host's amber they read like the rest
+# of the text. Colour REPLACES the amber for its span, so the closing sequence puts the amber back
+# explicitly rather than ending with 39m, which dropped the rest of the line to the terminal
+# default. Measured on Claude Code 2.1.295 (dark theme) on 2026-10-09: the bytes reach the
+# terminal as `1m 38;2;20;184;166m $NAME 22m 38;2;255;193;7m`, and the amber resumes after the
+# name. Light theme is not measured.
+HIGHLIGHT = "\x1b[1;38;2;20;184;166m"
+UNHIGHLIGHT = "\x1b[22;38;2;255;193;7m"
 
 
 def emphasis_ok(host, env=None):
@@ -112,6 +112,21 @@ def emphasis_ok(host, env=None):
 
 def _em(text, emphasis):
     return BOLD + text + UNBOLD if emphasis else text
+
+
+def _name_pattern(names):
+    """Matches `$NAME` for any of `names`, but not the front of a longer one ($KEY in $KEY_2)."""
+    if not names:
+        return None
+    alternatives = "|".join(re.escape(n) for n in sorted(names, key=len, reverse=True))
+    return re.compile(r"\$(?:%s)(?![A-Za-z0-9_])" % alternatives)
+
+
+def _highlight(text, names, emphasis):
+    pattern = _name_pattern(names)
+    if not emphasis or pattern is None:
+        return text
+    return pattern.sub(lambda m: HIGHLIGHT + m.group(0) + UNHIGHLIGHT, text)
 
 
 # --- the host's own echo --------------------------------------------------------------------------
@@ -199,7 +214,7 @@ def _host_from(argv):
 
 
 def build_message(rewritten, stored, tiers, copied, unfiled=(), skipped=0, rotated=None,
-                  emphasis=False, warn_echo=False):
+                  emphasis=False, warn_echo=False, names=()):
     """The block reason, which is the DISPLAY string and never the clipboard payload.
 
     Kept short on purpose. This is read by a person who has just been interrupted mid-thought, so it
@@ -210,10 +225,9 @@ def build_message(rewritten, stored, tiers, copied, unfiled=(), skipped=0, rotat
     That line is the only warning the user gets that their habitual $NAME still resolves to the
     revoked key, and this is the one moment they can act on it, so it names the remedy too.
 
-    `emphasis` bolds the $NAMEs, and only where they are ANNOUNCED. The echoed paste is left plain
-    whatever the host renders, because it is a preview of the clipboard payload and has to look
-    like it -- a styled preview invites the reader to believe the payload is styled too. The
-    payload itself is `rewritten`, which this function only ever reads.
+    `emphasis` bolds the $NAMEs where they are announced, and highlights `names` in the preview of
+    the paste -- teal, because in the host's amber they read like the rest of the text. The payload
+    itself is `rewritten`, which this function only ever reads, so it stays plain.
 
     Structure carries the message with no escapes at all -- indentation, one idea per short line,
     the existing emoji -- because two of the three hosts get exactly that.
@@ -245,14 +259,14 @@ def build_message(rewritten, stored, tiers, copied, unfiled=(), skipped=0, rotat
     lines.append("")
     lines.append("📋 Paste this%s:" % (" — already on your clipboard" if copied else ""))
     lines.append("")
-    if copied and len(rewritten) > ECHO_LIMIT:
-        head, tail = _elide(rewritten)
-        _echo(lines, head)
-        lines.append("   ⋯  %d more characters — the whole message is on your clipboard"
-                     % (len(rewritten) - len(head) - len(tail)))
-        _echo(lines, tail)
+    if copied:
+        shown, more = _snippets(rewritten, names)
+        _echo(lines, _highlight("\n".join(shown), names, emphasis))
+        if more:
+            lines.append("   ⋯  %d more line%s with a credential — the whole message is on your "
+                         "clipboard" % (more, "" if more == 1 else "s"))
     else:
-        _echo(lines, rewritten)
+        _echo(lines, _highlight(rewritten, names, emphasis))
     lines.append("")
     lines.append("🤔 Not a credential? Resend starting with  %s" % BYPASS)
     if warn_echo:
@@ -266,23 +280,52 @@ def _echo(lines, text):
         lines.append("   " + line if line else "")
 
 
-def _elide(text):
-    """(head, tail) of `text`, cut at a line boundary when one is near enough to the limit.
+def _snippets(text, names):
+    """(lines to show, how many more there were): the lines of `text` holding a $NAME, cut short.
 
-    Cutting mid-word reads like corruption rather than like an omission, and the marker between
-    the two halves has to be believed -- so the boundary is preferred whenever there is one in the
-    second half of the head or the first half of the tail. A single enormous line has neither, and
-    then the hard cut stands.
+    Each name gets a window of SNIPPET_RADIUS characters either side; windows that touch merge, the
+    rest are joined with " … ", and a cut end gets "…". A rewrite with no $NAME in it at all (which
+    capture never produces) falls back to its first line, so the heading is never left empty.
     """
-    head = text[:ECHO_HEAD]
-    cut = head.rfind("\n")
-    if cut > ECHO_HEAD // 2:
-        head = head[:cut]
-    tail = text[-ECHO_TAIL:]
-    cut = tail.find("\n")
-    if -1 < cut < ECHO_TAIL // 2:
-        tail = tail[cut + 1:]
-    return head, tail
+    pattern = _name_pattern(names)
+    found = []
+    for line in text.split("\n"):
+        spans = [m.span() for m in pattern.finditer(line)] if pattern else []
+        if spans:
+            found.append(_window(line, spans))
+    if not found:
+        found = [_window(text.split("\n")[0], [(0, 0)])]
+    return found[:MAX_SNIPPETS], max(0, len(found) - MAX_SNIPPETS)
+
+
+def _window(line, spans):
+    r = SNIPPET_RADIUS
+    merged = []
+    for start, end in spans:
+        lo, hi = max(0, start - r), min(len(line), end + r)
+        if merged and lo <= merged[-1][1]:
+            merged[-1][1] = hi
+        else:
+            merged.append([lo, hi])
+    out = " … ".join(line[lo:hi] for lo, hi in merged)
+    return ("…" if merged[0][0] > 0 else "") + out + ("…" if merged[-1][1] < len(line) else "")
+
+
+# Claude Code also runs this hook on turns it starts on the model's behalf: a subagent's hand-back, a
+# background task's notice, another session's message. A credential in one came out of a model or a
+# tool, so the model has had it already, and blocking the turn only cuts the agent off from its own
+# subagent's result -- measured on 2.1.295, where a subagent reporting a token-shaped string was
+# blocked mid-task. The documented marker is `source: "system"`, but 2.1.295 does not send `source`
+# yet ("payloads may omit it while the field rolls out"), so the wrappers those turns arrive in are
+# recognised too, as captured from real payloads. Someone who types one of these by hand skips the
+# scan, which `unclowk` already allows.
+MACHINE_WRAPPERS = ("<agent-message from=", "<task-notification>")
+
+
+def machine_authored(payload, prompt):
+    if isinstance(payload, dict) and payload.get("source") == "system":
+        return True
+    return prompt.lstrip().startswith(MACHINE_WRAPPERS)
 
 
 def read_payload(stdin):
@@ -319,7 +362,7 @@ def main(argv, stdin, stdout, stderr):
 
     event = hosts.read_event(payload)
     prompt = event["prompt"]
-    if not prompt or prompt.lstrip().lower().startswith(BYPASS):
+    if not prompt or prompt.lstrip().lower().startswith(BYPASS) or machine_authored(payload, prompt):
         return 0
 
     findings = scan(prompt)
@@ -349,6 +392,26 @@ def capture(event, findings, emphasis=False, warn_echo=False):
 
     Redaction is unconditional; filing is not -- it stops at MAX_FILED and tolerates a vault
     that cannot be written. Raising here only costs the reason text, never the block.
+    """
+    r = redact(event, findings)
+    rewritten = r["rewritten"]
+    # The pointer has to be INSIDE the text the user repastes, not merely in the block reason.
+    # A blocked turn transmits nothing, so the reason is read by the human and never reaches the
+    # model -- putting the pointer only there made it decorative: the agent received a bare $NAME
+    # with no idea what it meant, which is precisely what it was added to prevent. The repasted
+    # prompt is the only channel from a blocked turn to the model.
+    if (r["stored"] or r["unfiled"]) and pointer_needed(event.get("session_id", "")):
+        rewritten = rewritten + "\n\n" + SKILL_POINTER
+    copied = clip.copy(rewritten)
+    return build_message(rewritten, r["stored"], r["tiers"], copied, r["unfiled"], r["skipped"],
+                         r["rotated"], emphasis, warn_echo, names=set(r["names"].values()))
+
+
+def redact(event, findings):
+    """Replace every finding in the prompt with a $NAME and file what can be filed.
+
+    Shared by the prompt hook (which then blocks and shows the result) and `clowk rewrite` (which
+    hands the result to the Claude Code mod to send in place of what was typed).
     """
     prompt = event["prompt"]
     stored, unfiled, tiers, rotated = [], [], {}, {}
@@ -391,17 +454,41 @@ def capture(event, findings, emphasis=False, warn_echo=False):
         names[secret] = name
         tiers[name] = finding.confidence
     rewritten = pattern.sub(lambda m: "$" + names[m.group(0)], prompt) if names else prompt
+    return {"rewritten": rewritten, "stored": stored, "unfiled": unfiled, "tiers": tiers,
+            "rotated": rotated, "skipped": skipped, "names": names}
 
-    # The pointer has to be INSIDE the text the user repastes, not merely in the block reason.
-    # A blocked turn transmits nothing, so the reason is read by the human and never reaches the
-    # model -- putting the pointer only there made it decorative: the agent received a bare $NAME
-    # with no idea what it meant, which is precisely what it was added to prevent. The repasted
-    # prompt is the only channel from a blocked turn to the model.
-    if (stored or unfiled) and pointer_needed(event.get("session_id", "")):
-        rewritten = rewritten + "\n\n" + SKILL_POINTER
-    copied = clip.copy(rewritten)
-    return build_message(rewritten, stored, tiers, copied, unfiled, skipped, rotated,
-                         emphasis, warn_echo)
+
+# --- `clowk rewrite`: the Claude Code mod's detector --------------------------------------------
+# The mod (hooks/register.js) runs this on every prompt and sends the text it prints instead of
+# what was typed. It fails CLOSED on a non-zero exit, so the one rule here is that exit 0 means
+# "this text is safe to send". Anything that could not be checked -- unreadable input, an error
+# after detection -- exits non-zero with nothing on stdout, where a half-made rewrite could still
+# hold a raw value.
+def rewrite(event):
+    """{"text", "names", "pointer"} for one prompt. `pointer` is None unless the model needs it."""
+    prompt = event["prompt"]
+    if prompt.lstrip().lower().startswith(BYPASS):
+        return {"text": prompt, "names": [], "pointer": None}
+    findings = scan(prompt)
+    if not findings:
+        return {"text": prompt, "names": [], "pointer": None}
+    r = redact(event, findings)
+    filed = r["stored"] or r["unfiled"]
+    pointer = SKILL_POINTER if filed and pointer_needed(event.get("session_id", "")) else None
+    return {"text": r["rewritten"], "names": sorted(set(r["names"].values())), "pointer": pointer}
+
+
+def main_rewrite(stdin, stdout, stderr):
+    try:
+        payload = json.loads(read_payload(stdin))
+        if not isinstance(payload, dict) or not isinstance(payload.get("prompt"), str):
+            raise ValueError("expected a JSON object with a string \"prompt\"")
+        result = rewrite(hosts.read_event(payload))
+    except Exception as exc:  # noqa: BLE001 -- the mod drops the prompt on any non-zero exit
+        stderr.write("clowk rewrite: %s\n" % exc.__class__.__name__)
+        return 1
+    stdout.write(json.dumps(result))
+    return 0
 
 
 # --- one-pass redaction -------------------------------------------------------------------------

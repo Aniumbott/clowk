@@ -74,6 +74,15 @@ against the shipped code — the real hook's real output in the real TUI shows
 `amber … 💾  ESC[1m$STRIPE_SECRET_KEY ESC[22m   ·  shape-only guess …`, with no literal `[1m`
 anywhere and the amber still running after the name.
 
+**Claude Code 2.1.295, 2026-10-09: colour, with the amber put back.** The `$NAME`s in the "Paste
+this" preview are now teal and bold, because a bold name in amber still reads like the rest of the
+amber text. The old objection to colour was that it falls back to the terminal default after the
+span. Closing with `22m` *plus the amber re-asserted* (`38;2;255;193;7`) instead of `39m` avoids
+that. Measured with the real repo hook under a pty, with user settings excluded via
+`--setting-sources project,local` so that only the hook under test ran. The bytes reach the terminal
+as `ESC[1m ESC[38;2;20;184;166m $DATABASE_URL ESC[22m ESC[38;2;255;193;7m and it lives…`, so the
+amber resumes after the name. Dark theme only. A light theme is not measured.
+
 **Codex and Gemini CLI — NOT VERIFIED, and deliberately get no escapes.** Both take the reason on
 stderr with exit 2, which is a different rendering path that the Claude Code result says nothing
 about. A probe was attempted on Codex 0.146.0 with a throwaway `CODEX_HOME` and could not be
@@ -215,3 +224,22 @@ which shapes trip the scanner is not predictable from the outside -- the `ghp_..
 (they fail GitHub's PAT checksum) while Stripe, Slack and Flutterwave shapes do not. GitHub also
 reports only a subset of violations per push, so fixing what it names and retrying just surfaces
 the next batch. Split every vendor-prefixed fixture up front and you never meet the wall.
+## The Claude Code mod (verified 2026-10-09, Claude Code 2.1.295)
+
+`hooks/register.js` rewrites on `prompt.submit` instead of blocking. Measured live under a pty with
+`claude --setting-sources project,local --plugin-dir <repo>`, a project-level copy of the settings
+prompt hook as the backstop, and an isolated vault:
+
+| Check | Result |
+|---|---|
+| The model's input | The transcript's user message is `… the url is $DATABASE_URL`; the model answered normally |
+| The raw value on disk | In neither the session transcript nor `~/.claude/history.jsonl` (lines added by the run: 0 hits) |
+| The pointer | Attached as `hook_additional_context`, so the model reads it; not in the user's message |
+| The backstop | The settings `UserPromptSubmit` hook ran beneath the mod, saw the rewritten text, and did not block |
+| User feedback | A note drawn under the message row: `🔒 clowk  $DATABASE_URL stayed on this machine · the model gets the name, never the value` |
+| Fail closed | With `clowk` off `PATH`: "Prompt dropped by a hook: clowk could not check this message… (throw)". No assistant turn |
+
+Leak audit with user settings on (Warp integration and the global hooks live), via a unique fake password: asked to repeat the URL character for character, the model answered `$DATABASE_URL`. Of the files written during the run, only the vault held the value. Warp's OSC 777 `prompt_submit` notification carried `$DATABASE_URL`; on the block flow it got the raw prompt. Not verified: OTel prompt logging and `--debug` logs.
+
+Not verified: Windows (`$.process.run` takes no shell, so `clowk` has to resolve without one), a
+cloud session, and the 20 s detector timeout path.
