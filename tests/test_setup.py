@@ -74,6 +74,16 @@ class TestDryRunWritesNothing(SetupCase):
         self.assertIn(install.command_path(), body)
 
 
+class TestThePlanNamesThePlugin(SetupCase):
+    def test_a_claude_code_plan_lists_the_plugin_it_will_add(self):
+        self.run_setup(["--hosts", "claude-code", "--dry-run"])
+        self.assertIn("clowk@clowk from Aniumbott/clowk", self.out.getvalue())
+
+    def test_a_codex_only_plan_does_not(self):
+        self.run_setup(["--hosts", "codex", "--dry-run"])
+        self.assertNotIn("clowk@clowk", self.out.getvalue())
+
+
 class TestArgumentHandling(SetupCase):
     def test_unknown_host_is_refused_by_name(self):
         code = self.run_setup(["--hosts", "emacs"])

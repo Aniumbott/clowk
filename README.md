@@ -46,7 +46,8 @@ credential, the value is filed locally under a name and a `$NAME` reference take
 > and then fires a test credential through the hook it just registered to prove the block really
 > happens.
 >
-> On Claude Code, add the plugin too, so prompts are rewritten instead of blocked:
+> On Claude Code 2.1.287+, `clowk setup` also installs the clowk plugin (through `claude plugin`),
+> so prompts are rewritten instead of blocked. To add it by hand instead:
 >
 > ```text
 > /plugin marketplace add Aniumbott/clowk
@@ -175,7 +176,8 @@ hold absolute paths to this clone and to the interpreter you ran `install` with,
 
 On Claude Code 2.1.287 or later, the clowk plugin can **rewrite** the prompt instead of blocking it.
 The credential is filed and replaced by its `$NAME` as you press Enter, the message goes on, and
-there is nothing to repaste:
+there is nothing to repaste. `clowk setup` installs the plugin when it sets up Claude Code, and
+`clowk uninstall` removes it. By hand:
 
 ```text
 /plugin marketplace add Aniumbott/clowk
@@ -530,7 +532,7 @@ Useful to know before opening a PR:
 ## Development
 
 ```bash
-python3 -m unittest discover -s tests        # 590 tests, ~4s
+python3 -m unittest discover -s tests        # 600 tests, ~4s
 claude plugin validate . && claude plugin test .   # the Claude Code mod, hooks/register.js
 ```
 

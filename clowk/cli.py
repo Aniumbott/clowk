@@ -514,6 +514,11 @@ def cmd_uninstall(host, out, err, argv=(), stdin=None):
         out.write("Removed %s.\n" % install_mod.skill_path(host))
     if install_mod.uninstall_launcher():
         out.write("Removed %s.\n" % install_mod.launcher_path())
+    # The plugin's mod fails closed: left behind without clowk it would hold back every message.
+    if host == "claude-code":
+        from clowk import plugin as plugin_mod
+        if plugin_mod.uninstall():
+            out.write("Removed the Claude Code plugin %s.\n" % plugin_mod.PLUGIN)
     return _vault_notice(out, err, tuple(argv), stdin)
 
 
