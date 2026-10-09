@@ -120,6 +120,7 @@ test('the rewritten message row shows the name in teal and says the value stayed
   const ui = await $.ui.mount(ROW('charge it with $STRIPE_SECRET_KEY'))
   // The line is Claude Code's prompt glyph and the text, with the name a teal span inside it.
   const line = await ui.find({ type: 'Text', text: /^❯ charge it with / })
+  expect(line.props.backgroundColor).toBe('userMessageBackground')
   expect(line).toBeDefined()
   expect(JSON.stringify(line.children)).toContain('{"type":"Text","props":{"color":"#14b8a6","bold":true},"children":["$STRIPE_SECRET_KEY"]}')
   expect(await ui.find({ type: 'Text', text: /stayed on this machine/ })).toBeDefined()

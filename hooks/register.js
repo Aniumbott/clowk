@@ -59,6 +59,7 @@ const STATUS = {
   missing: 'not found on PATH, so messages are held back · install clowk, or start a message with unclowk',
 }
 const TEAL = '#14b8a6'
+const ROW_BACKGROUND = 'userMessageBackground'   // Claude Code's theme key for a user message row
 
 class TooOld extends Error {}
 
@@ -172,8 +173,11 @@ function replace(value, parts, at) {
 
 function message(Box, Text, text, names) {
   const pattern = new RegExp('(\\$(?:' + names.map(escapeRe).join('|') + ')(?![A-Za-z0-9_]))')
+  // The row's own background, as Claude Code paints it: its renderer skips spaces by moving the
+  // cursor, so a row drawn without one shows the old row's background between the words.
   const lines = text.split('\n').map((line, i) => Text({
-    children: [i === 0 ? '❯ ' : '  ', ...line.split(pattern).map((part, j) =>
+    backgroundColor: ROW_BACKGROUND,
+    children: [Text({ dimColor: true, children: [i === 0 ? '❯ ' : '  '] }), ...line.split(pattern).map((part, j) =>
       j % 2 === 1 ? Text({ color: TEAL, bold: true, children: [part] }) : part)],
   }))
   return Box({ flexDirection: 'column', children: lines })
