@@ -15,9 +15,13 @@
 
 </div>
 
-A pre-transmit hook for agent CLIs. It scans your prompt before it is sent; if it finds a
-credential, the turn is blocked, the value is filed locally under a name, and your message is
-returned on your clipboard with a `$NAME` reference in place of the secret.
+A pre-transmit guard for agent CLIs. It scans your prompt before it is sent; if it finds a
+credential, the value is filed locally under a name and a `$NAME` reference takes its place.
+
+- **Claude Code, with the clowk plugin:** the swap happens as you press Enter and the message goes
+  on. Nothing is blocked and there is nothing to repaste.
+- **Codex, Gemini CLI, and Claude Code without the plugin:** the turn is blocked, and your message
+  comes back on your clipboard with the `$NAME` in it, ready to repaste.
 
 > ### Install
 >
@@ -41,6 +45,24 @@ returned on your clipboard with a `$NAME` reference in place of the secret.
 > `python3 clowk/cli.py setup`). It finds your agent CLIs, registers the hooks, installs the skill,
 > and then fires a test credential through the hook it just registered to prove the block really
 > happens.
+>
+> On Claude Code 2.1.287+, `clowk setup` also installs the clowk plugin (through `claude plugin`),
+> so prompts are rewritten instead of blocked. To add it by hand instead:
+>
+> ```text
+> /plugin marketplace add Aniumbott/clowk
+> /plugin install clowk@clowk
+> ```
+
+With the Claude Code plugin, your message goes on with the name in it, and a note says so:
+
+```
+❯ rotate this key for me: $STRIPE_SECRET_KEY
+  🔒 clowk  $STRIPE_SECRET_KEY stayed on this machine · the model gets the name, never the value
+```
+
+Everywhere else, the turn is blocked and the message shows only the line the credential was on,
+with the `$NAME` highlighted:
 
 ```
 👀 clowk caught a credential before it reached the model.
@@ -50,9 +72,6 @@ returned on your clipboard with a `$NAME` reference in place of the secret.
 📋 Paste this — already on your clipboard:
 
    rotate this key for me: $STRIPE_SECRET_KEY
-
-   [assistant: $NAME is a credential clowk holds. Never print it.
-    Use $(clowk get NAME) — see the clowk skill.]
 
 🤔 Not a credential? Resend starting with  unclowk
 ```
@@ -152,6 +171,41 @@ real command, because the caller that matters is the non-interactive shell your 
 is not valid UTF-8 JSON. `uninstall` removes only what clowk wrote, byte for byte. Hooks and launcher
 hold absolute paths to this clone and to the interpreter you ran `install` with, so nothing depends on
 `PATH` — but move the clone and you re-run `install`.
+
+### Claude Code: no repaste, with the clowk plugin
+
+On Claude Code 2.1.287 or later, the clowk plugin can **rewrite** the prompt instead of blocking it.
+The credential is filed and replaced by its `$NAME` as you press Enter, the message goes on, and
+there is nothing to repaste. `clowk setup` installs the plugin when it sets up Claude Code, and
+`clowk uninstall` removes it. By hand:
+
+```text
+/plugin marketplace add Aniumbott/clowk
+/plugin install clowk@clowk
+```
+
+The plugin is a Claude Code mod. It runs `clowk rewrite` (about 85 ms) on each prompt, so `clowk`
+still has to be installed and on your `PATH`.
+
+- Your message shows the `$NAME` in teal, with a note under it saying the value stayed on this
+  machine. The model is told what the name means through context it reads but you never see.
+- At session start, a status line under the prompt warns if `clowk` is missing or older than the
+  plugin. When all is well it stays quiet.
+- What a **command prints** is scrubbed too: a credential in the output of `Bash`, `Grep`,
+  `WebFetch`, `WebSearch` or an MCP tool reaches the model as its `$NAME`. `Read` is left alone on
+  purpose: an agent edits what it reads, and a file written back with `$NAME` in place of the value
+  would lose the value. (`cat file` followed by a whole-file write has the same risk; it is rare.)
+- Turns Claude Code starts by itself — a subagent's report, a background task's notice — are not
+  checked. Whatever is in them came from a model or a tool, and blocking them cut agents off
+  mid-task.
+
+**It fails closed.** If `clowk` can't run (missing, an error, a timeout), the message is not sent,
+and the drop reason says why. The one exception is a `clowk` older than the plugin: then the mod
+steps aside, the old package's hooks block and repaste as before, and the status line says to run
+`clowk update`. Starting a message with `unclowk` sends it unchecked. The hooks
+`clowk setup` registers stay in place as the backstop: they see only the rewritten text, so they let it
+through. They still block if the mod isn't running, e.g. under `--bare` or `--safe-mode`, or under
+a policy that refuses user mods. Codex and Gemini CLI have no mods and keep the block-and-repaste flow.
 
 ### Uninstalling
 
@@ -254,9 +308,11 @@ flowchart TD
     classDef blocked fill:#fdf0ef,stroke:#b42318,stroke-width:1.5px,color:#17181c
 ```
 
-**Why block instead of swapping the value in silently?** No host can rewrite a prompt you have
-already submitted — verified on all three. A hook may block or allow, and that is the entire API. So
-block-and-repaste is the only available shape, and the clipboard is what keeps it tolerable.
+**Why block instead of swapping the value in silently?** No settings hook can rewrite a prompt you
+have already submitted — verified on all three hosts. A hook may block or allow, and that is the
+entire API. So block-and-repaste is the shape everywhere, and the clipboard is what keeps it
+tolerable. The exception is Claude Code 2.1.287+ with the clowk plugin: a mod *can* rewrite, and
+does. See [Claude Code: no repaste](#claude-code-no-repaste-with-the-clowk-plugin).
 
 ### Detection
 
@@ -354,6 +410,7 @@ repeatedly is a habit, and `clowk add` is how you stop.
 | `clowk uninstall [HOST]` | Remove them, then decide about the vault. `--backup FILE`, `--purge`, `--keep-vault` |
 | `clowk --version` | The installed version |
 | `clowk debug-payload` | Dump what a host sends, for adding a new one |
+| `clowk rewrite` | What the Claude Code plugin runs on each prompt: reads `{"prompt": …}` on stdin, files what it finds, prints the rewritten text as JSON |
 
 `add` and `set` never take the value as an argument — that would put it straight in your shell
 history.
@@ -403,8 +460,8 @@ holding an OS keychain ACL.
 
 | Limitation | Detail |
 |---|---|
-| **Hooks fail open** | Every host transmits the prompt if the hook crashes or times out. clowk raises the bar; it cannot guarantee interception. |
-| **The transcript, on disk and on screen** | Blocking stops the model, not the disk. Claude Code writes the blocked prompt to `~/.claude/projects/*.jsonl` itself and prints it under clowk's message. **Do not copy the terminal block** — that has already leaked a credential into a bug report. Treat a blocked paste as a key you still need to rotate. |
+| **Hooks fail open** | Every host transmits the prompt if the hook crashes or times out. clowk raises the bar; it cannot guarantee interception. The Claude Code plugin's mod fails closed instead, but it is off under `--bare`, `--safe-mode` and policies that refuse user mods, and there only the fail-open hook remains. |
+| **The transcript, on disk and on screen** | With the Claude Code plugin, the stored message already has the `$NAME` in it, so neither the transcript nor the prompt history gets the value (measured — `NOTES.md`). Without it, blocking stops the model, not the disk. Claude Code writes the blocked prompt to `~/.claude/projects/*.jsonl` itself and prints it under clowk's message. **Do not copy the terminal block** — that has already leaked a credential into a bug report. Treat a blocked paste as a key you still need to rotate. |
 | **Files you `@`-mention** | The host reads those, not clowk. |
 | **Grep** | Shows file contents to the model. The deny hook covers `Bash` and `Read` only. |
 | **Unrecognised formats** | A shape none of the 224 rules knows goes straight through. Measured example: a Supabase `sbp_` token in prose — gitleaks has no Supabase rule, and clowk's standalone rule wants mixed case. `SUPABASE_ACCESS_TOKEN=<it>` is caught; "here is my supabase token" is not. |
@@ -475,7 +532,8 @@ Useful to know before opening a PR:
 ## Development
 
 ```bash
-python3 -m unittest discover -s tests        # 566 tests, ~4s
+python3 -m unittest discover -s tests        # 600 tests, ~4s
+claude plugin validate . && claude plugin test .   # the Claude Code mod, hooks/register.js
 ```
 
 CI runs the same suite on Python 3.8 through 3.13 across Linux, macOS and Windows, plus three checks
@@ -484,7 +542,7 @@ to end leaks the raw value into neither stream on any host, and that install mer
 file it did not write while uninstall restores it byte for byte.
 
 **Layout.** `detect.py` scans · `vault.py` stores · `hosts.py` adapts each host's payload and block
-protocol · `hook_prompt.py` is the pre-transmit guard · `hook_pretool.py` the tool deny, with its
+protocol · `hook_prompt.py` is the pre-transmit guard (and `clowk rewrite`, the detector behind the Claude Code mod in `hooks/register.js`) · `hook_pretool.py` the tool deny, with its
 rules in `deny.py` · `install.py` registers hooks · `cli.py` is the human surface. `DESIGN.md`
 explains why the design is this shape and what was discarded; `NOTES.md` records per-host platform
 findings.

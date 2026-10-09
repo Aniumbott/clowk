@@ -13,6 +13,8 @@ Usage:
   clowk deny PATTERN            undo an allow, putting the rule back
                                 command phrase, exactly as the deny message prints it
   clowk debug-payload           dump what a host sends this hook, to add a new host
+  clowk rewrite                 what the Claude Code plugin runs: a prompt as JSON on stdin,
+                                the rewritten text as JSON on stdout
   clowk setup                   guided first-time setup: pick hosts, install, then verify
                                 --hosts a,b  --yes  --dry-run  for unattended use
   clowk update                  fetch new code, then refresh the skill and command that
@@ -512,6 +514,11 @@ def cmd_uninstall(host, out, err, argv=(), stdin=None):
         out.write("Removed %s.\n" % install_mod.skill_path(host))
     if install_mod.uninstall_launcher():
         out.write("Removed %s.\n" % install_mod.launcher_path())
+    # The plugin's mod fails closed: left behind without clowk it would hold back every message.
+    if host == "claude-code":
+        from clowk import plugin as plugin_mod
+        if plugin_mod.uninstall():
+            out.write("Removed the Claude Code plugin %s.\n" % plugin_mod.PLUGIN)
     return _vault_notice(out, err, tuple(argv), stdin)
 
 
@@ -586,6 +593,9 @@ def _dispatch(argv, out, err):
         return cmd_uninstall(positional[0] if positional else "claude-code", out, err, args)
     if cmd == "get" and len(args) == 1:
         return cmd_get(args[0], out, err)
+    if cmd == "rewrite" and not args:
+        from clowk import hook_prompt
+        return hook_prompt.main_rewrite(sys.stdin, out, err)
     if cmd == "debug-payload" and not args:
         return cmd_debug_payload(out)
     err.write("Unknown command, or wrong number of arguments. Run `clowk help`.\n")
