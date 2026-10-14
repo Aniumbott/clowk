@@ -128,3 +128,36 @@ class TestTheCliRoutesRewrite(RewriteCase):
         from clowk import cli
         out, err = io.StringIO(), io.StringIO()
         self.assertEqual(cli.main(["rewrite", "use " + self.KEY], out, err), 1)
+
+
+class TestCommandOutputOnlyTakesWhatIsCertain(RewriteCase):
+    """The mod sends a command's output with kind "output". A generic match there is a hash or an id
+    far more often than a credential, and the agent reading it has no `unclowk` to get it back."""
+
+    SHAPE_ONLY = "8fKq2ZrT5vXw9mLpR4nWc7Yd3sQe1BnHjA6uK2"   # a mixed-case blob, no vendor prefix
+
+    def out(self, text):
+        code, out, err = self.rewrite({"prompt": text, "cwd": "/p", "kind": "output"})
+        self.assertEqual(code, 0, err)
+        return json.loads(out)
+
+    def test_a_vendor_key_in_output_is_still_replaced(self):
+        result = self.out("STRIPE=" + self.KEY)
+        self.assertEqual(result["names"], ["STRIPE_SECRET_KEY"])
+        self.assertNotIn(self.KEY, result["text"])
+
+    def test_a_shape_only_match_in_output_is_left_alone_and_not_filed(self):
+        self.assertIn(self.hook.scan("request id " + self.SHAPE_ONLY)[0].rule_id, self.hook.GENERIC_RULES,
+                      "the fixture must be a generic match")
+        result = self.out("request id " + self.SHAPE_ONLY)
+        self.assertEqual(result, {"text": "request id " + self.SHAPE_ONLY, "names": [], "pointer": None})
+        self.assertEqual(self.vault.names(), [])
+
+    def test_the_same_shape_typed_by_a_person_is_still_caught(self):
+        out, result = self.ok("request id " + self.SHAPE_ONLY)
+        self.assertEqual(len(result["names"]), 1)
+
+    def test_output_starting_with_unclowk_is_still_checked(self):
+        # The bypass is a person's choice about their own message, not something output can claim.
+        result = self.out("unclowk STRIPE=" + self.KEY)
+        self.assertNotIn(self.KEY, result["text"])

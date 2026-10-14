@@ -464,12 +464,26 @@ def redact(event, findings):
 # "this text is safe to send". Anything that could not be checked -- unreadable input, an error
 # after detection -- exits non-zero with nothing on stdout, where a half-made rewrite could still
 # hold a raw value.
-def rewrite(event):
-    """{"text", "names", "pointer"} for one prompt. `pointer` is None unless the model needs it."""
+GENERIC_RULES = ("clowk-standalone-token", "generic-api-key")
+
+
+def rewrite(event, output=False):
+    """{"text", "names", "pointer"} for one prompt. `pointer` is None unless the model needs it.
+
+    `output` is a command's output rather than something a person typed. There the two generic rules
+    -- clowk's standalone-token rule and gitleaks' generic-api-key -- do not count; every vendor rule
+    still does. In output, those two match hashes, ids and build artefacts far more often than
+    credentials: a person who pastes one can resend with `unclowk`, but an agent reading output
+    cannot. Measured: in three days of real work they filed 93 entries (78 standalone, 15 generic)
+    and swapped ids the agent needed for `$SECRET_NN`. Confidence tiers are not the filter, because a
+    real `sk_live_` key scores low.
+    """
     prompt = event["prompt"]
-    if prompt.lstrip().lower().startswith(BYPASS):
+    if prompt.lstrip().lower().startswith(BYPASS) and not output:
         return {"text": prompt, "names": [], "pointer": None}
     findings = scan(prompt)
+    if output:
+        findings = [f for f in findings if f.rule_id not in GENERIC_RULES]
     if not findings:
         return {"text": prompt, "names": [], "pointer": None}
     r = redact(event, findings)
@@ -483,7 +497,7 @@ def main_rewrite(stdin, stdout, stderr):
         payload = json.loads(read_payload(stdin))
         if not isinstance(payload, dict) or not isinstance(payload.get("prompt"), str):
             raise ValueError("expected a JSON object with a string \"prompt\"")
-        result = rewrite(hosts.read_event(payload))
+        result = rewrite(hosts.read_event(payload), output=payload.get("kind") == "output")
     except Exception as exc:  # noqa: BLE001 -- the mod drops the prompt on any non-zero exit
         stderr.write("clowk rewrite: %s\n" % exc.__class__.__name__)
         return 1

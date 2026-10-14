@@ -7,7 +7,7 @@
 
 # clowk
 
-**Catches credentials you paste into an agent chat before they reach the model.**
+**Catches credentials you paste into Claude Code and swaps them for a name before the model sees them.**
 
 [![tests](https://github.com/Aniumbott/clowk/actions/workflows/ci.yml/badge.svg)](https://github.com/Aniumbott/clowk/actions/workflows/ci.yml)
 [![python](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
@@ -15,54 +15,139 @@
 
 </div>
 
-A pre-transmit guard for agent CLIs. It scans your prompt before it is sent; if it finds a
-credential, the value is filed locally under a name and a `$NAME` reference takes its place.
+Paste a database URL, an API key or a token into Claude Code and press Enter. clowk swaps the value
+for a `$NAME` before the message is sent, files the value in a local vault, and lets the message go on.
+The model only ever gets the name, and your agent uses the credential by reference:
+`psql "$(clowk get DATABASE_URL)"`. You don't repaste anything and nothing is blocked.
 
-- **Claude Code, with the clowk plugin:** the swap happens as you press Enter and the message goes
-  on. Nothing is blocked and there is nothing to repaste.
-- **Codex, Gemini CLI, and Claude Code without the plugin:** the turn is blocked, and your message
-  comes back on your clipboard with the `$NAME` in it, ready to repaste.
+```
+❯ check this connects and tell me how many orders we have: $DATABASE_URL
+  🔒 clowk  $DATABASE_URL stayed on this machine · the model gets the name, never the value
+⏺ Bash(psql "$(clowk get DATABASE_URL)" -Atc "select count(*) from orders;")
+  ⎿  1284
+⏺ The production database connected, and it has 1,284 orders.
+```
 
-> ### Install
->
+Claude Code 2.1.287+, through a Claude Code plugin. Python 3.8+, standard library only. No daemon,
+nothing to sign up for, and **nothing in the guard touches the network**.
+
+Codex and Gemini CLI are supported in [classic mode](#classic-mode-codex-gemini-cli-and-older-claude-code):
+their hooks can only block a prompt, not rewrite it, so the turn is blocked and your message comes
+back on your clipboard with the `$NAME` in it.
+
+**Why it exists:** [113 of my Claude Code transcripts had an API key in them](https://aniumbott.medium.com/113-of-my-claude-code-transcripts-had-an-api-key-in-them-and-clowk-helped-me-stop-that-70cababb21a1)
+— what I found when I went looking through my own, and what clowk was built to stop.
+
+## Contents
+
+| | |
+|---|---|
+| [Quick start](#quick-start) | Install in two commands |
+| [In Claude Code](#in-claude-code) | What the plugin does, and how it fails |
+| [Classic mode](#classic-mode-codex-gemini-cli-and-older-claude-code) | Codex, Gemini CLI, and Claude Code before 2.1.287 |
+| [What it is good for](#what-it-is-good-for) | Beyond catching a mistake |
+| [Uninstalling](#uninstalling) · [Updating](#updating) | The vault decision, and keeping the skill current |
+| [How it works](#how-it-works) | The capture path and what gets detected |
+| [Using a credential](#using-a-credential) | `$(clowk get NAME)` and the guard around it |
+| [Commands](#commands) | The full CLI |
+| [The tool-deny hook](#the-tool-deny-hook) | For leaks you did not type |
+| [Architecture](#architecture) | Everything on one diagram |
+| [Limitations](#limitations) | What this does not protect you from |
+| [Configuration](#configuration) | Paths and environment variables |
+| [False positives](#false-positives) | Why they happen and how to clear them |
+| [Contributing](#contributing) | How to help |
+| [Security](#security) | Reporting a vulnerability |
+| [Development](#development) | Tests, layout, the ruleset |
+
+## Quick start
+
+```bash
+uv tool install clowk        # or: pipx install clowk
+clowk setup
+```
+
+That's it. `clowk setup`:
+
+1. finds the agent CLIs on your machine and registers clowk's hooks in each,
+2. installs the skill that tells the agent what a `$NAME` is,
+3. on Claude Code 2.1.287+, installs the clowk plugin through `claude plugin`,
+4. fires a test credential through the hook it just registered, to prove the guard really blocks.
+
+Restart Claude Code afterwards so it loads the plugin.
+
 > **`pip install clowk` will not work on most machines**, and that is not clowk's doing: Homebrew,
 > Debian, Ubuntu and Fedora Pythons refuse to install into themselves
-> ([PEP 668](https://peps.python.org/pep-0668/)), and many of them have no bare `pip` on `PATH` at
-> all. Use whichever of these you have:
->
-> ```bash
-> uv tool install clowk        # uv installs clowk into its own isolated environment
-> pipx install clowk           # what Homebrew and apt themselves recommend; brew install pipx
-> ```
->
-> Neither? A clone needs no installer of any kind:
->
-> ```bash
-> git clone https://github.com/Aniumbott/clowk.git && cd clowk
-> ```
->
-> Then, whichever route you took, one command — `clowk setup` (from a clone,
-> `python3 clowk/cli.py setup`). It finds your agent CLIs, registers the hooks, installs the skill,
-> and then fires a test credential through the hook it just registered to prove the block really
-> happens.
->
-> On Claude Code 2.1.287+, `clowk setup` also installs the clowk plugin (through `claude plugin`),
-> so prompts are rewritten instead of blocked. To add it by hand instead:
->
-> ```text
-> /plugin marketplace add Aniumbott/clowk
-> /plugin install clowk@clowk
-> ```
+> ([PEP 668](https://peps.python.org/pep-0668/)). No uv or pipx? A clone needs no installer at all:
+> `git clone https://github.com/Aniumbott/clowk.git && cd clowk && python3 clowk/cli.py setup`.
 
-With the Claude Code plugin, your message goes on with the name in it, and a note says so:
+For dotfiles, a Dockerfile or CI, it runs unattended:
 
-```
-❯ rotate this key for me: $STRIPE_SECRET_KEY
-  🔒 clowk  $STRIPE_SECRET_KEY stayed on this machine · the model gets the name, never the value
+```bash
+clowk setup --hosts claude-code --yes
+clowk setup --dry-run                     # print the plan, write nothing
 ```
 
-Everywhere else, the turn is blocked and the message shows only the line the credential was on,
-with the `$NAME` highlighted:
+To add the plugin by hand instead, in Claude Code:
+
+```text
+/plugin marketplace add Aniumbott/clowk
+/plugin install clowk@clowk
+```
+
+<details>
+<summary>Install details: PATH, aliases, what setup writes</summary>
+
+A package install already provides `clowk` on your PATH through an entry point, so nothing extra is
+written. From a clone there is no entry point, so `install` writes `~/.local/bin/clowk` — and if that
+directory is not on your `PATH` it says so and prints the line to add. Either way `clowk` has to be a
+real command, because the callers that matter are the plugin and the non-interactive shell your agent
+runs.
+
+> **Do not substitute a shell alias.** Aliases exist only in interactive shells, and the caller that
+> matters is the non-interactive Bash your agent runs. There `$(clowk get NAME)` expands to nothing,
+> your command runs *without* the credential, and the error looks like a bad key rather than a
+> missing tool.
+
+`install` merges into your existing settings, backs them up first, and refuses a settings file that
+is not valid UTF-8 JSON. `uninstall` removes only what clowk wrote, byte for byte. Hooks and launcher
+hold absolute paths to this clone and to the interpreter you ran `install` with, so nothing depends on
+`PATH` — but move the clone and you re-run `install`.
+
+</details>
+
+## In Claude Code
+
+The clowk plugin is a Claude Code mod: code that runs inside Claude Code and can change a prompt on
+its way out, which a settings hook cannot do. On each prompt it runs `clowk rewrite` (about 85 ms),
+so the `clowk` package has to be installed and on your `PATH`.
+
+| What happens | Detail |
+|---|---|
+| **You paste a credential** | It becomes its `$NAME` as you press Enter and the message goes on. Your message shows the name in teal, with a note under it that the value stayed on this machine. |
+| **The agent needs it** | It runs `psql "$(clowk get DATABASE_URL)"`. The value goes to the program, not the model. The model is told what a `$NAME` is through context it reads but you never see. |
+| **A command prints one** | What a command prints is scrubbed too: a credential in the output of `Bash`, `Grep`, `WebFetch`, `WebSearch` or an MCP tool reaches the model as its `$NAME`. Output is held to vendor formats and connection URLs. The two generic shape rules are skipped there, because in output they mostly match hashes and ids. |
+| **The agent goes looking** | The [tool-deny hook](#the-tool-deny-hook) refuses `cat .env`, private keys, `git credential fill` and the vault itself. |
+| **A subagent reports back** | Turns Claude Code starts by itself, like a subagent's report or a background task's notice, are not checked. What is in them came from a model or a tool, and blocking them cut agents off mid-task. |
+
+`Read` output is left alone on purpose. An agent edits what it reads, and a file written back with
+`$NAME` in place of the value would lose the value. `cat file` followed by a whole-file write has the
+same risk; it is rare.
+
+**It fails closed.** If `clowk` can't run (missing, an error, a timeout), the message is not sent,
+and the reason on screen says why. Starting a message with `unclowk` sends it unchecked.
+
+- **A `clowk` older than the plugin:** the plugin steps aside, the package's own hooks block as
+  before, and a status line under the prompt says to run `clowk update`.
+- **The plugin not running at all** (`--bare`, `--safe-mode`, a policy that refuses user mods): the
+  hooks `clowk setup` registered are the backstop. They run beneath the plugin, see only the
+  rewritten text, and pass it. With the plugin off, they block, as in classic mode.
+
+## Classic mode: Codex, Gemini CLI, and older Claude Code
+
+Agent CLIs whose hooks can only allow or block a prompt get the original flow. So do Claude Code
+before 2.1.287 and Claude Code without the plugin. The turn is blocked before anything is sent, the
+value is filed, and your message comes back **on your clipboard** with the `$NAME` in it, ready to
+repaste:
 
 ```
 👀 clowk caught a credential before it reached the model.
@@ -76,30 +161,17 @@ with the `$NAME` highlighted:
 🤔 Not a credential? Resend starting with  unclowk
 ```
 
-Claude Code, Codex and Gemini CLI. Python 3.8+, standard library only. No daemon, nothing to sign up
-for, and **neither hook ever touches the network** — the only command that does is `clowk update`,
-which runs your package manager or `git pull` when you ask it to.
+The message shows only the lines the credential was on, cut to 40 characters either side, with the
+name highlighted where the terminal can show it. `$(clowk get NAME)`, the tool-deny hook and the vault
+work the same as in Claude Code.
 
-**Why it exists:** [113 of my Claude Code transcripts had an API key in them](https://aniumbott.medium.com/113-of-my-claude-code-transcripts-had-an-api-key-in-them-and-clowk-helped-me-stop-that-70cababb21a1)
-— what I found when I went looking through my own, and what clowk was built to stop.
-
-## Contents
-
-| | |
+| Host | Status |
 |---|---|
-| [What it is good for](#what-it-is-good-for) | Beyond catching a mistake |
-| [Quick start](#quick-start) | Install, update, uninstall |
-| [How it works](#how-it-works) | The capture path and what gets detected |
-| [Using a credential](#using-a-credential) | `$(clowk get NAME)` and the guard around it |
-| [Commands](#commands) | The full CLI |
-| [The tool-deny hook](#the-tool-deny-hook) | For leaks you did not type |
-| [Architecture](#architecture) | Everything on one diagram |
-| [Limitations](#limitations) | What this does not protect you from |
-| [Configuration](#configuration) | Paths and environment variables |
-| [False positives](#false-positives) | Why they happen and how to clear them |
-| [Contributing](#contributing) | How to help |
-| [Security](#security) | Reporting a vulnerability |
-| [Development](#development) | Tests, layout, the ruleset |
+| Claude Code 2.1.287+ | full: the plugin rewrites in place |
+| Claude Code before 2.1.287, or without the plugin | classic, verified |
+| Codex | classic, verified. Hooks need trust: run `/hooks` and approve clowk; trust is hash-based, so every update asks again |
+| Gemini CLI | classic; the hooks are registered, but its payload shape is **not verified** (`clowk debug-payload` shows what it sends) |
+| Antigravity, opencode, Grok CLI | not supported yet |
 
 ## What it is good for
 
@@ -122,92 +194,14 @@ terminal, so it never enters a chat at all.
 | **Agent-initiated leaks** | The tool-deny hook refuses `cat .env`, `git credential fill`, private keys and the vault itself — the ways a credential reaches a transcript without you typing anything. |
 | **Pasting logs and dumps** | Credentials inside a pasted log are redacted before the model sees them, whether or not they get filed. |
 
-**What it is not good for.** Screen sharing and recordings: Claude Code prints the raw prompt back to
-your terminal under clowk's message, so the value is on screen even though the model never got it.
+**What it is not good for.** Screen sharing and recordings: what you paste is on screen until you
+press Enter — and for a moment after, while Claude Code draws the message before the plugin's
+rewrite lands. In classic mode Claude Code prints the raw prompt back under clowk's message. The model
+never gets the value either way, but the screen does.
 It is also not a CI or deployment secret manager — there is no daemon, nothing on the network in the
 capture path, and the vault is a local file belonging to one user.
 
-## Quick start
-
-Pick whichever suits the machine — there is no single command that works everywhere, because
-`pip install --user` is refused outright on Homebrew, Debian, Ubuntu and Fedora Pythons
-([PEP 668](https://peps.python.org/pep-0668/)):
-
-```bash
-uv tool install clowk                                          # if you have uv
-pipx install clowk                                             # what Homebrew and apt suggest
-git clone https://github.com/Aniumbott/clowk.git && cd clowk    # no prerequisites at all
-```
-
-Then, whichever route you took, one command:
-
-```bash
-clowk setup          # from a clone: python3 clowk/cli.py setup
-```
-
-It finds the agent CLIs on your machine, asks which to set up, registers the hooks, installs the
-skill — and then **fires a test credential through the hook it just registered** to confirm the turn
-is really blocked and the value leaks into neither stream. A host it cannot prove is reported as
-unproven rather than given a tick.
-
-For dotfiles, a Dockerfile or CI, it runs unattended:
-
-```bash
-clowk setup --hosts claude-code,codex --yes
-clowk setup --dry-run                     # print the plan, write nothing
-```
-
-A package install already provides `clowk` on your PATH through an entry point, so nothing extra is
-written. From a clone there is no entry point, so `install` writes `~/.local/bin/clowk` — and if that
-directory is not on your `PATH` it says so and prints the line to add. Either way `clowk` has to be a
-real command, because the caller that matters is the non-interactive shell your agent runs.
-
-> **Do not substitute a shell alias.** Aliases exist only in interactive shells, and the caller that
-> matters is the non-interactive Bash your agent runs. There `$(clowk get NAME)` expands to nothing,
-> your command runs *without* the credential, and the error looks like a bad key rather than a
-> missing tool.
-
-`install` merges into your existing settings, backs them up first, and refuses a settings file that
-is not valid UTF-8 JSON. `uninstall` removes only what clowk wrote, byte for byte. Hooks and launcher
-hold absolute paths to this clone and to the interpreter you ran `install` with, so nothing depends on
-`PATH` — but move the clone and you re-run `install`.
-
-### Claude Code: no repaste, with the clowk plugin
-
-On Claude Code 2.1.287 or later, the clowk plugin can **rewrite** the prompt instead of blocking it.
-The credential is filed and replaced by its `$NAME` as you press Enter, the message goes on, and
-there is nothing to repaste. `clowk setup` installs the plugin when it sets up Claude Code, and
-`clowk uninstall` removes it. By hand:
-
-```text
-/plugin marketplace add Aniumbott/clowk
-/plugin install clowk@clowk
-```
-
-The plugin is a Claude Code mod. It runs `clowk rewrite` (about 85 ms) on each prompt, so `clowk`
-still has to be installed and on your `PATH`.
-
-- Your message shows the `$NAME` in teal, with a note under it saying the value stayed on this
-  machine. The model is told what the name means through context it reads but you never see.
-- At session start, a status line under the prompt warns if `clowk` is missing or older than the
-  plugin. When all is well it stays quiet.
-- What a **command prints** is scrubbed too: a credential in the output of `Bash`, `Grep`,
-  `WebFetch`, `WebSearch` or an MCP tool reaches the model as its `$NAME`. `Read` is left alone on
-  purpose: an agent edits what it reads, and a file written back with `$NAME` in place of the value
-  would lose the value. (`cat file` followed by a whole-file write has the same risk; it is rare.)
-- Turns Claude Code starts by itself — a subagent's report, a background task's notice — are not
-  checked. Whatever is in them came from a model or a tool, and blocking them cut agents off
-  mid-task.
-
-**It fails closed.** If `clowk` can't run (missing, an error, a timeout), the message is not sent,
-and the drop reason says why. The one exception is a `clowk` older than the plugin: then the mod
-steps aside, the old package's hooks block and repaste as before, and the status line says to run
-`clowk update`. Starting a message with `unclowk` sends it unchecked. The hooks
-`clowk setup` registers stay in place as the backstop: they see only the rewritten text, so they let it
-through. They still block if the mod isn't running, e.g. under `--bare` or `--safe-mode`, or under
-a policy that refuses user mods. Codex and Gemini CLI have no mods and keep the block-and-repaste flow.
-
-### Uninstalling
+## Uninstalling
 
 ```bash
 clowk uninstall                       # per host you registered
@@ -243,7 +237,7 @@ vault's real path and nothing else. Move it somewhere safe or delete it once you
 On Windows use `python` or `py`; there is no `python3` on a stock install. On Codex, hooks need
 trust: run `/hooks` and approve clowk. Trust is hash-based, so every update asks again.
 
-### Updating
+## Updating
 
 ```bash
 clowk update           # --check to look without changing anything
@@ -261,31 +255,48 @@ the right command for the manager it can see — `pipx upgrade`, `uv tool upgrad
 --upgrade` — rather than guessing, because guessing wrong can leave a half-replaced package and on
 Windows `pip install -U` against a running package can fail on locked files.
 
+**The plugin updates through Claude Code, not through `clowk update`.** Claude Code caches it
+under `~/.claude/plugins/cache/clowk/clowk/<version>/`, keyed by `plugin.json`'s version. A release
+bumps that version; then `/plugin marketplace update clowk` and `/reload-plugins` pick it up. Until
+then the cached copy keeps running, and if it is older than the package it still works: the package
+is what it calls.
+
 <details>
-<summary><code>/clowk</code> and the optional plugin</summary>
+<summary><code>/clowk</code> and the skill</summary>
 
 `clowk install` writes `~/.claude/commands/clowk.md`, so `/clowk` works with no further steps, and
 copies the skill to `~/.claude/skills/clowk/` so the agent knows what a `$NAME` is. Without that
 skill an agent reads `$DATABASE_URL` as an ordinary empty variable and asks you to paste the real one
-again.
-
-The plugin is therefore optional. It delivers the skill and `/clowk:clowk` and nothing else — it
-declares no hooks, so the guard still comes from `clowk install`.
-
-```
-/plugin marketplace add Aniumbott/clowk
-/plugin install clowk@clowk
-```
-
-**Either source makes a second copy.** `/plugin install` caches the whole tree under
-`~/.claude/plugins/cache/clowk/clowk/<version>/`, pinned to the commit you installed at. The cache
-key is `plugin.json`'s version, which does not change when the source does, so `/clowk:clowk` runs
-that snapshot until you bump the version and run `/plugin marketplace update clowk`. Both copies read
-the same vault, so nothing breaks at once — they drift.
+again. The plugin carries the same skill and `/clowk:clowk`; both copies read the same vault.
 
 </details>
 
 ## How it works
+
+In Claude Code, the plugin rewrites the prompt on its way out:
+
+```mermaid
+flowchart TD
+    A["you paste<br/><b>postgresql://…:Tq7v…@db</b>"]:::secret
+    B{"clowk plugin<br/>runs clowk rewrite<br/>as you press Enter"}:::tool
+    V[("🗄️ ~/.clowk/vault.json<br/>0600 · your only copy")]:::secret
+    R["your message, rewritten<br/><b>$DATABASE_URL</b>"]:::ref
+    M["🤖 the model"]:::ref
+    C["clowk get DATABASE_URL<br/>inside the command<br/>the value goes to the program"]:::ref
+
+    A --> B
+    B -->|"files the value"| V
+    B --> R --> M
+    M -->|"uses it by reference"| C
+    V -.-> C
+
+    classDef secret fill:#fdf1ea,stroke:#c2410c,stroke-width:1.5px,color:#17181c
+    classDef ref fill:#eef7f5,stroke:#0f766e,stroke-width:1.5px,color:#17181c
+    classDef tool fill:#f2f1ff,stroke:#4338ca,stroke-width:1.5px,color:#17181c
+```
+
+In classic mode, a hook can only allow or block, so it blocks and hands the rewrite back on your
+clipboard:
 
 ```mermaid
 flowchart TD
@@ -308,11 +319,10 @@ flowchart TD
     classDef blocked fill:#fdf0ef,stroke:#b42318,stroke-width:1.5px,color:#17181c
 ```
 
-**Why block instead of swapping the value in silently?** No settings hook can rewrite a prompt you
-have already submitted — verified on all three hosts. A hook may block or allow, and that is the
-entire API. So block-and-repaste is the shape everywhere, and the clipboard is what keeps it
-tolerable. The exception is Claude Code 2.1.287+ with the clowk plugin: a mod *can* rewrite, and
-does. See [Claude Code: no repaste](#claude-code-no-repaste-with-the-clowk-plugin).
+**Why two shapes?** No settings hook can rewrite a prompt you have already submitted — verified on
+Claude Code, Codex and Gemini CLI. A hook may block or allow, and that is the entire API. Claude Code
+2.1.287 added mods, which can rewrite, so on Claude Code the plugin does. Everywhere else
+block-and-repaste is the only shape there is, and the clipboard is what keeps it tolerable.
 
 ### Detection
 
@@ -532,7 +542,7 @@ Useful to know before opening a PR:
 ## Development
 
 ```bash
-python3 -m unittest discover -s tests        # 600 tests, ~4s
+python3 -m unittest discover -s tests        # 604 tests, ~4s
 claude plugin validate . && claude plugin test .   # the Claude Code mod, hooks/register.js
 ```
 
