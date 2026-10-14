@@ -40,7 +40,7 @@ test('the prompt reaches the detector on stdin, never in argv', async ($, on) =>
   expect(seen.length).toBe(1)
   expect(seen[0].argv).toEqual(['clowk', 'rewrite'])
   expect(JSON.stringify(seen[0].argv)).not.toContain(KEY)
-  expect(JSON.parse(seen[0].init.stdin)).toEqual({ prompt: 'charge it with ' + KEY, cwd: '/work', session_id: 'sess-1' })
+  expect(JSON.parse(seen[0].init.stdin)).toEqual({ prompt: 'charge it with ' + KEY, kind: 'prompt', cwd: '/work', session_id: 'sess-1' })
 })
 
 test('the skill pointer goes to the model as context, not into the text', async ($, on) => {
@@ -218,4 +218,13 @@ test('an armed guard puts nothing on the status line', async ($, on) => {
   detector(on, { value: { exitCode: 0, stderr: '', stdout: JSON.stringify({ text: '', names: [], pointer: null }) } })
   await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })
   expect(shown).toEqual([undefined])
+})
+
+test('command output goes to the detector marked as output', async ($, on) => {
+  const seen = []
+  session(on)
+  detector(on, ($e) => ({ value: { exitCode: 0, stderr: '', stdout: JSON.stringify({ text: JSON.parse($e.init.stdin).prompt, names: [], pointer: null }) } }), seen)
+  on('tool.call', BASH_RAN('build 9f3a2c\n'))
+  await $.tool.call({ tool: 'Bash', command: 'make' })
+  expect(JSON.parse(seen[0].init.stdin).kind).toBe('output')
 })

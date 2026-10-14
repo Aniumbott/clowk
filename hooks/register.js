@@ -114,7 +114,7 @@ async function scrub($, e, next) {
   if (leaves.length === 0) return ran
   let result
   try {
-    result = await detect($, leaves.join(SEP))
+    result = await detect($, leaves.join(SEP), 'output')
   } catch (err) {
     if (err instanceof TooOld) return ran
     return { deny: WITHHELD }
@@ -126,12 +126,14 @@ async function scrub($, e, next) {
   return result.pointer ? { ...scrubbed, context: [result.pointer] } : scrubbed
 }
 
-// `clowk rewrite` on one text. Throws TooOld, or an Error with `missing` set when clowk can't start.
-async function detect($, text) {
+// `clowk rewrite` on one text. `kind` "output" (a command's output) skips the two generic rules,
+// which in output match hashes and ids; see rewrite() in hook_prompt.py. Throws TooOld, or an Error with `missing` set when clowk
+// can't start.
+async function detect($, text, kind = 'prompt') {
   let run
   try {
     run = await $.process.run(['clowk', 'rewrite'], {
-      stdin: JSON.stringify({ prompt: text, cwd: await $.session.cwd(), session_id: await $.session.id() }),
+      stdin: JSON.stringify({ prompt: text, kind, cwd: await $.session.cwd(), session_id: await $.session.id() }),
       timeoutMs: DETECT_TIMEOUT_MS,
     })
   } catch (err) {
