@@ -28,6 +28,10 @@ The model only ever gets the name, and your agent uses the credential by referen
 ⏺ The production database connected, and it has 1,284 orders.
 ```
 
+[![Watch the 3-minute demo on YouTube](https://img.youtube.com/vi/MTUCUl7PSZY/maxresdefault.jpg)](https://www.youtube.com/watch?v=MTUCUl7PSZY)
+
+**[▶ Watch the 3-minute demo](https://www.youtube.com/watch?v=MTUCUl7PSZY)**
+
 Claude Code 2.1.287+, through a Claude Code plugin. Python 3.8+, standard library only. No daemon,
 nothing to sign up for, and **nothing in the guard touches the network**.
 

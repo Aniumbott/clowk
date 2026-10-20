@@ -16,7 +16,7 @@ permissions:
 jobs:
   test:
     name: ${{ matrix.os }} · py${{ matrix.python }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runner || matrix.os }}
     strategy:
       fail-fast: false
       # Explicit combinations rather than a full product, because not every pair exists.
@@ -30,7 +30,9 @@ jobs:
       matrix:
         include:
           - { os: ubuntu-22.04, python: "3.8" }
-          - { os: ubuntu-latest, python: "3.9" }
+          # ubuntu-latest moved to 26.04, which setup-python has no 3.9 for. `runner` pins the
+          # machine while `os` keeps the job name, because branch protection requires that name.
+          - { os: ubuntu-latest, runner: ubuntu-24.04, python: "3.9" }
           - { os: ubuntu-latest, python: "3.13" }
           - { os: macos-latest, python: "3.11" }
           - { os: macos-latest, python: "3.13" }
