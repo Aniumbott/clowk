@@ -256,6 +256,9 @@ def run(argv, out, err, stdin=None):
     if "claude-code" in chosen:
         out.write("\n--- claude-code plugin ---\n")
         plugin_result = plugin_mod.install()
+        # The install above copied the skill before the plugin existed; the plugin carries its own.
+        if plugin_result[0] and install_mod.uninstall_skill("claude-code"):
+            out.write("Removed %s -- the plugin carries the skill.\n" % install_mod.skill_path("claude-code"))
 
     out.write("\n%s\n" % ("-" * 58))
     out.write("Result\n\n")

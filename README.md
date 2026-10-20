@@ -265,9 +265,11 @@ is what it calls.
 <summary><code>/clowk</code> and the skill</summary>
 
 `clowk install` writes `~/.claude/commands/clowk.md`, so `/clowk` works with no further steps, and
-copies the skill to `~/.claude/skills/clowk/` so the agent knows what a `$NAME` is. Without that
-skill an agent reads `$DATABASE_URL` as an ordinary empty variable and asks you to paste the real one
-again. The plugin carries the same skill and `/clowk:clowk`; both copies read the same vault.
+gives the agent the skill that tells it what a `$NAME` is. Without that skill an agent reads
+`$DATABASE_URL` as an ordinary empty variable and asks you to paste the real one again. With the
+plugin installed the skill comes from the plugin, along with `/clowk:clowk`; otherwise it is copied to
+`~/.claude/skills/clowk/`. Never both, so it isn't listed twice; `clowk update` removes a copy an
+older install left behind.
 
 </details>
 
@@ -392,7 +394,7 @@ rule arrives with the `$NAME` it governs. What each host gets:
 
 | Host | Hooks | Skill | `/clowk` |
 |---|---|---|---|
-| Claude Code | `UserPromptSubmit` + `PreToolUse` | `~/.claude/skills/clowk/` | yes |
+| Claude Code | `UserPromptSubmit` + `PreToolUse` | from the plugin, else `~/.claude/skills/clowk/` | yes |
 | Codex | `UserPromptSubmit` + `PreToolUse` | `~/.codex/skills/clowk/` | no |
 | Gemini CLI | `BeforeAgent` + `BeforeTool` | none — it has no skills directory, so setup says so rather than inventing a path | no |
 
@@ -542,7 +544,7 @@ Useful to know before opening a PR:
 ## Development
 
 ```bash
-python3 -m unittest discover -s tests        # 604 tests, ~4s
+python3 -m unittest discover -s tests        # 609 tests, ~4s
 claude plugin validate . && claude plugin test .   # the Claude Code mod, hooks/register.js
 ```
 

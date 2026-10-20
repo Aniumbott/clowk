@@ -376,7 +376,16 @@ def cmd_install(host, out, err):
     # The skill goes wherever the host reads one, which is Claude Code AND Codex -- identical
     # layout. Gated on the path existing rather than on the host name, so adding a host is a
     # table entry rather than another branch here.
-    if install_mod.skill_path(host) is not None:
+    #
+    # Except under the Claude Code plugin, which ships skills/clowk itself: a copy here too lists
+    # the skill twice. Removing the copy an older install left is how an existing user loses the
+    # duplicate, since `clowk update` re-runs this.
+    from clowk import plugin as plugin_mod
+    if host == "claude-code" and plugin_mod.installed():
+        stale = install_mod.skill_path(host)
+        if install_mod.uninstall_skill(host):
+            out.write("Removed %s -- the clowk plugin already carries the skill.\n" % stale)
+    elif install_mod.skill_path(host) is not None:
         skill = install_mod.install_skill(root, host)
         if skill:
             out.write("Wrote %s -- the assistant reads this to learn how to use a credential "

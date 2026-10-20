@@ -3,6 +3,7 @@
 Driven against a fake `claude` -- a script that answers from a state file and logs every call --
 because the real one would change the developer's own Claude Code setup. CLOWK_CLAUDE points at it.
 """
+import io
 import json
 import os
 import shutil
@@ -104,6 +105,68 @@ class TestUninstall(FakeClaude):
     def test_nothing_installed_is_nothing_to_do(self):
         self.assertFalse(plugin.uninstall())
         self.assertFalse(any(c[:2] == ["plugin", "uninstall"] for c in self.calls()))
+
+
+@unittest.skipIf(os.name == "nt", "the fake claude is a POSIX script")
+class TestOneSkillNotTwo(FakeClaude):
+    """The plugin ships skills/clowk, so a copy in ~/.claude/skills lists the skill twice."""
+
+    def setUp(self):
+        super().setUp()
+        self.home = tempfile.mkdtemp(prefix="clowk-home-")
+        self.addCleanup(shutil.rmtree, self.home, True)
+        for key in ("HOME", "USERPROFILE", "CLOWK_VAULT", "CLOWK_DENY", "CLOWK_SKILL", "CLOWK_COMMANDS"):
+            self.addCleanup(self._restore, key, os.environ.get(key))
+            os.environ.pop(key, None)
+        os.environ["HOME"] = self.home
+        os.environ["USERPROFILE"] = self.home
+        os.environ["CLOWK_VAULT"] = os.path.join(self.home, "vault.json")
+        os.environ["CLOWK_DENY"] = os.path.join(self.home, "deny.json")
+        self.skill = os.path.join(self.home, ".claude", "skills", "clowk", "SKILL.md")
+
+    @staticmethod
+    def _restore(key, value):
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
+
+    def install(self, *argv):
+        from clowk import cli
+        out, err = io.StringIO(), io.StringIO()
+        code = cli.main(["install"] + list(argv), out, err)
+        self.assertEqual(code, 0, err.getvalue())
+        return out.getvalue()
+
+    def test_without_the_plugin_the_skill_is_copied(self):
+        self.install("claude-code")
+        self.assertTrue(os.path.exists(self.skill))
+
+    def test_with_the_plugin_no_copy_is_written(self):
+        self.set(version="2.1.295", installed=True)
+        self.install("claude-code")
+        self.assertFalse(os.path.exists(self.skill))
+
+    def test_a_copy_left_by_an_older_install_is_removed(self):
+        # An existing user: `clowk install` before the plugin, then the plugin. `clowk update`
+        # re-runs install, which is when the stale copy goes.
+        self.install("claude-code")
+        self.set(version="2.1.295", installed=True)
+        printed = self.install("claude-code")
+        self.assertFalse(os.path.exists(self.skill))
+        self.assertIn("plugin", printed)
+
+    def test_codex_still_gets_its_copy(self):
+        self.set(version="2.1.295", installed=True)
+        self.install("codex")
+        self.assertTrue(os.path.exists(os.path.join(self.home, ".codex", "skills", "clowk", "SKILL.md")))
+
+    def test_setup_that_adds_the_plugin_leaves_one_skill(self):
+        from clowk import setup
+        out, err = io.StringIO(), io.StringIO()
+        setup.run(["--hosts", "claude-code", "--yes"], out, err, io.StringIO())
+        self.assertTrue(plugin.installed(), out.getvalue() + err.getvalue())
+        self.assertFalse(os.path.exists(self.skill))
 
 
 class TestTheSuiteNeverTouchesTheRealClaude(unittest.TestCase):
