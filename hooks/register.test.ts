@@ -43,6 +43,16 @@ test('the prompt reaches the detector on stdin, never in argv', async ($, on) =>
   expect(JSON.parse(seen[0].init.stdin)).toEqual({ prompt: 'charge it with ' + KEY, kind: 'prompt', cwd: '/work', session_id: 'sess-1' })
 })
 
+test('clowk runs from the root, so a deleted session folder cannot make it look missing', async ($, on) => {
+  // A spawn in a working directory that no longer exists (a removed git worktree) fails with
+  // ENOENT, the same error as no clowk on PATH, and every message was dropped.
+  const seen = []
+  session(on)
+  detector(on, replaced, seen)
+  await $.prompt.submit({ text: 'charge it with ' + KEY })
+  expect(seen[0].init.cwd).toBe('/')
+})
+
 test('the skill pointer goes to the model as context, not into the text', async ($, on) => {
   session(on)
   detector(on, replaced)

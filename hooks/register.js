@@ -135,6 +135,10 @@ async function detect($, text, kind = 'prompt') {
     run = await $.process.run(['clowk', 'rewrite'], {
       stdin: JSON.stringify({ prompt: text, kind, cwd: await $.session.cwd(), session_id: await $.session.id() }),
       timeoutMs: DETECT_TIMEOUT_MS,
+      // Not the session's folder, the default: once that is deleted (a removed git worktree) the
+      // spawn fails with ENOENT, which reads as clowk missing and drops every message. clowk gets
+      // the session's cwd in stdin and never reads its own.
+      cwd: '/',
     })
   } catch (err) {
     throw Object.assign(new Error('clowk did not run'), { missing: true })
